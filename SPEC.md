@@ -10,28 +10,52 @@ Instead of progressing linearly through a series of maps, players run through a 
 
 ## 2. Core Gameplay Loop
 
-1. **Spawn at Point A (Start)**: The player begins the wave at the designated start point (Point A) equipped with starting equipment.
-2. **Traversal & Combat**: The player navigates through the map toward Point B while battling procedurally spawned enemies and scavenging randomized supplies.
-3. **Reaching Point B (Finish)**: Entering the designated extraction / completion zone (Point B) immediately completes the current wave.
-4. **Teleport & Reset**: The player is instantly teleported back to Point A.
-5. **Wave Increment & Respawn**: The wave counter increases (Wave 1 → Wave 2 → ...), uncollected items or remaining enemies are reset/cleared, and a fresh wave of threats and supplies is generated across the map.
-6. **Persistence**: The loop repeats continuously without map reloads or level transitions.
+1. **Spawn at Point A (Safe Staging & Initial Loadout)**: The player begins any game session already equipped with the **HEV Suit (`item_suit`)** and the **Crowbar (`weapon_crowbar`)**, eliminating the need for map-placed suit entities. Point A is an author-guaranteed safe staging area with no monster spawn points.
+2. **On-Demand Wave Activation**: The wave does not force immediate combat upon arrival. The player triggers wave activation on demand (e.g., crossing a start boundary or cycling airlock doors), initiating procedural spawns and starting the active wave stopwatch.
+3. **Traversal & Combat**: The player navigates through the map toward Point B while battling procedurally spawned enemies and scavenging randomized supplies.
+4. **Reaching Point B (Finish)**: Entering the designated extraction / completion zone (Point B) immediately completes the current wave.
+5. **Teleport & Reset**: The player is instantly teleported back to Point A.
+6. **Wave Increment & Respawn**: The wave counter increases (Wave 1 → Wave 2 → ...), a comprehensive garbage collection clears leftover monsters and entities, and a fresh wave of threats and supplies is generated across the map.
+7. **Player State Persistence**: The player preserves all collected weapons, remaining ammunition, and current health/armor across waves, making continuous resource preservation critical.
+8. **Persistence**: The loop repeats continuously without map reloads or level transitions until match completion.
 
 ---
 
 ## 3. Wave Progression & Difficulty Scaling
 
-* **Dynamic Spawning**: Every wave procedurally generates:
-  * **Monsters**: Ground units, airborne threats, and ambushes.
-  * **Weapons**: Classic Half-Life weapons alongside extended expansion weapons.
-  * **Pickups**: Health kits, HEV battery chargers/cells, and ammunition boxes.
-* **Escalating Challenge**: With each wave:
-  * Enemy encounter density and variety increase.
-  * More dangerous and higher-tier enemy types appear.
-  * Resource availability (health, armor, ammo) tightens to emphasize route efficiency and target prioritization.
+* **Dynamic Spawning & Weighted Tier Distribution**:
+  * Every wave procedurally generates monsters, weapons, and pickups across indexed grid points.
+  * **Non-Exclusive Tier Spawning**: Higher waves do not eliminate basic enemies. Low-tier threats (such as Headcrabs or Zombies) can appear from Wave 1 to the final wave.
+  * **Dynamic Probability Weights**:
+    * In early waves, probability distribution is heavily skewed toward basic, low-tier threats.
+    * As waves advance, the probability weights smoothly shift, granting progressively higher odds for advanced permitted tiers (e.g., Alien Grunts, Human Assassins, HECU Soldiers) to spawn, while basic monsters still remain in the pool as secondary/ambient fodder.
+    * Spawning is strictly constrained by each map's whitelist/blacklist (e.g., if a map permits only specific enemy types, the probability curve operates exclusively within that allowed subset).
+* **Progressive Engine Skill Tiers (`skill 1` → `skill 2` → `skill 3`)**:
+  * Rather than introducing arbitrary stat multipliers, the mod utilizes the native, carefully balanced GoldSrc skill definitions (`skill 1` = Easy, `skill 2` = Medium, `skill 3` = Hard).
+  * The active engine `skill` level advances **gradually and automatically** based on wave milestones:
+    * **Early Waves**: Start at `skill 1`, allowing the player to establish their initial inventory and route.
+    * **Mid-Game Milestone**: After a set number of waves, the engine promotes to `skill 2`, activating medium monster health pools, higher damage outputs, and sharper combat reactions.
+    * **Late-Game Milestone**: Advances to `skill 3` (Hard), bringing maximum monster toughness, lethal damage, and aggressive AI behavior.
+  * In addition to engine skill progression, procedural spawn density and Elite Champion spawn rates continue scaling with wave count.
 * **Time-Driven Match Objective**:
   * The core goal of each run is **time-based**: players must survive, navigate the gauntlet, and clear as many waves as possible within a configured session duration / time limit (e.g., 10, 15, or 20 minutes) or survival clock.
   * Wave completions are continuously counted and logged as the primary scoring metric, but the match concludes when the time limit expires (or upon player death).
+* **Arcade Scoring & Combo Multiplier**:
+  * **Base Monster Points**: Eliminating enemies awards score points based on their species threat tier (e.g., Headcrab = 50 pts, Zombie = 100 pts, Vortigaunt = 250 pts, Alien Grunt = 500 pts).
+  * **Combo Meter**: Consecutive kills within a rapid decay window increase a score multiplier (`x2`, `x3`, `x4`, etc.). The combo multiplier directly boosts frag points, rewarding aggressive combat pacing.
+* **Elite Monster Variants (Champions)**:
+  * Enemies have a procedurally rolled chance to spawn as **Elite Champions**, with the spawn probability increasing as wave numbers climb.
+  * **Visual Identification**: Rendered using GoldSrc's engine glow shell (`kRenderFxGlowShell` with red RGB color).
+  * **Attributes**: Enhanced durability, heightened aggression, and elevated point payouts upon defeat.
+* **Special Waves & Random Mutators**:
+  * Every few waves (at configurable intervals, e.g. every 5th wave), the mod rolls a random gameplay mutator:
+    * **Blackout**: Level lights are extinguished into pitch darkness; navigation relies heavily on the HEV flashlight.
+    * **Low Gravity**: Xen-like reduced gravity physics applied to both the player and physical debris.
+    * **Swarm**: Standard enemy distribution is replaced by a massive horde composed exclusively of a single randomly selected monster species (e.g., all Houndeyes, all Headcrabs, or all Alien Grunts).
+* **Diminishing Wall Charger Capacity**:
+  * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
+  * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.
+
 
 
 ---
@@ -73,11 +97,12 @@ Each map supports its own configuration profile to dictate thematic and gameplay
 ## 6. Level Design Integration & Custom Triggers
 
 The mod provides mapper-friendly entities to simplify setting up any custom or existing map:
-* **Wave Start Marker / Trigger (Point A)**: Defines the player's initial spawn point and the return destination upon wave reset.
+* **Wave Start Staging Zone (Point A)**: Defines the player's initial spawn point and return destination. Level designers configure Point A as a secure staging area free of monster spawn grids, with manual initiation mechanisms (e.g., airlock doors, start line triggers) that fire wave commencement on demand.
 * **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, and coordinates the teleportation back to Point A.
 * **Wave State Relays**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
 * **End-Game Backdrop Camera**: Support for associating an in-map static camera entity (such as a designated `trigger_camera`) that provides the scenic background view during the post-game summary.
 * **Area Definition Volumes**: Bounding box entities with designer parameters for indexing scope and zoning.
+* **Wall-Mounted Stations**: Mappers place standard `func_healthcharger` and `func_recharge` brush entities across the map or at staging areas; the mod engine automatically manages their recharge cycle and wave-based diminishing capacity.
 
 ---
 
@@ -103,6 +128,7 @@ The mod continuously aggregates gameplay statistics across waves and displays th
 ### 8.1 Persistent HUD Elements
 A dedicated on-screen text overlay is rendered at all times (matching classic Half-Life HUD green/amber typography and aesthetic):
 * **Match Clock / Time Remaining**: Displays the active session timer (either a countdown against the time limit, e.g., `TIME LEFT: 05:24`, or total elapsed run time).
+* **Current Score & Combo**: Live display of accrued score points (`SCORE: 28,450`) and active kill streak multiplier (`COMBO: x3`).
 * **Current Wave Counter**: Displays the active wave number (e.g., `WAVE: 14`).
 * **Current Wave Timer**: Stopwatch tracking elapsed time spent in the active wave (`WAVE TIME: 00:38`).
 * **Total Frags / Kills**: Real-time counter of total monsters eliminated during the match (`FRAGS: 187`).
@@ -113,7 +139,7 @@ Upon match conclusion (time limit expiration or player death), a comprehensive s
 * **Static Camera Backdrop**:
   * The player's viewport switches immediately to an in-level static camera (activating a designated `trigger_camera` placed in the map).
   * The living environment remains visible and active in the background while the statistical results, kill breakdown, and final rank grade are rendered clearly overlaid on screen.
-* **Total Waves Cleared**: Total number of completed wave laps achieved within the allotted time.
+* **Final Score & Waves Cleared**: Total accrued score and total wave laps completed within the allotted time.
 * **Overall Time & Lap Pacing**:
   * Total match time played.
   * Fastest single wave lap time vs. slowest wave lap time.
@@ -123,7 +149,7 @@ Upon match conclusion (time limit expiration or player death), a comprehensive s
 * **Arcade Performance Rating (S / A / B / C / D / F)**:
   * An arcade grade calculated via a composite performance formula evaluating:
     * Total waves cleared within the time limit (primary weight).
-    * Total combat frags and kill diversity.
+    * Total combat score, frags, and kill diversity.
     * Average wave completion speed (pace / aggressiveness).
     * Survival efficiency (penalties for excessive damage taken or deaths).
   * Grade scale:
@@ -135,9 +161,29 @@ Upon match conclusion (time limit expiration or player death), a comprehensive s
 
 ---
 
-## 9. Arcade Integrity & Save/Load Restrictions
+## 9. Game Mode Scope, High Scores & Arcade Integrity
 
+### 9.1 Single-Player Focus
+* **Dedicated Single-Player Gameplay**: The gauntlet rules, telemetry, and camera transitions are designed strictly for single-player play.
+* **Architecture Preservation**: Core multiplayer networking infrastructure (client-side prediction, weapon dispatch, shared protocols) is retained in the codebase for engine stability and potential future expansions, but the active mod experience is single-player.
+
+### 9.2 Local Map Leaderboards (High Scores)
+* **Persistent Records**: Each map retains a local high-score record file on disk (`gladder/scores/<mapname>.dat` or JSON).
+* **Tracked Metrics**: Records the Top 10 runs per map, logging Date, Final Score, Waves Cleared, Total Frags, Total Time, and Earned Grade.
+* **Future-Proof Baseline**: Designed as the local data layer that can later interface with external web-based leaderboards.
+
+### 9.3 Save / Load Restrictions
 To maintain authentic arcade tension, competitive scoring integrity, and fluid game pacing, saving and loading functionality is eliminated entirely:
 * **No Save Functionality**: All save mechanisms (quick-save, manual console/menu save, autosave triggers) are disabled at the root level.
 * **No Load Functionality**: Loading existing save files during a session (quick-load or menu load) is disabled.
 * **Session Finality & Permadeath**: Each session represents a single, self-contained run. Player death or timer expiration concludes the run and redirects to the final grading screen without checkpoint reloading.
+
+---
+
+## 10. Engine Resource Management & Wave Garbage Collection
+
+Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 512 to 900+ entities), strict resource purging occurs at each wave reset:
+* **Active Monster Cleanup**: Any monsters surviving from the previous wave are eradicated immediately upon wave completion.
+* **Dropped Item Purge**: Uncollected weapons, ammunition boxes, and medical kits scattered across the map are removed to prevent entity buildup.
+* **Transient Entity Clearing**: Lingering projectiles, gibs, corpses, and temporary decal effects are purged.
+* **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
