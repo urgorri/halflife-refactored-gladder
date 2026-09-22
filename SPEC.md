@@ -29,10 +29,10 @@ Instead of progressing linearly through a series of maps, players run through a 
   * Enemy encounter density and variety increase.
   * More dangerous and higher-tier enemy types appear.
   * Resource availability (health, armor, ammo) tightens to emphasize route efficiency and target prioritization.
-* **Victory & Termination Modes**:
-  * **Target Wave Mode**: Complete a set number of waves to achieve victory (e.g., 50 or 100 waves).
-  * **Time Attack Mode**: Survive and clear as many waves as possible within a global countdown timer.
-  * **Endless Survival Mode**: Continue indefinitely until the player dies, aiming for the highest wave score.
+* **Time-Driven Match Objective**:
+  * The core goal of each run is **time-based**: players must survive, navigate the gauntlet, and clear as many waves as possible within a configured session duration / time limit (e.g., 10, 15, or 20 minutes) or survival clock.
+  * Wave completions are continuously counted and logged as the primary scoring metric, but the match concludes when the time limit expires (or upon player death).
+
 
 ---
 
@@ -76,6 +76,7 @@ The mod provides mapper-friendly entities to simplify setting up any custom or e
 * **Wave Start Marker / Trigger (Point A)**: Defines the player's initial spawn point and the return destination upon wave reset.
 * **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, and coordinates the teleportation back to Point A.
 * **Wave State Relays**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
+* **End-Game Backdrop Camera**: Support for associating an in-map static camera entity (such as a designated `trigger_camera`) that provides the scenic background view during the post-game summary.
 * **Area Definition Volumes**: Bounding box entities with designer parameters for indexing scope and zoning.
 
 ---
@@ -92,3 +93,51 @@ The mod provides mapper-friendly entities to simplify setting up any custom or e
   * Shock Rifle.
   * Displacer Cannon.
   * Barnacle Grapple (where map geometry allows).
+
+---
+
+## 8. Real-Time HUD & Player Statistics Tracking
+
+The mod continuously aggregates gameplay statistics across waves and displays them permanently on the player's heads-up display (HUD).
+
+### 8.1 Persistent HUD Elements
+A dedicated on-screen text overlay is rendered at all times (matching classic Half-Life HUD green/amber typography and aesthetic):
+* **Match Clock / Time Remaining**: Displays the active session timer (either a countdown against the time limit, e.g., `TIME LEFT: 05:24`, or total elapsed run time).
+* **Current Wave Counter**: Displays the active wave number (e.g., `WAVE: 14`).
+* **Current Wave Timer**: Stopwatch tracking elapsed time spent in the active wave (`WAVE TIME: 00:38`).
+* **Total Frags / Kills**: Real-time counter of total monsters eliminated during the match (`FRAGS: 187`).
+* **Average Wave Duration**: Dynamically recalculated average completion time across all finished waves (`AVG WAVE: 00:46`).
+
+### 8.2 End-of-Run Summary & Grading
+Upon match conclusion (time limit expiration or player death), a comprehensive summary screen appears displaying detailed performance telemetry:
+* **Static Camera Backdrop**:
+  * The player's viewport switches immediately to an in-level static camera (activating a designated `trigger_camera` placed in the map).
+  * The living environment remains visible and active in the background while the statistical results, kill breakdown, and final rank grade are rendered clearly overlaid on screen.
+* **Total Waves Cleared**: Total number of completed wave laps achieved within the allotted time.
+* **Overall Time & Lap Pacing**:
+  * Total match time played.
+  * Fastest single wave lap time vs. slowest wave lap time.
+  * Average lap duration across the entire run.
+* **Granular Per-Enemy-Type Kill Log**:
+  * An itemized kill log breaking down exact frags for each distinct enemy species encountered (e.g., `Headcrabs: 42`, `Zombies: 28`, `Houndeyes: 16`, `Bullsquids: 9`, `Vortigaunts: 14`, `Alien Grunts: 6`, `HECU Grunts: 19`, etc.).
+* **Arcade Performance Rating (S / A / B / C / D / F)**:
+  * An arcade grade calculated via a composite performance formula evaluating:
+    * Total waves cleared within the time limit (primary weight).
+    * Total combat frags and kill diversity.
+    * Average wave completion speed (pace / aggressiveness).
+    * Survival efficiency (penalties for excessive damage taken or deaths).
+  * Grade scale:
+    * **S Rank**: Exceptional mastery—maximum wave clearance speed, high frag count, near-flawless route execution.
+    * **A Rank**: Excellent performance—high wave count and strong combat throughput.
+    * **B Rank**: Solid run—consistent pacing with moderate wave completion.
+    * **C Rank**: Average performance—slower wave pacing or cautious play.
+    * **D / F Rank**: Subpar performance—early death, low wave count, or failing to maintain gauntlet momentum.
+
+---
+
+## 9. Arcade Integrity & Save/Load Restrictions
+
+To maintain authentic arcade tension, competitive scoring integrity, and fluid game pacing, saving and loading functionality is eliminated entirely:
+* **No Save Functionality**: All save mechanisms (quick-save, manual console/menu save, autosave triggers) are disabled at the root level.
+* **No Load Functionality**: Loading existing save files during a session (quick-load or menu load) is disabled.
+* **Session Finality & Permadeath**: Each session represents a single, self-contained run. Player death or timer expiration concludes the run and redirects to the final grading screen without checkpoint reloading.
