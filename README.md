@@ -1,57 +1,47 @@
-# GoldSrc Refactored
+# Half-Life: Gladder
 
-A behavior-preserving refactor of the Half-Life 1 GoldSrc game DLL codebase.
+An arcade wave-based gauntlet runner mod for the Half-Life (GoldSrc) engine.
 
-This fork focuses exclusively on improving the **internal architecture, organization, readability, and maintainability** of the original code while keeping its functionality and externally observable behavior unchanged.
+`Half-Life: Gladder` transforms the classic Half-Life experience into a fast-paced, high-replayability arcade challenge. Players navigate single-map gauntlets across escalating waves, fighting procedural enemy encounters and scavenging randomized supplies under tight time constraints.
 
-## Goals
+---
 
-* Refactor complex or difficult-to-maintain code.
-* Remove duplicated logic.
-* Improve modularity and separation of responsibilities.
-* Split entities and responsibilities into focused files where practical.
-* Reduce unnecessary coupling and complexity.
-* Improve consistency and readability.
-* Preserve the original game behavior and functionality.
+## Upstream & Lineage
 
-This project is **not intended to add gameplay features or change how Half-Life works**.
+This project is a downstream fork of [**urgorri/halflife-refactored**](https://github.com/urgorri/halflife-refactored), which provides a modernized, modular, and behavior-preserving refactor of the official **Half-Life 1 SDK** (GoldSrc) released by Valve Corporation.
 
-## Scope & Target Architecture
+* **Upstream**: [`urgorri/halflife-refactored`](https://github.com/urgorri/halflife-refactored)
+* **Root Origin**: Valve Software Half-Life 1 SDK
+* **Architecture Base**: Leverages the refactored subsystem architecture (`dlls/monsters/`, `dlls/systems/`, `dlls/items/`, `dlls/weapons/`, `dlls/gameplay/`) and extensible mod hooks (`dlls/custom/`, `cl_dll/custom/`).
 
-This repository targets exclusively the **base Half-Life single-player and multiplayer experience** (`dlls/`, `cl_dll/`, `pm_shared/`, `game_shared/`).
+---
 
-Unused legacy mod components (`ricochet/`, `dmc/`, etc.) and unreferenced source stubs are intentionally excluded from active maintenance.
+## Core Features
 
-### Subsystem Architecture Highlights
+* **Gauntlet Run Loop**: Players run from **Point A** (spawn) to **Point B** (finish). Reaching Point B immediately loops the player back to Point A, increments the wave counter, and regenerates threats and pickups without level transitions or map reloads.
+* **Procedural Dynamic Spawning**: Each wave populates the map with a randomized distribution of monsters, weapons, ammunition, and health/armor pickups calibrated to an escalating difficulty curve.
+* **Map Spatial Indexing (32-Unit Grid)**:
+  * Maps are automatically indexed into persistent cache files (`gladder/maps/<mapname>.grid.dat`).
+  * Scans bounding area volumes with vertical raycasts (sampled every 32 engine units) to identify valid supporting surfaces (including tops of crates, platforms, and structures) and ensure adequate vertical clearance.
+* **Time-Driven Match Objective**: The core goal is time-based—survive, maintain momentum, and complete as many wave laps as possible before the session clock expires.
+* **Real-Time HUD Telemetry**:
+  * Persistent on-screen display tracking: Match Clock / Time Remaining, Active Wave, Active Wave Stopwatch, Total Frags, and Average Wave Duration.
+* **Post-Game Summary & Grading**:
+  * Shows total waves completed, pacing breakdown, and itemized kill log per enemy species.
+  * Awards an arcade performance rating (**S / A / B / C / D / F**) calculated from wave clearance speed, combat throughput, and survival efficiency.
+  * Displays the results over a live cinematic static camera backdrop (`trigger_camera`).
+* **Arcade Integrity**: All mid-game saving and loading (quick-save, autosave, quick-load) are completely disabled. Runs are permadeath sessions.
+* **Expanded Arsenal**: Features weapons from official expansions, including *Half-Life: Opposing Force* (e.g., Desert Eagle, M40A1 Sniper Rifle, M249 SAW, Shock Rifle, Spore Launcher, Displacer Cannon).
 
-- **Monsters Subsystem (`dlls/monsters/`)**: Monster entities keep their tightly coupled projectile/satellite entities co-located (e.g. `headcrab.cpp` manages `babyheadcrab`, `nihilanth.cpp` manages `nihilanth_energy`, `apache.cpp` manages `apache_hvr`, etc.).
-- **Map Rules (`dlls/gameplay/maprules.cpp`, `maprules.h`)**: Consolidated all 11 `game_*` map rule entities into a single coherent rules manager.
-- **Triggers Subsystem (`dlls/systems/`)**: Triggers are logically partitioned into:
-  - `triggers_brush.cpp`/`.h`: Volumetric BSP touch triggers (`trigger_multiple`, `trigger_once`, `trigger_hurt`, `trigger_push`, `trigger_teleport`, `trigger_changelevel`, `func_ladder`, `func_friction`, etc.).
-  - `triggers_point.cpp`/`.h`: Point logic and relay triggers (`trigger_auto`, `trigger_relay`, `trigger_camera`, `multi_manager`, `env_render`, `target_cdaudio`, `fireanddie`).
-- **Entity Subsystems (`dlls/systems/`, `dlls/world/`)**:
-  - `chargers.cpp`/`.h`: Unified wall-mounted charging stations (`func_healthcharger`, `func_recharge`).
-  - `doors.cpp`/`.h`: Unified door controllers (`func_door`, `func_door_rotating`, `momentary_door`).
-  - `func_tank.cpp`/`.h`: Unified mounted weapons (`func_tank`, `func_tanklaser`, `func_tankrocket`, `func_tankmortar`).
-  - `xen.cpp`/`.h`: Unified Xen environmental entities (`xen_tree`, `xen_spore_*`).
-- **Items Subsystem (`dlls/items/`)**: Unified standard world pickup entities (`item_suit`, `item_battery`, `item_healthkit`, `item_antidote`, `item_security`, `item_longjump`) using declarative `IMPLEMENT_WORLD_ITEM` macros.
-- **Weapons Subsystem (`dlls/weapons/`)**: Deduplicated ground weapon pickups using `INITIALIZE_WORLD_WEAPON`.
+For full details on gameplay rules, entity definitions, and systems design, see [**`SPEC.md`**](./SPEC.md).
 
-## Development Philosophy
-
-The target is a cleaner internal implementation of the original GoldSrc DLL:
-
-> **Same behavior. Better code.**
-
-Changes should provide a concrete architectural or maintenance benefit. Cosmetic refactoring and unnecessary abstractions should be avoided.
+---
 
 ## Building
 
-### CMake (Recommended)
+The project inherits the cross-platform CMake build system from `halflife-refactored`, compiling the server library (`hl`), client library (`client`), and behavioral test suite (`hl_tests`).
 
-A modern cross-platform CMake build system is provided to compile the server library (`hl`), client library (`client`), and behavioral equivalence test suite (`hl_tests`).
-
-#### Windows (Visual Studio 2019 / 2022 / BuildTools)
+### Windows (Visual Studio 2019 / 2022 / BuildTools)
 
 Configure for 32-bit x86 architecture and compile:
 
@@ -60,10 +50,10 @@ cmake -B build -A Win32
 cmake --build build --config Release
 ```
 
-Output binaries are generated in `build/bin/Release/`:
-- `hl.dll` (Server)
-- `client.dll` (Client)
-- `hl_tests.exe` (Behavioral equivalence test suite)
+Output binaries are placed in `build/bin/Release/`:
+* `hl.dll` (Server DLL)
+* `client.dll` (Client DLL)
+* `hl_tests.exe` (Behavioral equivalence test suite)
 
 To run the test suite:
 
@@ -71,9 +61,9 @@ To run the test suite:
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-#### Linux (GCC / Clang x86)
+### Linux (GCC / Clang x86)
 
-Ensure 32-bit multilib tools and CMake are installed:
+Ensure 32-bit multilib packages and CMake are installed:
 
 ```bash
 sudo dpkg --add-architecture i386
@@ -87,42 +77,41 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Output binaries are generated in `build/bin/`:
-- `hl.so` (Server)
-- `client.so` (Client)
-- `hl_tests` (Behavioral equivalence test suite)
+Output binaries are placed in `build/bin/`:
+* `hl.so` (Server shared library)
+* `client.so` (Client shared library)
+* `hl_tests` (Behavioral equivalence test suite)
 
-To run tests:
+To run the test suite:
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-#### Downstream Mod Extension Hooks
+---
 
-Downstream mods and forks can place custom translation units inside `dlls/custom/` or `cl_dll/custom/` (or create subdirectories). CMake automatically discovers and compiles them into `hl` and `client` respectively via `CONFIGURE_DEPENDS`, eliminating git merge conflicts on upstream pulls.
+## Mapping & Level Design Integration
 
-### Legacy Build Systems (Backward Compatibility)
+`Half-Life: Gladder` provides mapper-friendly entities to adapt existing maps or build custom gauntlet arenas:
+* **Point A Spawn**: Player spawn origin and wave reset destination.
+* **Point B Trigger**: Trigger brush or entity marking the lap finish line.
+* **Area Definition Volumes**: Bounding box entities with min/max bounds and custom IDs to guide spatial grid generation.
+* **End-Game Camera**: In-map static camera (`trigger_camera`) for the final score screen backdrop.
+* **Wave Relays**: Logic relays triggered on wave start, wave victory, and game over.
 
-The original SDK build definitions remain fully retained and functional:
-
-* **Windows**: `projects/vs2019/projects.sln` (`hldll.vcxproj`, `hl_cdll.vcxproj`, `hl_tests.vcxproj`)
-* **Linux**: `linux/Makefile` (`make hl`, `make hl_cdll`, `make hl_tests`)
+---
 
 ## License
 
 This project is derived from the **Half-Life 1 SDK** originally released by Valve Corporation.
 
 The original SDK license is retained in this repository:
-
 * [`LICENSE`](./LICENSE)
 
 Copyright © Valve Corp.
 
-See the included license file for the complete terms governing the SDK and derivative works.
+See [`LICENSE`](./LICENSE) for full terms governing the SDK and derivative works.
 
 ## Disclaimer
 
-This project is an independent refactoring effort based on the publicly available Half-Life 1 SDK.
-
-It does not represent an official Valve project and is not affiliated with or endorsed by Valve Corporation.
+This project is an independent community modification based on the Half-Life 1 SDK. It is not an official Valve project and is not affiliated with or endorsed by Valve Corporation.
