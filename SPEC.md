@@ -41,8 +41,8 @@ Instead of progressing linearly through a series of maps, players run through a 
   * The core goal of each run is **time-based**: players must survive, navigate the gauntlet, and clear as many waves as possible within a configured session duration / time limit (e.g., 10, 15, or 20 minutes) or survival clock.
   * Wave completions are continuously counted and logged as the primary scoring metric, but the match concludes when the time limit expires (or upon player death).
 * **Arcade Scoring & Combo Multiplier**:
-  * **Base Monster Points**: Eliminating enemies awards score points based on their species threat tier (e.g., Headcrab = 50 pts, Zombie = 100 pts, Vortigaunt = 250 pts, Alien Grunt = 500 pts).
-  * **Combo Meter**: Consecutive kills within a rapid decay window increase a score multiplier (`x2`, `x3`, `x4`, etc.). The combo multiplier directly boosts frag points, rewarding aggressive combat pacing.
+  * **End-of-Match Score Calculation**: To preserve clean screen visibility and immersion, the cumulative score is **calculated and revealed exclusively at the end of the match** on the summary screen.
+  * **In-Game Combo Meter**: During active combat, rapid consecutive kills within a decaying window build a streak multiplier (`x2`, `x3`, `x4`, etc.). The game logs every combo event, streak count, and the peak maximum combo attained for the final score calculation.
 * **Elite Monster Variants (Champions)**:
   * Enemies have a procedurally rolled chance to spawn as **Elite Champions**, with the spawn probability increasing as wave numbers climb.
   * **Visual Identification**: Rendered using GoldSrc's engine glow shell (`kRenderFxGlowShell` with red RGB color).
@@ -106,10 +106,11 @@ The mod provides mapper-friendly entities to simplify setting up any custom or e
 
 ---
 
-## 7. Extended Arsenal & Aesthetic Fidelity
+## 7. Extended Arsenal & Visual Arcade Presentation
 
+### 7.1 Extended Weapon Roster
 * **Authentic Half-Life Universe**: Retains original GoldSrc art assets, audio, HUD styling, and movement mechanics.
-* **Expanded Weapon Roster**: Integrates weapons from official expansions (such as *Half-Life: Opposing Force*), including:
+* **Expanded Weapon Selection**: Integrates weapons from official expansions (such as *Half-Life: Opposing Force*), including:
   * Pipe Wrench and Combat Knife.
   * Desert Eagle (.357 caliber sidearm with laser sight).
   * M40A1 Sniper Rifle.
@@ -119,27 +120,67 @@ The mod provides mapper-friendly entities to simplify setting up any custom or e
   * Displacer Cannon.
   * Barnacle Grapple (where map geometry allows).
 
+### 7.2 Arcade Pickup Presentation (Quake 3 Style Floating, Bobbing & Colored Glow)
+To reinforce the fast-paced arcade feel, dropped and procedurally spawned items abandon static floor placement in favor of high-energy arena shooter visuals (reminiscent of *Quake III Arena*):
+* **Floating & Bobbing Motion**: Pickups (weapons, ammunition crates, health kits, and HEV batteries) levitate slightly above the ground/supporting surface, gently bobbing up and down while continuously rotating on their vertical axis.
+* **Dynamic Colored Point Lights**: Each item projects a localized colored dynamic light onto nearby surfaces, enhancing visibility in dark corridors.
+* **Color-Coded Render Glows**: Items feature a radiant colored aura/glow (`kRenderFxGlowShell` or engine render effects) categorized by pickup type:
+  * **Health & Medical**: Vibrant Green glow and lighting.
+  * **Armor & HEV Batteries**: Cyan / Bright Blue glow and lighting.
+  * **Ammunition**: Amber / Golden-Orange glow and lighting.
+  * **Weapons & Ordnance**: Magenta / Violet or fiery Red glow and lighting (tiered by weapon potency).
+### 7.3 Iconic Lambda Collectible Item
+* **Unique Per-Wave Spawn**: In each wave, exactly **one single collectible item** spawns procedurally at a randomly selected valid grid location in the map.
+* **Custom Model & Presentation**: Features a custom 3D model of the classic Half-Life Lambda (`λ`) insignia. It follows the same arcade visual language: floating suspended in mid-air, rotating on its vertical axis, gently bobbing up and down, and emitting a vibrant golden-orange glow and light.
+* **Score & Stat Progression**:
+  * Collecting the Lambda grants a substantial score point bonus.
+  * Increments the player's total match collectible counter.
+* **Acoustic Feedback**: Immediately triggers a dedicated, distinct pickup sound cue upon collection.
+* **Wave Lifecycle**: If missed or left behind when Point B is reached, the collectible is wiped during wave garbage collection, and a single new Lambda collectible spawns at a newly randomized grid coordinate for the next wave.
+
 ---
 
-## 8. Real-Time HUD & Player Statistics Tracking
+## 8. Arcade Audio Cues & Soundscapes
+
+Distinct audio cues provide immediate acoustic feedback for critical match state transitions (specific sound asset files to be designated during implementation):
+* **Wave Start Cue**: A punchy, energizing audio sting triggered when the wave commences from Point A.
+* **Wave Completion Cue**: A rewarding, triumphant sound effect played the instant Point B is touched and the wave loop finishes.
+* **Special Wave / Mutator Alert Cue**: An ominous, siren-like warning sound indicating that a special wave modifier (Blackout, Low Gravity, Swarm) is active.
+* **Collectible Pickup Cue**: A bright, distinctive chime played when collecting the wave's hidden Lambda insignia item.
+* **Match End Cue**: A dramatic, definitive sound effect played upon run termination (clock expiration or player death) before transitioning to the summary screen.
+
+---
+
+## 9. Real-Time HUD & Player Statistics Tracking
 
 The mod continuously aggregates gameplay statistics across waves and displays them permanently on the player's heads-up display (HUD).
 
-### 8.1 Persistent HUD Elements
+### 9.1 Persistent HUD Elements
 A dedicated on-screen text overlay is rendered at all times (matching classic Half-Life HUD green/amber typography and aesthetic):
 * **Match Clock / Time Remaining**: Displays the active session timer (either a countdown against the time limit, e.g., `TIME LEFT: 05:24`, or total elapsed run time).
-* **Current Score & Combo**: Live display of accrued score points (`SCORE: 28,450`) and active kill streak multiplier (`COMBO: x3`).
+* **Active Kill Streak Multiplier**: Live indicator showing the active combo multiplier (`COMBO: x3`) while chaining rapid monster kills. *(Note: Cumulative score points are calculated and revealed exclusively at match conclusion).*
 * **Current Wave Counter**: Displays the active wave number (e.g., `WAVE: 14`).
+* **Collectibles Counter**: Displays the total count of Lambda items collected during the match (`COLLECTIBLES: 08`).
 * **Current Wave Timer**: Stopwatch tracking elapsed time spent in the active wave (`WAVE TIME: 00:38`).
 * **Total Frags / Kills**: Real-time counter of total monsters eliminated during the match (`FRAGS: 187`).
 * **Average Wave Duration**: Dynamically recalculated average completion time across all finished waves (`AVG WAVE: 00:46`).
 
-### 8.2 End-of-Run Summary & Grading
-Upon match conclusion (time limit expiration or player death), a comprehensive summary screen appears displaying detailed performance telemetry:
+### 9.2 End-of-Run Summary, Score Calculation & Grading
+Upon match conclusion—whether through **time limit expiration** or **player death**—the mod overrides the standard engine reload/menu routine and immediately activates the summary screen over the static camera backdrop:
+
 * **Static Camera Backdrop**:
   * The player's viewport switches immediately to an in-level static camera (activating a designated `trigger_camera` placed in the map).
-  * The living environment remains visible and active in the background while the statistical results, kill breakdown, and final rank grade are rendered clearly overlaid on screen.
-* **Final Score & Waves Cleared**: Total accrued score and total wave laps completed within the allotted time.
+  * The living environment remains visible and active in the background while the statistical results, animated score tally, and final rank grade are rendered clearly overlaid on screen.
+* **Match Outcome Status**:
+  * Displays run conclusion state (e.g., `STATUS: SURVIVED - TIME EXPIRED` vs. `STATUS: KIA - FALLEN IN COMBAT`).
+  * **Death Is Not a Failure**: Dying ends the run, but the player keeps all earned stats, frags, collectibles, and points. The full score is calculated and recorded in local leaderboards regardless of how the match ended.
+* **Granular Score Calculation Breakdown**:
+  The total score is computed and tallied on screen using all accumulated match data:
+  * **Base Combat Points**: Sum of all eliminated monsters multiplied by their species tier value.
+  * **Combo Streak Breakdown**: Detailed count of combo multipliers achieved during the run (e.g., `x2 Combos: 15`, `x3 Combos: 8`, `x4+ Combos: 4`), plus a dedicated bonus for the **Maximum Combo Streak** attained.
+  * **Wave Completion Milestone Bonus**: Payout scaled by the total number of wave laps completed.
+  * **Lambda Collectibles Bonus**: High-value score payout awarded for each Lambda insignia retrieved.
+  * **Final Composite Score**: Displayed prominently at the top of the summary.
 * **Overall Time & Lap Pacing**:
   * Total match time played.
   * Fastest single wave lap time vs. slowest wave lap time.
@@ -149,7 +190,9 @@ Upon match conclusion (time limit expiration or player death), a comprehensive s
 * **Arcade Performance Rating (S / A / B / C / D / F)**:
   * An arcade grade calculated via a composite performance formula evaluating:
     * Total waves cleared within the time limit (primary weight).
-    * Total combat score, frags, and kill diversity.
+    * Final composite score and combat diversity.
+    * Peak combo streaks and combo frequency.
+    * Collectibles gathered (rewarding thorough exploration under time pressure).
     * Average wave completion speed (pace / aggressiveness).
     * Survival efficiency (penalties for excessive damage taken or deaths).
   * Grade scale:
@@ -161,26 +204,26 @@ Upon match conclusion (time limit expiration or player death), a comprehensive s
 
 ---
 
-## 9. Game Mode Scope, High Scores & Arcade Integrity
+## 10. Game Mode Scope, High Scores & Arcade Integrity
 
-### 9.1 Single-Player Focus
+### 10.1 Single-Player Focus
 * **Dedicated Single-Player Gameplay**: The gauntlet rules, telemetry, and camera transitions are designed strictly for single-player play.
 * **Architecture Preservation**: Core multiplayer networking infrastructure (client-side prediction, weapon dispatch, shared protocols) is retained in the codebase for engine stability and potential future expansions, but the active mod experience is single-player.
 
-### 9.2 Local Map Leaderboards (High Scores)
+### 10.2 Local Map Leaderboards (High Scores)
 * **Persistent Records**: Each map retains a local high-score record file on disk (`gladder/scores/<mapname>.dat` or JSON).
 * **Tracked Metrics**: Records the Top 10 runs per map, logging Date, Final Score, Waves Cleared, Total Frags, Total Time, and Earned Grade.
 * **Future-Proof Baseline**: Designed as the local data layer that can later interface with external web-based leaderboards.
 
-### 9.3 Save / Load Restrictions
+### 10.3 Save / Load Restrictions & Death Flow
 To maintain authentic arcade tension, competitive scoring integrity, and fluid game pacing, saving and loading functionality is eliminated entirely:
 * **No Save Functionality**: All save mechanisms (quick-save, manual console/menu save, autosave triggers) are disabled at the root level.
 * **No Load Functionality**: Loading existing save files during a session (quick-load or menu load) is disabled.
-* **Session Finality & Permadeath**: Each session represents a single, self-contained run. Player death or timer expiration concludes the run and redirects to the final grading screen without checkpoint reloading.
+* **Session Finality & Seamless Death Transition**: Each session represents a single, self-contained run. Player death bypasses original save reload and main menu prompts, seamlessly launching the end-of-run summary screen with full score calculation and high score recording.
 
 ---
 
-## 10. Engine Resource Management & Wave Garbage Collection
+## 11. Engine Resource Management & Wave Garbage Collection
 
 Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 512 to 900+ entities), strict resource purging occurs at each wave reset:
 * **Active Monster Cleanup**: Any monsters surviving from the previous wave are eradicated immediately upon wave completion.
