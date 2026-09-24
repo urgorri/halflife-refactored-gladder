@@ -14,6 +14,22 @@ This project is a downstream fork of [**urgorri/halflife-refactored**](https://g
 * **Root Origin**: Valve Software Half-Life 1 SDK
 * **Architecture Base**: Leverages the refactored subsystem architecture (`dlls/monsters/`, `dlls/systems/`, `dlls/items/`, `dlls/weapons/`, `dlls/gameplay/`) and extensible mod hooks (`dlls/custom/`, `cl_dll/custom/`).
 
+### Synchronizing with Upstream
+
+To pull and merge the latest improvements, bugfixes, and refactorings from `urgorri/halflife-refactored`:
+
+```bash
+# 1. Ensure the upstream remote is configured (one-time setup)
+git remote add upstream https://github.com/urgorri/halflife-refactored.git
+
+# 2. Fetch the latest changes from both origin and upstream
+git fetch origin
+git fetch upstream
+
+# 3. Merge the latest upstream changes into your branch
+git merge upstream/master
+```
+
 ---
 
 ## Core Features
