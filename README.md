@@ -21,7 +21,7 @@ This project is a downstream fork of [**urgorri/halflife-refactored**](https://g
 * **Gauntlet Run Loop**: Players run from **Point A** (spawn) to **Point B** (finish). Reaching Point B immediately loops the player back to Point A, increments the wave counter, and regenerates threats and pickups without level transitions or map reloads.
 * **Procedural Dynamic Spawning**: Each wave populates the map with a randomized distribution of monsters, weapons, ammunition, and health/armor pickups calibrated to an escalating difficulty curve.
 * **Map Spatial Indexing (32-Unit Grid)**:
-  * Maps are automatically indexed into persistent cache files (`gladder/maps/<mapname>.grid.dat`).
+  * Maps are automatically indexed into persistent cache files (`maps/grid/<mapname>.grid`), mirroring the engine's `maps/graphs/<mapname>.nod` convention.
   * Scans bounding area volumes with vertical raycasts (sampled every 32 engine units) to identify valid supporting surfaces (including tops of crates, platforms, and structures) and ensure adequate vertical clearance.
 * **Time-Driven Match Objective**: The core goal is time-based—survive, maintain momentum, and complete as many wave laps as possible before the session clock expires.
 * **Real-Time HUD Telemetry**:

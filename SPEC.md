@@ -64,10 +64,13 @@ Instead of progressing linearly through a series of maps, players run through a 
 
 To spawn entities intelligently without hand-placing thousands of spawn markers, the mod indexes map geometry into a reusable spatial cache file.
 
-### 4.1 Indexing Workflow
-* When a map is loaded for the first time, the mod checks whether an index file already exists for it (e.g., in a dedicated map data folder such as `gladder/maps/<mapname>.grid.dat`).
-* If not present, the mod performs an automatic spatial scan of the level before gameplay begins and saves the resulting index to disk.
-* On subsequent playthroughs, the saved index is loaded instantly from disk.
+### 4.1 Indexing Workflow & Storage (`maps/grid/`)
+Mirroring the native GoldSrc convention for node navigation graphs (`maps/graphs/<mapname>.nod`), the spatial index files are stored in a dedicated subfolder within `maps/`:
+* **Directory & File Convention**: Stored as `maps/grid/<mapname>.grid` (inside the mod's game directory).
+* **Execution & Caching Flow**:
+  * **Cache Check on Map Load**: Whenever a map is loaded, the engine immediately checks whether `maps/grid/<mapname>.grid` exists.
+  * **Cached Fast Path**: If the file exists, the indexing process is completely skipped and the pre-computed grid data is loaded directly from disk into memory, ensuring zero startup delay.
+  * **Generation on First Load**: If the file does not exist, the mod automatically executes the spatial scan/raycasting algorithm once upon map load, generates the 32-unit surface grid, and writes the cache file to `maps/grid/<mapname>.grid` (creating the `maps/grid/` directory if needed) for all future sessions.
 
 ### 4.2 Area Bounding Volumes
 * Level designers define navigable gameplay zones using custom volume entities specifying 3D bounds:
