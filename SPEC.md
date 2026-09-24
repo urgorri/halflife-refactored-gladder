@@ -52,6 +52,10 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Blackout**: Level lights are extinguished into pitch darkness; navigation relies heavily on the HEV flashlight.
     * **Low Gravity**: Xen-like reduced gravity physics applied to both the player and physical debris.
     * **Swarm**: Standard enemy distribution is replaced by a massive horde composed exclusively of a single randomly selected monster species (e.g., all Houndeyes, all Headcrabs, or all Alien Grunts).
+* **Modernized Monster Turning Speed (`yawspeed`)**:
+  * Original Half-Life monsters feature sluggish turning rates (`m_flYawSpeed`), resulting in slow rotational reaction times that feel dated and allow players to easily bypass or stand behind monsters without being tracked.
+  * In this mod, the default `yawspeed` across all monster species is increased globally to deliver snappy, modern arcade responsiveness.
+  * Monsters turn and re-orient toward flanking or sprinting players significantly faster, eliminating exploitable blind spots and maintaining high-intensity combat pressure during fast runs.
 * **Diminishing Wall Charger Capacity**:
   * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
   * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.
