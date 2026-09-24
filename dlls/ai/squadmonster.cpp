@@ -68,6 +68,10 @@ BOOL CSquadMonster ::OccupySlot( int iDesiredSlots )
 	}
 
 	CSquadMonster *pSquadLeader = MySquadLeader();
+	if ( !pSquadLeader )
+	{
+		return FALSE;
+	}
 
 	if ( !( iDesiredSlots ^ pSquadLeader->m_afSquadSlots ) )
 	{
@@ -103,8 +107,11 @@ void CSquadMonster ::VacateSlot()
 {
 	if ( m_iMySlot != bits_NO_SLOT && InSquad() )
 	{
-		//		ALERT ( at_aiconsole, "Vacated Slot %d - %d\n", m_iMySlot, m_hSquadLeader->m_afSquadSlots );
-		MySquadLeader()->m_afSquadSlots &= ~m_iMySlot;
+		CSquadMonster *pLeader = MySquadLeader();
+		if ( pLeader )
+		{
+			pLeader->m_afSquadSlots &= ~m_iMySlot;
+		}
 		m_iMySlot = bits_NO_SLOT;
 	}
 }

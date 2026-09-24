@@ -18,6 +18,7 @@
 #include "core/player.h"
 #include "shake.h"
 #include "core/player_network.h"
+#include "core/user_message_registry.h"
 
 int giPrecacheGrunt   = 0;
 int gmsgShake         = 0;
@@ -103,4 +104,6 @@ void LinkUserMessages( void )
 
 	gmsgStatusText  = REG_USER_MSG( "StatusText", -1 );
 	gmsgStatusValue = REG_USER_MSG( "StatusValue", 3 );
+
+	UserMessageRegistry::LinkAll();
 }

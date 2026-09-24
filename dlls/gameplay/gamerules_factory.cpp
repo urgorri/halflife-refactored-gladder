@@ -51,6 +51,13 @@ class MockHLRules : public CGameRules
 	void PlayerThink( CBasePlayer *pPlayer ) override {}
 	BOOL FPlayerCanRespawn( CBasePlayer *pPlayer ) override { return TRUE; }
 	float FlPlayerSpawnTime( CBasePlayer *pPlayer ) override { return 0.0f; }
+	void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override
+	{
+		if ( !m_bDeathmatch )
+		{
+			SERVER_COMMAND( "reload\n" );
+		}
+	}
 	int IPointsForKill( CBasePlayer *pAttacker, CBasePlayer *pKilled ) override { return 0; }
 	void PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override {}
 	void DeathNotice( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override {}

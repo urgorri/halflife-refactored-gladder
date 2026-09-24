@@ -145,6 +145,10 @@ if(BUILD_SERVER)
         target_include_directories(hl PRIVATE dlls/custom)
     endif()
 
+    if(WIN32)
+        target_link_libraries(hl PRIVATE dbghelp)
+    endif()
+
     if(NOT MSVC)
         target_link_libraries(hl PRIVATE m dl pthread stdc++)
     endif()
@@ -305,10 +309,20 @@ if(BUILD_TESTS)
         tests/test_item_registry.cpp
         tests/test_ai_factions.cpp
         tests/test_gamerules_skill.cpp
+        tests/test_gameplay_hooks.cpp
         tests/test_hud_registry.cpp
         tests/mock_client_engine.cpp
         tests/test_client_lifecycle.cpp
         tests/test_client_studio.cpp
+        tests/test_studio_transform.cpp
+        tests/test_level_transition.cpp
+        tests/test_effects_beams.cpp
+        tests/test_crash_handler.cpp
+        tests/test_triggers.cpp
+        dlls/systems/effects_beams.cpp
+        dlls/systems/chargers.cpp
+        dlls/systems/crash_handler.cpp
+        dlls/systems/triggers_audio.cpp
         dlls/weapons/weapon_registry.cpp
         dlls/items/item_registry.cpp
         dlls/ai/monster_relationship_manager.cpp
@@ -316,9 +330,11 @@ if(BUILD_TESTS)
         dlls/gameplay/gamerules_factory.cpp
         dlls/core/skill_manager.cpp
         dlls/core/skill.cpp
+        dlls/core/user_message_registry.cpp
         cl_dll/hl/client_weapon_manager.cpp
         cl_dll/events/event_registry.cpp
         cl_dll/hud/hud_registry.cpp
+        cl_dll/entities/entity_visual_registry.cpp
         ${PM_SHARED_SOURCES}
     )
 
@@ -354,6 +370,10 @@ if(BUILD_TESTS)
         game_shared
         public
     )
+
+    if(WIN32)
+        target_link_libraries(hl_tests PRIVATE dbghelp)
+    endif()
 
     if(NOT MSVC)
         target_link_libraries(hl_tests PRIVATE m dl pthread stdc++)

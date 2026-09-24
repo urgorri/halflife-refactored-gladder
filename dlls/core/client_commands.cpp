@@ -20,6 +20,7 @@
 #include "gameplay/gamerules.h"
 #include "core/game.h"
 #include "core/player_network.h"
+#include "systems/crash_handler.h"
 
 #if !defined( _WIN32 )
 #include <ctype.h>
@@ -322,6 +323,12 @@ void ClientCommand( edict_t *pEntity )
 	else if ( FStrEq( pcmd, "say_team" ) )
 	{
 		Host_Say( pEntity, 1 );
+	}
+	else if ( FStrEq( pcmd, "trace_log" ) )
+	{
+		char szResponse[512];
+		g_CrashHandler.ExecuteCommand( CMD_ARGC(), NULL, szResponse, sizeof( szResponse ) );
+		ClientPrint( pev, HUD_PRINTCONSOLE, szResponse );
 	}
 	else if ( FStrEq( pcmd, "fullupdate" ) )
 	{

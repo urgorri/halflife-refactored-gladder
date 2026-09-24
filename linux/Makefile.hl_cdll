@@ -53,6 +53,7 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/hud/death.o \
 	$(HL1_OBJ_DIR)/systems/demo.o \
 	$(HL1_OBJ_DIR)/entities/entity.o \
+	$(HL1_OBJ_DIR)/entities/entity_visual_registry.o \
 	$(HL1_OBJ_DIR)/events/ev_common.o \
 	$(HL1_OBJ_DIR)/events/events.o \
 	$(HL1_OBJ_DIR)/hud/flashlight.o \
@@ -79,8 +80,6 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/input/input_hardware.o \
 	$(HL1_OBJ_DIR)/studio/studio_util.o \
 	$(HL1_OBJ_DIR)/studio/StudioModelRenderer.o \
-	$(HL1_OBJ_DIR)/studio/studio_render_bones.o \
-	$(HL1_OBJ_DIR)/studio/studio_render_attachments.o \
 	$(HL1_OBJ_DIR)/render/tri.o \
 	$(HL1_OBJ_DIR)/core/util.o \
 	$(HL1_OBJ_DIR)/render/view.o \

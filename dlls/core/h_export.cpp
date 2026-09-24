@@ -24,6 +24,7 @@
 #include "core/util.h"
 
 #include "core/cbase.h"
+#include "systems/crash_handler.h"
 
 // Holds engine functionality callbacks
 enginefuncs_t g_engfuncs;
@@ -49,6 +50,7 @@ BOOL WINAPI DllMain(
 	}
 	else if ( fdwReason == DLL_PROCESS_DETACH )
 	{
+		g_CrashHandler.Shutdown();
 	}
 	return TRUE;
 }

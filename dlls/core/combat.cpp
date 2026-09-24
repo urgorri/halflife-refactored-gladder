@@ -22,6 +22,8 @@
 #include "core/animation.h"
 #include "weapons/weapon_base.h"
 #include "gameplay/gamerules.h"
+
+extern entvars_t *g_pevLastInflictor;
 // anim to play.
 //=========================================================
 Activity CBaseMonster ::GetDeathActivity( void )
@@ -237,6 +239,11 @@ void CBaseMonster ::Killed( entvars_t *pevAttacker, int iGib )
 	if ( pOwner )
 	{
 		pOwner->DeathNotice( pev );
+	}
+
+	if ( g_pGameRules )
+	{
+		g_pGameRules->MonsterKilled( this, pevAttacker, g_pevLastInflictor );
 	}
 
 	if ( ShouldGibMonster( iGib ) )

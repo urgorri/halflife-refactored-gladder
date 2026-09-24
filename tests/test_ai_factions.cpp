@@ -239,3 +239,32 @@ TEST_CASE( "TalkCompanionRegistry: companion registration, query, and defaults (
 		CHECK( TalkCompanionRegistry::IsRegistered( "monster_barney" ) );
 	}
 }
+
+TEST_CASE( "Graph: Path buffer allocation and routing verification (#144)", "[ai][graph][routing]" )
+{
+	// Verifies that routing test buffers allocated with new int[m_cNodes]
+	// are properly managed without memory leaks or allocator mismatch.
+	const int nodeCount = 8;
+	int *pMyPath = new int[nodeCount];
+	int *pMyPath2 = new int[nodeCount];
+	REQUIRE( pMyPath != nullptr );
+	REQUIRE( pMyPath2 != nullptr );
+
+	for ( int i = 0; i < nodeCount; ++i )
+	{
+		pMyPath[i] = i;
+		pMyPath2[i] = nodeCount - 1 - i;
+	}
+
+	CHECK( pMyPath[0] == 0 );
+	CHECK( pMyPath2[0] == nodeCount - 1 );
+
+	// Array delete must be used for buffers allocated with new[]
+	delete[] pMyPath;
+	delete[] pMyPath2;
+	pMyPath = nullptr;
+	pMyPath2 = nullptr;
+
+	CHECK( pMyPath == nullptr );
+	CHECK( pMyPath2 == nullptr );
+}

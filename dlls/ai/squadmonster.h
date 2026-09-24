@@ -83,16 +83,21 @@ class CSquadMonster : public CBaseMonster
 	CSquadMonster *MySquadLeader()
 	{
 		CSquadMonster *pSquadLeader = (CSquadMonster *)( (CBaseEntity *)m_hSquadLeader );
-		if ( pSquadLeader != NULL )
+		if ( pSquadLeader != NULL && pSquadLeader->pev && !( pSquadLeader->pev->flags & FL_KILLME ) )
 			return pSquadLeader;
 		return this;
 	}
 	CSquadMonster *MySquadMember( int i )
 	{
-		if ( i >= MAX_SQUAD_MEMBERS - 1 )
+		if ( i >= MAX_SQUAD_MEMBERS - 1 || i < 0 )
 			return this;
 		else
-			return (CSquadMonster *)( (CBaseEntity *)m_hSquadMember[i] );
+		{
+			CSquadMonster *pMember = (CSquadMonster *)( (CBaseEntity *)m_hSquadMember[i] );
+			if ( pMember != NULL && pMember->pev && !( pMember->pev->flags & FL_KILLME ) )
+				return pMember;
+			return NULL;
+		}
 	}
 	int InSquad( void ) { return m_hSquadLeader != NULL; }
 	int IsLeader( void ) { return m_hSquadLeader == this; }

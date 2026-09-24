@@ -67,7 +67,8 @@ const Vector &CBeam::GetStartPos( void )
 	if ( GetType() == BEAM_ENTS )
 	{
 		edict_t *pent = g_engfuncs.pfnPEntityOfEntIndex( GetStartEntity() );
-		return pent->v.origin;
+		if ( pent )
+			return pent->v.origin;
 	}
 	return pev->origin;
 }
@@ -437,24 +438,30 @@ void CLightning::Spawn( void )
 		}
 		if ( pev->targetname )
 		{
-			if ( pev->spawnflags & SF_BEAM_STARTON )
+			if ( !( pev->spawnflags & SF_BEAM_STARTON ) )
 			{
-				SetThink( &CLightning::StrikeThink );
-				pev->nextthink = gpGlobals->time + 1.0;
+				pev->effects   = EF_NODRAW;
+				m_active       = 0;
+				pev->nextthink = 0;
 			}
+			else
+				m_active = 1;
+
 			SetUse( &CLightning::ToggleUse );
 		}
-		BeamUpdateVars();
 	}
 	else
 	{
 		m_active = 0;
-		if ( !pev->targetname || pev->spawnflags & SF_BEAM_STARTON )
+		if ( !FStringNull( pev->targetname ) )
+		{
+			SetUse( &CLightning::StrikeUse );
+		}
+		if ( FStringNull( pev->targetname ) || FBitSet( pev->spawnflags, SF_BEAM_STARTON ) )
 		{
 			SetThink( &CLightning::StrikeThink );
 			pev->nextthink = gpGlobals->time + 1.0;
 		}
-		SetUse( &CLightning::StrikeUse );
 	}
 }
 
@@ -533,26 +540,24 @@ void CLightning::KeyValue( KeyValueData *pkvd )
 
 void CLightning::ToggleUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
-	if ( !ShouldToggle( useType, !( pev->effects & EF_NODRAW ) ) )
+	if ( !ShouldToggle( useType, m_active ) )
 		return;
-
-	if ( pev->effects & EF_NODRAW )
+	if ( m_active )
 	{
-		pev->effects &= ~EF_NODRAW;
-		RelinkBeam();
-		DoSparks( GetStartPos(), GetEndPos() );
-		if ( pev->dmg > 0 )
-		{
-			SetThink( &CLightning::DamageThink );
-			pev->nextthink = gpGlobals->time;
-		}
-		else
-			SetThink( NULL );
+		m_active       = 0;
+		pev->effects  |= EF_NODRAW;
+		pev->nextthink = 0;
 	}
 	else
 	{
-		pev->effects |= EF_NODRAW;
-		SetThink( NULL );
+		m_active       = 1;
+		pev->effects  &= ~EF_NODRAW;
+		DoSparks( GetStartPos(), GetEndPos() );
+		if ( pev->dmg > 0 )
+		{
+			pev->nextthink = gpGlobals->time;
+			pev->dmgtime   = gpGlobals->time;
+		}
 	}
 }
 
@@ -569,8 +574,11 @@ void CLightning::StrikeUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_T
 	else
 	{
 		SetThink( &CLightning::StrikeThink );
-		pev->nextthink = gpGlobals->time;
+		pev->nextthink = gpGlobals->time + 0.1;
 	}
+
+	if ( !FBitSet( pev->spawnflags, SF_BEAM_TOGGLE ) )
+		SetUse( NULL );
 }
 
 static int IsPointEntity( CBaseEntity *pEnt )
@@ -607,6 +615,8 @@ void CLightning::StrikeThink( void )
 			CBaseEntity *pStart = RandomTargetname( STRING( m_iszStartEntity ) );
 			if ( pStart != NULL )
 				RandomPoint( pStart->pev->origin );
+			else
+				ALERT( at_console, "env_beam: unknown entity \"%s\"\n", STRING( m_iszStartEntity ) );
 		}
 		return;
 	}
@@ -616,42 +626,73 @@ void CLightning::StrikeThink( void )
 
 	if ( pStart != NULL && pEnd != NULL )
 	{
-		int pointStart = IsPointEntity( pStart );
-		int pointEnd   = IsPointEntity( pEnd );
-
-		if ( pointStart || pointEnd )
+		if ( IsPointEntity( pStart ) || IsPointEntity( pEnd ) )
 		{
-			if ( pointStart )
-				Zap( pStart->pev->origin, pEnd->pev->origin );
+			if ( pev->spawnflags & SF_BEAM_RING )
+			{
+				// don't work
+				return;
+			}
+		}
+
+		MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY );
+		if ( IsPointEntity( pStart ) || IsPointEntity( pEnd ) )
+		{
+			if ( !IsPointEntity( pEnd ) ) // One point entity must be in pEnd
+			{
+				CBaseEntity *pTemp = pStart;
+				pStart             = pEnd;
+				pEnd               = pTemp;
+			}
+			if ( !IsPointEntity( pStart ) ) // One sided
+			{
+				WRITE_BYTE( TE_BEAMENTPOINT );
+				WRITE_SHORT( pStart->entindex() );
+				WRITE_COORD( pEnd->pev->origin.x );
+				WRITE_COORD( pEnd->pev->origin.y );
+				WRITE_COORD( pEnd->pev->origin.z );
+			}
 			else
-				Zap( pEnd->pev->origin, pStart->pev->origin );
+			{
+				WRITE_BYTE( TE_BEAMPOINTS );
+				WRITE_COORD( pStart->pev->origin.x );
+				WRITE_COORD( pStart->pev->origin.y );
+				WRITE_COORD( pStart->pev->origin.z );
+				WRITE_COORD( pEnd->pev->origin.x );
+				WRITE_COORD( pEnd->pev->origin.y );
+				WRITE_COORD( pEnd->pev->origin.z );
+			}
 		}
 		else
 		{
-			MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY );
-			WRITE_BYTE( TE_BEAMENTS );
+			if ( pev->spawnflags & SF_BEAM_RING )
+				WRITE_BYTE( TE_BEAMRING );
+			else
+				WRITE_BYTE( TE_BEAMENTS );
 			WRITE_SHORT( pStart->entindex() );
 			WRITE_SHORT( pEnd->entindex() );
-			WRITE_SHORT( m_spriteTexture );
-			WRITE_BYTE( m_frameStart );
-			WRITE_BYTE( (int)pev->framerate );
-			WRITE_BYTE( (int)( m_life * 10.0 ) );
-			WRITE_BYTE( m_boltWidth );
-			WRITE_BYTE( m_noiseAmplitude );
-			WRITE_BYTE( (int)pev->rendercolor.x );
-			WRITE_BYTE( (int)pev->rendercolor.y );
-			WRITE_BYTE( (int)pev->rendercolor.z );
-			WRITE_BYTE( pev->renderamt );
-			WRITE_BYTE( m_speed );
-			MESSAGE_END();
 		}
+
+		WRITE_SHORT( m_spriteTexture );
+		WRITE_BYTE( m_frameStart );
+		WRITE_BYTE( (int)pev->framerate );
+		WRITE_BYTE( (int)( m_life * 10.0 ) );
+		WRITE_BYTE( m_boltWidth );
+		WRITE_BYTE( m_noiseAmplitude );
+		WRITE_BYTE( (int)pev->rendercolor.x );
+		WRITE_BYTE( (int)pev->rendercolor.y );
+		WRITE_BYTE( (int)pev->rendercolor.z );
+		WRITE_BYTE( pev->renderamt );
+		WRITE_BYTE( m_speed );
+		MESSAGE_END();
+
+		DoSparks( pStart->pev->origin, pEnd->pev->origin );
 		if ( pev->dmg > 0 )
 		{
 			TraceResult tr;
 			UTIL_TraceLine( pStart->pev->origin, pEnd->pev->origin, dont_ignore_monsters, NULL, &tr );
 			BeamDamageInstant( &tr, pev->dmg );
 		}
-		DoSparks( pStart->pev->origin, pEnd->pev->origin );
 	}
 }
 
@@ -755,6 +796,9 @@ void CLightning::BeamUpdateVars( void )
 
 	edict_t *pStart = g_engfuncs.pfnFindEntityByString( NULL, "targetname", STRING( m_iszStartEntity ) );
 	edict_t *pEnd   = g_engfuncs.pfnFindEntityByString( NULL, "targetname", STRING( m_iszEndEntity ) );
+	if ( pStart == NULL || FNullEnt( pStart ) || pEnd == NULL || FNullEnt( pEnd ) )
+		return;
+
 	pointStart      = IsPointEntity( CBaseEntity::Instance( pStart ) );
 	pointEnd        = IsPointEntity( CBaseEntity::Instance( pEnd ) );
 

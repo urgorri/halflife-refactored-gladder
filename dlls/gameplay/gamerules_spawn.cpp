@@ -31,6 +31,8 @@
 #include <ctype.h>
 #endif
 
+extern void CopyToBodyQue( entvars_t *pev );
+
 //=========================================================
 //=========================================================
 BOOL CHalfLifeMultiplay ::ClientConnected( edict_t *pEntity, const char *pszName, const char *pszAddress, char szRejectReason[128] )
@@ -224,4 +226,16 @@ edict_t *CHalfLifeMultiplay::GetPlayerSpawnSpot( CBasePlayer *pPlayer )
 	}
 
 	return pentSpawnSpot;
+}
+
+//=========================================================
+//=========================================================
+void CHalfLifeMultiplay ::PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse )
+{
+	if ( fCopyCorpse )
+	{
+		CopyToBodyQue( pPlayer->pev );
+	}
+
+	pPlayer->Spawn();
 }

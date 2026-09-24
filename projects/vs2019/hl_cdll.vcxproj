@@ -116,6 +116,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\cl_dll\hud\death.cpp" />
     <ClCompile Include="..\..\cl_dll\systems\demo.cpp" />
     <ClCompile Include="..\..\cl_dll\entities\entity.cpp" />
+    <ClCompile Include="..\..\cl_dll\entities\entity_visual_registry.cpp" />
     <ClCompile Include="..\..\cl_dll\events\events.cpp" />
     <ClCompile Include="..\..\cl_dll\events\ev_common.cpp" />
     <ClCompile Include="..\..\cl_dll\events\ev_bullets.cpp" />
@@ -155,8 +156,6 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\cl_dll\input\input_hardware.cpp" />
     <ClCompile Include="..\..\cl_dll\input\in_camera.cpp" />
     <ClCompile Include="..\..\cl_dll\studio\StudioModelRenderer.cpp" />
-    <ClCompile Include="..\..\cl_dll\studio\studio_render_bones.cpp" />
-    <ClCompile Include="..\..\cl_dll\studio\studio_render_attachments.cpp" />
     <ClCompile Include="..\..\cl_dll\studio\studio_util.cpp" />
     <ClCompile Include="..\..\cl_dll\render\tri.cpp" />
     <ClCompile Include="..\..\cl_dll\core\util.cpp" />
@@ -218,6 +217,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClInclude Include="..\..\cl_dll\core\camera.h" />
     <ClInclude Include="..\..\cl_dll\core\cl_dll.h" />
     <ClInclude Include="..\..\cl_dll\core\cl_util.h" />
+    <ClInclude Include="..\..\cl_dll\entities\entity_visual_registry.h" />
     <ClInclude Include="..\..\cl_dll\hl\com_weapons.h" />
     <ClInclude Include="..\..\cl_dll\systems\demo.h" />
     <ClInclude Include="..\..\cl_dll\events\eventscripts.h" />

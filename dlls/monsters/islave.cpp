@@ -442,6 +442,9 @@ void CISlave ::Spawn()
 
 	m_voicePitch = RANDOM_LONG( 85, 110 );
 
+	m_iBeams = 0;
+	memset( m_pBeam, 0, sizeof( m_pBeam ) );
+
 	MonsterInit();
 }
 
@@ -663,7 +666,7 @@ void CISlave ::BeamGlow()
 
 	for ( int i = 0; i < m_iBeams; i++ )
 	{
-		if ( m_pBeam[i]->GetBrightness() != 255 )
+		if ( m_pBeam[i] && m_pBeam[i]->GetBrightness() != 255 )
 		{
 			m_pBeam[i]->SetBrightness( b );
 		}
@@ -726,7 +729,7 @@ void CISlave ::ZapBeam( int side )
 	m_iBeams++;
 
 	pEntity = CBaseEntity::Instance( tr.pHit );
-	if ( pEntity != NULL && pEntity->pev->takedamage )
+	if ( pEntity != NULL && pEntity->pev && pEntity->pev->takedamage )
 	{
 		pEntity->TraceAttack( pev, gSkillData.slaveDmgZap, vecAim, &tr, DMG_SHOCK );
 	}

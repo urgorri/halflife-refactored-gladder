@@ -16,6 +16,7 @@
 #include "eiface.h"
 #include "core/util.h"
 #include "core/game.h"
+#include "systems/crash_handler.h"
 
 cvar_t displaysoundlist = { "displaysoundlist", "0" };
 
@@ -465,6 +466,12 @@ void GameDLLInit( void )
 	CVAR_REGISTER( &mp_chattime );
 
 	CVAR_REGISTER( &sv_busters );
+
+	CVAR_REGISTER( &trace_crash );
+	CVAR_REGISTER( &developer_trace );
+
+	// Initialize crash handler & VEH
+	g_CrashHandler.Init();
 
 	// REGISTER CVARS FOR SKILL LEVEL STUFF
 	// Agrunt

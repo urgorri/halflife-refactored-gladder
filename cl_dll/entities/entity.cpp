@@ -14,6 +14,7 @@
 #include "pm_shared.h"
 #include "bench.h"
 #include "Exports.h"
+#include "entities/entity_visual_registry.h"
 
 #include "particleman.h"
 extern IParticleMan *g_pParticleMan;
@@ -32,6 +33,11 @@ HUD_AddEntity
 */
 int CL_DLLEXPORT HUD_AddEntity( int type, struct cl_entity_s *ent, const char *modelname )
 {
+	if ( EntityVisualRegistry::HasModifiers() )
+	{
+		EntityVisualRegistry::ApplyModifiers( type, ent, modelname );
+	}
+
 	//	RecClAddEntity(type, ent, modelname);
 
 	switch ( type )

@@ -33,6 +33,9 @@ jobs:
       - name: Verify save/restore tables (Layer 2B)
         run: python tests/verify_saverestore.py --golden tests/golden/saverestore_baseline.json
 
+      - name: Verify canonical upstream drift (Layer 5)
+        run: python tests/verify_upstream_drift.py
+
       - name: Build Windows Client DLL
         run: >
           msbuild projects/vs2019/hl_cdll.vcxproj
@@ -112,6 +115,9 @@ jobs:
 
       - name: Verify save/restore tables (Layer 2B)
         run: python3 tests/verify_saverestore.py --golden tests/golden/saverestore_baseline.json
+
+      - name: Verify canonical upstream drift (Layer 5)
+        run: python3 tests/verify_upstream_drift.py
 
       - name: Build Linux Client DLL
         working-directory: linux

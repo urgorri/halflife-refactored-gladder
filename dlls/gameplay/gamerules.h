@@ -18,10 +18,13 @@
 
 // #include "weapons/weapon_base.h"
 // #include "items/item_base.h"
+#include "core/skill.h"
+
 class CBasePlayerItem;
 class CBasePlayer;
 class CItem;
 class CBasePlayerAmmo;
+class CBaseMonster;
 
 // weapon respawning return codes
 enum
@@ -91,6 +94,7 @@ class CGameRules
 	virtual BOOL FPlayerCanRespawn( CBasePlayer *pPlayer )  = 0; // is this player allowed to respawn now?
 	virtual float FlPlayerSpawnTime( CBasePlayer *pPlayer ) = 0; // When in the future will this player be able to spawn?
 	virtual edict_t *GetPlayerSpawnSpot( CBasePlayer *pPlayer ); // Place this player on their spawnspot and face them the proper direction.
+	virtual void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) = 0;
 
 	virtual BOOL AllowAutoTargetCrosshair( void ) { return TRUE; };
 	virtual BOOL ClientCommand( CBasePlayer *pPlayer, const char *pcmd ) { return FALSE; }; // handles the user commands;  returns TRUE if command handled properly
@@ -100,6 +104,7 @@ class CGameRules
 	virtual int IPointsForKill( CBasePlayer *pAttacker, CBasePlayer *pKilled )                   = 0; // how many points do I award whoever kills this player?
 	virtual void PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) = 0; // Called each time a player dies
 	virtual void DeathNotice( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor )  = 0; // Call this from within a GameRules class to report an obituary.
+	virtual void MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) {}
 	                                                                                                  // Weapon retrieval
 	virtual BOOL CanHavePlayerItem( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon );                 // The player is touching an CBasePlayerItem, do I give it to him?
 	virtual void PlayerGotWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon ) = 0;               // Called each time a player picks up a weapon from the ground
@@ -132,6 +137,9 @@ class CGameRules
 	// Healthcharger respawn control
 	virtual float FlHealthChargerRechargeTime( void ) = 0;       // how long until a depleted HealthCharger recharges itself?
 	virtual float FlHEVChargerRechargeTime( void ) { return 0; } // how long until a depleted HealthCharger recharges itself?
+	virtual float FlHealthChargerCapacity( void ) { return gSkillData.healthchargerCapacity; }
+	virtual float FlHEVChargerCapacity( void ) { return gSkillData.suitchargerCapacity; }
+	virtual BOOL FAllowAutoSave( void ) { return !IsDeathmatch(); }
 
 	// What happens to a dead player's weapons
 	virtual int DeadPlayerWeapons( CBasePlayer *pPlayer ) = 0; // what do I do with a player's weapons when he's killed?
@@ -198,6 +206,7 @@ class CHalfLifeRules : public CGameRules
 	virtual void PlayerThink( CBasePlayer *pPlayer );
 	virtual BOOL FPlayerCanRespawn( CBasePlayer *pPlayer );
 	virtual float FlPlayerSpawnTime( CBasePlayer *pPlayer );
+	virtual void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override;
 
 	virtual BOOL AllowAutoTargetCrosshair( void );
 
@@ -291,6 +300,7 @@ class CHalfLifeMultiplay : public CGameRules
 	virtual BOOL FPlayerCanRespawn( CBasePlayer *pPlayer );
 	virtual float FlPlayerSpawnTime( CBasePlayer *pPlayer );
 	virtual edict_t *GetPlayerSpawnSpot( CBasePlayer *pPlayer );
+	virtual void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override;
 
 	virtual BOOL AllowAutoTargetCrosshair( void );
 	virtual BOOL ClientCommand( CBasePlayer *pPlayer, const char *pcmd );

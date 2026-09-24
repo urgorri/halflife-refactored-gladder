@@ -1,4 +1,4 @@
-﻿/***
+/***
  *
  *	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
  *
@@ -136,7 +136,12 @@ void ClientDisconnect( edict_t *pEntity )
 // called by ClientKill and DeadThink
 void respawn( entvars_t *pev, BOOL fCopyCorpse )
 {
-	if ( gpGlobals->coop || gpGlobals->deathmatch )
+	CBasePlayer *pPlayer = GetClassPtr( (CBasePlayer *)pev );
+	if ( g_pGameRules && pPlayer )
+	{
+		g_pGameRules->PlayerRespawn( pPlayer, fCopyCorpse );
+	}
+	else if ( gpGlobals->coop || gpGlobals->deathmatch )
 	{
 		if ( fCopyCorpse )
 		{
@@ -145,7 +150,10 @@ void respawn( entvars_t *pev, BOOL fCopyCorpse )
 		}
 
 		// respawn player
-		GetClassPtr( (CBasePlayer *)pev )->Spawn();
+		if ( pPlayer )
+		{
+			pPlayer->Spawn();
+		}
 	}
 	else
 	{ // restart the entire server

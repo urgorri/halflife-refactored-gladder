@@ -1,4 +1,4 @@
-﻿/***
+/***
  *
  *	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
  *
@@ -23,6 +23,7 @@
 #include "core/animation.h"
 #include "core/saverestore.h"
 #include "weapons/weapon_base.h"
+#include "systems/crash_handler.h"
 #include "gameplay/scripted.h"
 #include "ai/squadmonster.h"
 #include "core/decals.h"
@@ -157,6 +158,11 @@ BOOL CBaseMonster ::FCanCheckAttacks( void )
 
 void CBaseMonster ::HandleAnimEvent( MonsterEvent_t *pEvent )
 {
+	if ( pEvent )
+	{
+		g_CrashHandler.LogAnimEvent( edict(), pEvent->event, pEvent->options );
+	}
+
 	switch ( pEvent->event )
 	{
 	case SCRIPT_EVENT_DEAD:

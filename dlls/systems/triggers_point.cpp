@@ -583,6 +583,9 @@ void CRenderFxManager::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_T
 				break;
 
 			entvars_t *pevTarget = VARS( pentTarget );
+			if ( !pevTarget || ( pevTarget->flags & FL_KILLME ) )
+				continue;
+
 			if ( !FBitSet( pev->spawnflags, SF_RENDER_MASKFX ) )
 				pevTarget->renderfx = pev->renderfx;
 			if ( !FBitSet( pev->spawnflags, SF_RENDER_MASKAMT ) )

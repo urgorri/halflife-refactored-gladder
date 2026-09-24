@@ -1,4 +1,4 @@
-﻿/***
+/***
  *
  *	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
  *
@@ -29,6 +29,7 @@
 #include "gameplay/gamerules.h"
 #include "ai/defaultai.h"
 #include "ai/schedule.h"
+#include "systems/crash_handler.h"
 
 //=========================================================
 // 	RouteClear - zeroes out the monster's route array and goal
@@ -47,8 +48,8 @@ void CBaseMonster ::RouteClear( void )
 //=========================================================
 void CBaseMonster ::RouteNew( void )
 {
-	m_Route[0].iType = 0;
-	m_iRouteIndex    = 0;
+	memset( m_Route, 0, sizeof( m_Route ) );
+	m_iRouteIndex = 0;
 }
 
 //=========================================================
@@ -253,7 +254,7 @@ void CBaseMonster ::RouteSimplify( CBaseEntity *pTargetEnt )
 	// BUGBUG: this doesn't work 100% yet
 	int i, count, outCount;
 	Vector vecStart;
-	WayPoint_t outRoute[ROUTE_SIZE * 2]; // Any points except the ends can turn into 2 points in the simplified route
+	WayPoint_t outRoute[ROUTE_SIZE * 4]; // Enlarged to prevent stack overrun under heavy triangulation
 
 	count = 0;
 
@@ -273,15 +274,24 @@ void CBaseMonster ::RouteSimplify( CBaseEntity *pTargetEnt )
 		return;
 	}
 
+	g_CrashHandler.LogCustom( "ROUTE_SIMP", "[%3d] %-20s -> RouteSimplify count=%d target=%s",
+	                          entindex(), STRING( pev->classname ), count,
+	                          pTargetEnt ? STRING( pTargetEnt->pev->classname ) : "null" );
+
 	outCount = 0;
 	vecStart = pev->origin;
 	for ( i = 0; i < count - 1; i++ )
 	{
+		if ( outCount >= (int)( ARRAYSIZE( outRoute ) - 4 ) )
+			break;
+
+		if ( m_iRouteIndex + i >= ROUTE_SIZE || m_iRouteIndex + i + 1 >= ROUTE_SIZE )
+			break;
+
 		// Don't eliminate path_corners
 		if ( !ShouldSimplify( m_Route[m_iRouteIndex + i].iType ) )
 		{
 			outRoute[outCount] = m_Route[m_iRouteIndex + i];
-			outCount++;
 		}
 		else if ( CheckLocalMove( vecStart, m_Route[m_iRouteIndex + i + 1].vecLocation, pTargetEnt, NULL ) == LOCALMOVE_VALID )
 		{
@@ -308,9 +318,9 @@ void CBaseMonster ::RouteSimplify( CBaseEntity *pTargetEnt )
 			{
 				outRoute[outCount].iType           = iType;
 				outRoute[outCount].vecLocation     = vecSplit;
-				outRoute[outCount + 1].iType       = iType;
-				outRoute[outCount + 1].vecLocation = vecTest;
 				outCount++; // Adding an extra point
+				outRoute[outCount].iType           = iType;
+				outRoute[outCount].vecLocation     = vecTest;
 			}
 			else
 			{
@@ -321,13 +331,18 @@ void CBaseMonster ::RouteSimplify( CBaseEntity *pTargetEnt )
 		vecStart = outRoute[outCount].vecLocation;
 		outCount++;
 	}
-	ASSERT( i < count );
-	outRoute[outCount] = m_Route[m_iRouteIndex + i];
-	outCount++;
+
+	if ( outCount < (int)( ARRAYSIZE( outRoute ) - 2 ) && ( m_iRouteIndex + i ) < ROUTE_SIZE )
+	{
+		outRoute[outCount] = m_Route[m_iRouteIndex + i];
+		outCount++;
+	}
 
 	// Terminate
-	outRoute[outCount].iType = 0;
-	ASSERT( outCount < ( ROUTE_SIZE * 2 ) );
+	if ( outCount < (int)ARRAYSIZE( outRoute ) )
+	{
+		outRoute[outCount].iType = 0;
+	}
 
 	// Copy the simplified route, disable for testing
 	m_iRouteIndex = 0;
@@ -377,7 +392,7 @@ void CBaseMonster ::AdvanceRoute( float distance )
 				int iLink;
 				WorldGraph.HashSearch( iSrcNode, iDestNode, iLink );
 
-				if ( iLink >= 0 && WorldGraph.m_pLinkPool[iLink].m_pLinkEnt != NULL )
+				if ( iLink >= 0 && iLink < WorldGraph.m_cLinks && WorldGraph.m_pLinkPool && WorldGraph.m_pLinkPool[iLink].m_pLinkEnt != NULL )
 				{
 					// ALERT(at_aiconsole, "A link. ");
 					if ( WorldGraph.HandleLinkEnt( iSrcNode, WorldGraph.m_pLinkPool[iLink].m_pLinkEnt, m_afCapability, CGraph::NODEGRAPH_DYNAMIC ) )
@@ -433,6 +448,10 @@ BOOL CBaseMonster ::BuildRoute( const Vector &vecGoal, int iMoveFlag, CBaseEntit
 	float flDist;
 	Vector vecApex;
 	int iLocalMove;
+
+	g_CrashHandler.LogCustom( "BUILD_ROUTE", "[%3d] %-20s -> BuildRoute goal=(%.1f, %.1f, %.1f), flag=%d, target=%s",
+	                          entindex(), STRING( pev->classname ), vecGoal.x, vecGoal.y, vecGoal.z, iMoveFlag,
+	                          pTarget ? STRING( pTarget->pev->classname ) : "null" );
 
 	RouteNew();
 	m_movementGoal = RouteClassify( iMoveFlag );
@@ -661,6 +680,12 @@ void CBaseMonster ::Move( float flInterval )
 			TaskFail();
 			return;
 		}
+	}
+
+	if ( m_iRouteIndex < 0 || m_iRouteIndex >= ROUTE_SIZE )
+	{
+		TaskFail();
+		return;
 	}
 
 	if ( m_flMoveWaitFinished > gpGlobals->time )
@@ -893,10 +918,15 @@ BOOL CBaseMonster ::FindCover( Vector vecThreat, Vector vecViewOffset, float flM
 		flMinDist = 0.5 * flMaxDist;
 	}
 
-	if ( !WorldGraph.m_fGraphPresent || !WorldGraph.m_fGraphPointersSet )
+	if ( !WorldGraph.m_fGraphPresent || !WorldGraph.m_fGraphPointersSet || WorldGraph.m_cNodes <= 0 || !WorldGraph.m_pNodes )
 	{
 		ALERT( at_aiconsole, "Graph not ready for findcover!\n" );
 		return FALSE;
+	}
+
+	if ( WorldGraph.m_iLastCoverSearch < 0 || WorldGraph.m_iLastCoverSearch >= WorldGraph.m_cNodes )
+	{
+		WorldGraph.m_iLastCoverSearch = 0;
 	}
 
 	iMyNode      = WorldGraph.FindNearestNode( pev->origin, this );
@@ -997,10 +1027,15 @@ BOOL CBaseMonster ::BuildNearestRoute( Vector vecThreat, Vector vecViewOffset, f
 		flMinDist = 0.5 * flMaxDist;
 	}
 
-	if ( !WorldGraph.m_fGraphPresent || !WorldGraph.m_fGraphPointersSet )
+	if ( !WorldGraph.m_fGraphPresent || !WorldGraph.m_fGraphPointersSet || !WorldGraph.m_fRoutingComplete || !WorldGraph.m_pRouteInfo || !WorldGraph.m_pNodes || WorldGraph.m_cNodes <= 0 )
 	{
 		ALERT( at_aiconsole, "Graph not ready for BuildNearestRoute!\n" );
 		return FALSE;
+	}
+
+	if ( WorldGraph.m_iLastCoverSearch < 0 || WorldGraph.m_iLastCoverSearch >= WorldGraph.m_cNodes )
+	{
+		WorldGraph.m_iLastCoverSearch = 0;
 	}
 
 	iMyNode      = WorldGraph.FindNearestNode( pev->origin, this );
@@ -1129,14 +1164,21 @@ BOOL CBaseMonster ::FGetNodeRoute( Vector vecDest )
 
 	for ( i = 0; i < iNumToCopy; i++ )
 	{
-		m_Route[i].vecLocation = WorldGraph.m_pNodes[iPath[i]].m_vecOrigin;
-		m_Route[i].iType       = bits_MF_TO_NODE;
+		if ( iPath[i] >= 0 && iPath[i] < WorldGraph.m_cNodes && WorldGraph.m_pNodes )
+		{
+			m_Route[i].vecLocation = WorldGraph.m_pNodes[iPath[i]].m_vecOrigin;
+			m_Route[i].iType       = bits_MF_TO_NODE;
+		}
+		else
+		{
+			return FALSE;
+		}
 	}
 
 	if ( iNumToCopy < ROUTE_SIZE )
 	{
 		m_Route[iNumToCopy].vecLocation = vecDest;
-		m_Route[iNumToCopy].iType |= bits_MF_IS_GOAL;
+		m_Route[iNumToCopy].iType       = bits_MF_TO_LOCATION | bits_MF_IS_GOAL;
 	}
 
 	return TRUE;

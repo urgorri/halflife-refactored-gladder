@@ -1,4 +1,4 @@
-﻿/***
+/***
  *
  *	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
  *
@@ -146,6 +146,8 @@ TYPEDESCRIPTION CBasePlayer::m_playerSaveData[] =
         // DEFINE_FIELD( CBasePlayer, m_nCustomSprayFrames, FIELD_INTEGER ), // Don't need to restore
 
 };
+
+LINK_ENTITY_TO_CLASS( player, CBasePlayer );
 
 #include "core/player_network.h"
 
