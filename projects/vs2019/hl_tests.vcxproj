@@ -124,6 +124,9 @@
     <ClCompile Include="..\..\dlls\items\item_registry.cpp" />
     <ClCompile Include="..\..\dlls\ai\monster_relationship_manager.cpp" />
     <ClCompile Include="..\..\dlls\ai\talk_companion_registry.cpp" />
+    <ClCompile Include="..\..\dlls\ai\nodes_graph.cpp" />
+    <ClCompile Include="..\..\dlls\ai\nodes_routing.cpp" />
+    <ClCompile Include="..\..\dlls\ai\nodes_links.cpp" />
     <ClCompile Include="..\..\cl_dll\hl\client_weapon_manager.cpp" />
     <ClCompile Include="..\..\cl_dll\events\event_registry.cpp" />
     <ClCompile Include="..\..\cl_dll\hud\hud_registry.cpp" />
@@ -131,9 +134,25 @@
     <ClCompile Include="..\..\tests\test_client_lifecycle.cpp" />
     <ClCompile Include="..\..\tests\test_client_studio.cpp" />
     <ClCompile Include="..\..\tests\test_gamerules_skill.cpp" />
+    <ClCompile Include="..\..\tests\test_gameplay_hooks.cpp" />
+    <ClCompile Include="..\..\tests\test_studio_transform.cpp" />
+    <ClCompile Include="..\..\tests\test_level_transition.cpp" />
     <ClCompile Include="..\..\dlls\gameplay\gamerules_factory.cpp" />
     <ClCompile Include="..\..\dlls\core\skill_manager.cpp" />
     <ClCompile Include="..\..\dlls\core\skill.cpp" />
+    <ClCompile Include="..\..\dlls\core\user_message_registry.cpp" />
+    <ClCompile Include="..\..\cl_dll\entities\entity_visual_registry.cpp" />
+    <ClCompile Include="..\..\dlls\systems\chargers.cpp" />
+    <ClCompile Include="..\..\dlls\systems\effects_beams.cpp" />
+    <ClCompile Include="..\..\dlls\systems\crash_handler.cpp" />
+    <ClCompile Include="..\..\dlls\systems\triggers_audio.cpp" />
+    <ClCompile Include="..\..\dlls\systems\sound_sentences.cpp" />
+    <ClCompile Include="..\..\tests\test_effects_beams.cpp" />
+    <ClCompile Include="..\..\tests\test_crash_handler.cpp" />
+    <ClCompile Include="..\..\tests\test_triggers.cpp" />
+    <ClCompile Include="..\..\tests\test_player_customization.cpp" />
+    <ClCompile Include="..\..\tests\test_ai_navigation.cpp" />
+    <ClCompile Include="..\..\dlls\core\client_customization.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

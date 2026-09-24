@@ -1,4 +1,4 @@
-﻿/***
+/***
  *
  *	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
  *
@@ -226,6 +226,13 @@ BOOL CHalfLifeRules ::FPlayerCanRespawn( CBasePlayer *pPlayer )
 float CHalfLifeRules ::FlPlayerSpawnTime( CBasePlayer *pPlayer )
 {
 	return gpGlobals->time; // now!
+}
+
+//=========================================================
+//=========================================================
+void CHalfLifeRules ::PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse )
+{
+	SERVER_COMMAND( "reload\n" );
 }
 
 //=========================================================

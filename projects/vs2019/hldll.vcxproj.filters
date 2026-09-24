@@ -87,6 +87,9 @@
     <ClCompile Include="..\..\dlls\core\client_commands.cpp">
       <Filter>Source Files\dlls\core</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\core\client_customization.cpp">
+      <Filter>Source Files\dlls\core</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\core\client_networking.cpp">
       <Filter>Source Files\dlls\core</Filter>
     </ClCompile>
@@ -163,6 +166,9 @@
       <Filter>Source Files\dlls\systems</Filter>
     </ClCompile>
     <ClCompile Include="..\..\dlls\systems\effects_beams.cpp">
+      <Filter>Source Files\dlls\systems</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\systems\crash_handler.cpp">
       <Filter>Source Files\dlls\systems</Filter>
     </ClCompile>
     <ClCompile Include="..\..\dlls\weapons\weapon_egon.cpp">
@@ -543,6 +549,9 @@
     <ClCompile Include="..\..\dlls\systems\trigger_cdaudio.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\systems\triggers_audio.cpp">
+      <Filter>Source Files\dlls\systems</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\systems\trigger_changelevel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -744,8 +753,20 @@
     <ClCompile Include="..\..\dlls\items\item_registry.cpp">
       <Filter>Source Files\items</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\core\user_message_registry.cpp">
+      <Filter>Source Files\dlls\core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\dlls\core\user_message_registry.h">
+      <Filter>Header Files\dlls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\core\client_usermsg.h">
+      <Filter>Header Files\dlls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\core\client_customization.h">
+      <Filter>Header Files\dlls</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\dlls\weapons\ammo_base.h">
       <Filter>Header Files\dlls\weapons</Filter>
     </ClInclude>

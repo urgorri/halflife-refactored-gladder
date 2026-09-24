@@ -59,9 +59,64 @@ static void stub_AngleVectors( const float *rgflVector, float *forward, float *r
 	if ( right ) { right[0] = 0; right[1] = 1; right[2] = 0; }
 	if ( up ) { up[0] = 0; up[1] = 0; up[2] = 1; }
 }
-static edict_t *stub_CreateEntity( void ) { return nullptr; }
-static void stub_RemoveEntity( edict_t *e ) {}
-static edict_t *stub_CreateNamedEntity( int className ) { return nullptr; }
+static void stub_FreeEntPrivateData( edict_t *pEdict );
+static const char *stub_SzFromIndex( int iString );
+
+static std::unordered_map<std::string, ENTITYFACTORY> s_mockEntityFactories;
+
+void RegisterMockEntityFactory( const char *pszClassname, ENTITYFACTORY pfnFactory )
+{
+	if ( pszClassname && pfnFactory )
+		s_mockEntityFactories[pszClassname] = pfnFactory;
+}
+
+void ClearMockEntityFactories()
+{
+	s_mockEntityFactories.clear();
+}
+
+static edict_t *stub_CreateEntity( void )
+{
+	edict_t *pEdict = (edict_t *)std::calloc( 1, sizeof( edict_t ) );
+	if ( pEdict )
+		pEdict->v.pContainingEntity = pEdict;
+	return pEdict;
+}
+
+static void stub_RemoveEntity( edict_t *e )
+{
+	if ( e )
+	{
+		stub_FreeEntPrivateData( e );
+		std::free( e );
+	}
+}
+
+static edict_t *stub_CreateNamedEntity( int className )
+{
+	const char *szClass = nullptr;
+	if ( gpGlobals && gpGlobals->pStringBase )
+		szClass = (const char *)( gpGlobals->pStringBase + className );
+	else if ( className >= 0 && className < static_cast<int>( s_stringPool.size() ) )
+		szClass = stub_SzFromIndex( className );
+	else
+		szClass = reinterpret_cast<const char *>( className );
+
+	if ( !szClass || !*szClass )
+		return nullptr;
+
+	auto it = s_mockEntityFactories.find( szClass );
+	if ( it == s_mockEntityFactories.end() )
+		return nullptr;
+
+	edict_t *pEdict = stub_CreateEntity();
+	if ( !pEdict )
+		return nullptr;
+
+	pEdict->v.classname = className;
+	it->second( &pEdict->v );
+	return pEdict;
+}
 static void stub_MakeStatic( edict_t *ent ) {}
 static int stub_EntIsOnFloor( edict_t *e ) { return 1; }
 static int stub_DropToFloor( edict_t *e ) { return 1; }
@@ -118,9 +173,23 @@ static void stub_GetAimVector( edict_t *ent, float speed, float *rgflReturn ) {
 		rgflReturn[0] = 1; rgflReturn[1] = 0; rgflReturn[2] = 0;
 	}
 }
-static void stub_ServerCommand( char *str ) {}
+std::vector<std::string> g_mockServerCommands;
+static void stub_ServerCommand( char *str ) {
+	if ( str ) {
+		g_mockServerCommands.push_back( str );
+	}
+}
 static void stub_ServerExecute( void ) {}
-static void stub_ClientCommand( edict_t *pEdict, char *szFmt, ... ) {}
+std::vector<std::string> g_mockClientCommands;
+static void stub_ClientCommand( edict_t *pEdict, char *szFmt, ... ) {
+	if ( !szFmt ) return;
+	char buffer[2048];
+	va_list argptr;
+	va_start( argptr, szFmt );
+	vsnprintf( buffer, sizeof( buffer ), szFmt, argptr );
+	va_end( argptr );
+	g_mockClientCommands.push_back( buffer );
+}
 static void stub_ParticleEffect( const float *org, const float *dir, float color, float count ) {}
 static void stub_LightStyle( int style, char *val ) {}
 static int stub_DecalIndex( const char *name ) { return 1; }
@@ -240,7 +309,16 @@ static void stub_CVarSetString( const char *szVarName, const char *szValue ) {
 	if ( !szVarName ) return;
 	SetMockCvar( szVarName, szValue ? szValue : "" );
 }
-static void stub_AlertMessage( ALERT_TYPE atype, char *szFmt, ... ) {}
+std::vector<std::string> g_mockAlertMessages;
+static void stub_AlertMessage( ALERT_TYPE atype, char *szFmt, ... ) {
+	if ( !szFmt ) return;
+	char buffer[2048];
+	va_list argptr;
+	va_start( argptr, szFmt );
+	vsnprintf( buffer, sizeof( buffer ), szFmt, argptr );
+	va_end( argptr );
+	g_mockAlertMessages.push_back( buffer );
+}
 static void stub_EngineFprintf( void *pfile, char *szFmt, ... ) {}
 
 static void *stub_PvAllocEntPrivateData( edict_t *pEdict, int32 cb ) {
@@ -278,8 +356,33 @@ static int stub_AllocString( const char *szValue ) {
 static struct entvars_s *stub_GetVarsOfEnt( edict_t *pEdict ) {
 	return pEdict ? &pEdict->v : nullptr;
 }
-static edict_t *stub_PEntityOfEntIndex( int iEntIndex ) { return nullptr; }
-static int stub_EntIndexOfPEntity( const edict_t *pEdict ) { return 0; }
+static edict_t s_mockClientEntities[33];
+
+edict_t *GetMockClientEntity( int clientIndex ) {
+	if ( clientIndex >= 1 && clientIndex <= 32 ) {
+		s_mockClientEntities[clientIndex].v.pContainingEntity = &s_mockClientEntities[clientIndex];
+		return &s_mockClientEntities[clientIndex];
+	}
+	return nullptr;
+}
+
+static edict_t *stub_PEntityOfEntIndex( int iEntIndex ) {
+	if ( iEntIndex >= 1 && iEntIndex <= 32 ) {
+		s_mockClientEntities[iEntIndex].v.pContainingEntity = &s_mockClientEntities[iEntIndex];
+		return &s_mockClientEntities[iEntIndex];
+	}
+	return nullptr;
+}
+
+static int stub_EntIndexOfPEntity( const edict_t *pEdict ) {
+	if ( !pEdict )
+		return 0;
+	for ( int i = 1; i <= 32; i++ ) {
+		if ( pEdict == &s_mockClientEntities[i] )
+			return i;
+	}
+	return 0;
+}
 static edict_t *stub_FindEntityByVars( struct entvars_s *pvars ) { return nullptr; }
 static void *stub_GetModelPtr( edict_t *pEdict ) { return nullptr; }
 static int stub_RegUserMsg( const char *pszName, int iSize ) { return 1; }
@@ -342,9 +445,14 @@ void SetMockTraceLineResult( const TraceResult &tr )
 	g_mockTraceResult = tr;
 }
 
+extern "C" void player( entvars_t *pev );
+
 void ResetMockEngine()
 {
 	g_mockMessageBuffer.clear();
+	g_mockServerCommands.clear();
+	g_mockAlertMessages.clear();
+	g_mockClientCommands.clear();
 	g_mockMessageDest = 0;
 	g_mockMessageType = 0;
 	std::memset( g_mockMessageOrigin, 0, sizeof( g_mockMessageOrigin ) );
@@ -353,7 +461,12 @@ void ResetMockEngine()
 	std::memset( &g_mockTraceResult, 0, sizeof( g_mockTraceResult ) );
 	g_mockTraceResult.flFraction = 1.0f;
 
+	std::memset( s_mockClientEntities, 0, sizeof( s_mockClientEntities ) );
+
 	ClearMockCvars();
+	ClearMockEntityFactories();
+	RegisterMockEntityFactory( "player", player );
+
 	g_teamplay = 0;
 	teamplay.value = 0.0f;
 	sv_busters.value = 0.0f;
@@ -362,12 +475,24 @@ void ResetMockEngine()
 	s_mockGlobals.time = 1.0f;
 	s_mockGlobals.frametime = 0.01f;
 	s_mockGlobals.maxClients = 1;
+
+	g_mockLastSaveChunk.clear();
+	g_mockLastSaveFieldCount = 0;
+	g_mockLastSaveFields = nullptr;
+	g_mockLastRestoreChunk.clear();
+	g_mockRestoreAvailableChunk.clear();
 	gpGlobals = &s_mockGlobals;
 }
 
 void InitMockEngine()
 {
 	std::memset( &g_engfuncs, 0, sizeof( g_engfuncs ) );
+
+	if ( s_stringPool.empty() )
+	{
+		s_stringPool.push_back( "" );
+		s_stringMap[""] = 0;
+	}
 
 	g_engfuncs.pfnPrecacheModel = stub_PrecacheModel;
 	g_engfuncs.pfnPrecacheSound = stub_PrecacheSound;
@@ -508,8 +633,125 @@ void UTIL_PrecacheOther( const char *szClassname )
 
 const Vector g_vecZero = Vector( 0, 0, 0 );
 
-int CBaseEntity::Save( CSave &save ) { return 0; }
-int CBaseEntity::Restore( CRestore &restore ) { return 0; }
+std::string g_mockLastSaveChunk;
+int g_mockLastSaveFieldCount = 0;
+TYPEDESCRIPTION *g_mockLastSaveFields = nullptr;
+std::string g_mockLastRestoreChunk;
+std::string g_mockRestoreAvailableChunk;
+
+int CBaseEntity::Save( CSave &save ) { return 1; }
+int CBaseEntity::Restore( CRestore &restore ) { return 1; }
+
+int CBaseEntity::ShouldToggle( USE_TYPE useType, int currentState )
+{
+	if ( useType == USE_TOGGLE )
+		return 1;
+	return ( useType == USE_ON && !currentState ) || ( useType == USE_OFF && currentState );
+}
+
+void CBaseEntity::SUB_Remove( void )
+{
+	UTIL_Remove( this );
+}
+
+void CPointEntity::Spawn( void )
+{
+	pev->solid = SOLID_NOT;
+}
+
+void CBaseToggle::KeyValue( KeyValueData *pkvd )
+{
+	if ( pkvd )
+		pkvd->fHandled = FALSE;
+}
+
+#include "systems/triggers_brush.h"
+
+void CBaseTrigger::InitTrigger( void ) {}
+void CBaseTrigger::KeyValue( KeyValueData *pkvd ) { if ( pkvd ) pkvd->fHandled = FALSE; }
+void CBaseTrigger::ActivateMultiTrigger( CBaseEntity *pActivator ) {}
+void CBaseTrigger::TeleportTouch( CBaseEntity *pOther ) {}
+void CBaseTrigger::MultiTouch( CBaseEntity *pOther ) {}
+void CBaseTrigger::HurtTouch( CBaseEntity *pOther ) {}
+void CBaseTrigger::CDAudioTouch( CBaseEntity *pOther ) {}
+void CBaseTrigger::MultiWaitOver( void ) {}
+void CBaseTrigger::CounterUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value ) {}
+void CBaseTrigger::ToggleUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value ) {}
+
+
+void UTIL_SetOrigin( entvars_t *pev, const Vector &vecOrigin )
+{
+	pev->origin = vecOrigin;
+}
+
+void UTIL_SetSize( entvars_t *pev, const Vector &vecMin, const Vector &vecMax )
+{
+	pev->mins = vecMin;
+	pev->maxs = vecMax;
+}
+
+void UTIL_TraceLine( const Vector &vecStart, const Vector &vecEnd, IGNORE_MONSTERS igmon, edict_t *pentIgnore, TraceResult *ptr )
+{
+	(void)vecStart;
+	(void)vecEnd;
+	(void)igmon;
+	(void)pentIgnore;
+	if ( ptr )
+		*ptr = g_mockTraceResult;
+}
+
+void UTIL_Sparks( const Vector &position ) {}
+void UTIL_DecalTrace( TraceResult *pTrace, int decalNumber ) {}
+void UTIL_Remove( CBaseEntity *pEntity ) {}
+
+CBaseEntity *UTIL_FindEntityByTargetname( CBaseEntity *pStartEntity, const char *szName )
+{
+	return nullptr;
+}
+
+void ClearMultiDamage( void ) {}
+void ApplyMultiDamage( entvars_t *pevInflictor, entvars_t *pevAttacker ) {}
+
+#include "core/saverestore.h"
+
+CSaveRestoreBuffer::CSaveRestoreBuffer( SAVERESTOREDATA *pdata ) { m_pdata = pdata; }
+CSaveRestoreBuffer::~CSaveRestoreBuffer() {}
+
+void CBaseDelay::KeyValue( KeyValueData *pkvd ) { if ( pkvd ) pkvd->fHandled = FALSE; }
+int CBaseDelay::Save( CSave &save ) { return 1; }
+int CBaseDelay::Restore( CRestore &restore ) { return 1; }
+
+int CBaseAnimating::Save( CSave &save ) { return 1; }
+int CBaseAnimating::Restore( CRestore &restore ) { return 1; }
+
+int CBaseToggle::Save( CSave &save ) { return 1; }
+int CBaseToggle::Restore( CRestore &restore ) { return 1; }
+void CBaseToggle::PlaySentence( const char *pszSentence, float duration, float volume, float attenuation ) {}
+void CBaseToggle::PlayScriptedSentence( const char *pszSentence, float duration, float volume, float attenuation, int bConcurrent, CBaseEntity *pListener ) {}
+void CBaseToggle::SentenceStop( void ) {}
+
+void CBaseEntity::SUB_DoNothing( void ) {}
+
+void EMIT_SOUND_DYN( edict_t *entity, int channel, const char *sample, float volume, float attenuation, int flags, int pitch ) {}
+
+int CSave::WriteFields( const char *pname, void *pBaseData, TYPEDESCRIPTION *pFields, int fieldCount )
+{
+	g_mockLastSaveChunk = ( pname != nullptr ) ? pname : "";
+	g_mockLastSaveFieldCount = fieldCount;
+	g_mockLastSaveFields = pFields;
+	return 1;
+}
+
+int CRestore::ReadFields( const char *pname, void *pBaseData, TYPEDESCRIPTION *pFields, int fieldCount )
+{
+	g_mockLastRestoreChunk = ( pname != nullptr ) ? pname : "";
+	if ( !g_mockRestoreAvailableChunk.empty() )
+	{
+		return ( g_mockRestoreAvailableChunk == g_mockLastRestoreChunk ) ? 1 : 0;
+	}
+	return 1;
+}
+
 void CBaseEntity::SetObjectCollisionBox( void ) {}
 void CBaseEntity::TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType ) {}
 int CBaseEntity::TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType ) { return 0; }
@@ -522,12 +764,120 @@ CBaseEntity *CBaseEntity::GetNextTarget( void ) { return nullptr; }
 int CBaseEntity::FVisible( CBaseEntity *pEntity ) { return 1; }
 int CBaseEntity::FVisible( const Vector &vecTarget ) { return 1; }
 
+#include "player.h"
+
+extern "C" void player( entvars_t *pev )
+{
+	if ( !pev )
+		return;
+	if ( pev->pContainingEntity && pev->pContainingEntity->pvPrivateData == NULL )
+	{
+		ALLOC_PRIVATE( pev->pContainingEntity, sizeof( CBasePlayer ) );
+		CBaseEntity *pEntity = (CBaseEntity *)pev->pContainingEntity->pvPrivateData;
+		if ( pEntity )
+			pEntity->pev = pev;
+	}
+}
+
+CBaseEntity *CBaseEntity::Create( char *szName, const Vector &vecOrigin, const Vector &vecAngles, edict_t *pentOwner )
+{
+	edict_t *pent = CREATE_NAMED_ENTITY( MAKE_STRING( szName ) );
+	if ( !pent )
+		return nullptr;
+
+	CBaseEntity *pEntity = Instance( pent );
+	if ( pEntity )
+	{
+		pEntity->pev->owner = pentOwner;
+		pEntity->pev->origin = vecOrigin;
+		pEntity->pev->angles = vecAngles;
+	}
+	return pEntity;
+}
+
 #include "gameplay/gamerules.h"
 
+CGameRules *g_pGameRules = nullptr;
 int g_iSkillLevel = 1;
+
 
 void CGameRules::RefreshSkillData( void ) {}
 edict_t *CGameRules::GetPlayerSpawnSpot( CBasePlayer *pPlayer ) { return nullptr; }
 BOOL CGameRules::CanHavePlayerItem( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon ) { return TRUE; }
 BOOL CGameRules::CanHaveAmmo( CBasePlayer *pPlayer, const char *pszAmmoName, int iMaxCarry ) { return TRUE; }
+
+#include "ai/monsters.h"
+#include "ai/nodes.h"
+
+edict_t *g_pBodyQueueHead = nullptr;
+Vector VecBModelOrigin( entvars_t *pev ) { return pev ? pev->origin : g_vecZero; }
+void CTestHull::Spawn( entvars_t *pevMasterNode ) {}
+
+BOOL CBaseMonster::ShouldFadeOnDeath( void ) { return FALSE; }
+float CBaseMonster::ChangeYaw( int speed ) { return 0.0f; }
+void CBaseMonster::Look( int iDistance ) {}
+void CBaseMonster::RunAI( void ) {}
+void CBaseMonster::MonsterThink( void ) {}
+int CBaseMonster::IRelationship( CBaseEntity *pTarget ) { return R_NO; }
+void CBaseMonster::MonsterInit( void ) {}
+void CBaseMonster::MonsterInitDead( void ) {}
+void CBaseMonster::BecomeDead( void ) {}
+void CBaseMonster::StartMonster( void ) {}
+CBaseEntity *CBaseMonster::BestVisibleEnemy( void ) { return nullptr; }
+BOOL CBaseMonster::FInViewCone( CBaseEntity *pEntity ) { return TRUE; }
+BOOL CBaseMonster::FInViewCone( Vector *pOrigin ) { return TRUE; }
+void CBaseMonster::HandleAnimEvent( MonsterEvent_t *pEvent ) {}
+int CBaseMonster::CheckLocalMove( const Vector &vecStart, const Vector &vecEnd, CBaseEntity *pTarget, float *pflDist ) { return LOCALMOVE_VALID; }
+void CBaseMonster::Move( float flInterval ) {}
+void CBaseMonster::MoveExecute( CBaseEntity *pTargetEnt, const Vector &vecDir, float flInterval ) {}
+BOOL CBaseMonster::ShouldAdvanceRoute( float flWaypointDist ) { return FALSE; }
+BOOL CBaseMonster::CheckRangeAttack1( float flDot, float flDist ) { return FALSE; }
+BOOL CBaseMonster::CheckRangeAttack2( float flDot, float flDist ) { return FALSE; }
+BOOL CBaseMonster::CheckMeleeAttack1( float flDot, float flDist ) { return FALSE; }
+BOOL CBaseMonster::CheckMeleeAttack2( float flDot, float flDist ) { return FALSE; }
+Schedule_t *CBaseMonster::ScheduleFromName( const char *pName ) { return nullptr; }
+void CBaseMonster::StartTask( Task_t *pTask ) {}
+void CBaseMonster::RunTask( Task_t *pTask ) {}
+Schedule_t *CBaseMonster::GetScheduleOfType( int Type ) { return nullptr; }
+Schedule_t *CBaseMonster::GetSchedule( void ) { return nullptr; }
+int CBaseMonster::CanPlaySequence( BOOL fDisregardState, int interruptLevel ) { return FALSE; }
+MONSTERSTATE CBaseMonster::GetIdealState( void ) { return MONSTERSTATE_NONE; }
+void CBaseMonster::SetActivity( Activity NewActivity ) { m_Activity = NewActivity; }
+void CBaseMonster::ReportAIState( void ) {}
+int CBaseMonster::CheckEnemy( CBaseEntity *pEnemy ) { return 0; }
+int CBaseMonster::FTriangulate( const Vector &vecStart, const Vector &vecEnd, float flDist, CBaseEntity *pTargetEnt, Vector *pApex ) { return 0; }
+int CBaseMonster::BuildNearestRoute( Vector vecThreat, Vector vecViewOffset, float flMinDist, float flMaxDist ) { return 0; }
+int CBaseMonster::FindCover( Vector vecThreat, Vector vecViewOffset, float flMinDist, float flMaxDist ) { return 0; }
+int CBaseMonster::FCanCheckAttacks( void ) { return 0; }
+int CBaseMonster::IgnoreConditions( void ) { return 0; }
+int CBaseMonster::FValidateHintType( short sHint ) { return 0; }
+int CBaseMonster::FCanActiveIdle( void ) { return 0; }
+int CBaseMonster::ISoundMask( void ) { return 0; }
+CSound *CBaseMonster::PBestSound( void ) { return nullptr; }
+CSound *CBaseMonster::PBestScent( void ) { return nullptr; }
+int CBaseMonster::FBecomeProne( void ) { return 0; }
+void CBaseMonster::BarnacleVictimBitten( entvars_t *pevBarnacle ) {}
+void CBaseMonster::BarnacleVictimReleased( void ) {}
+void CBaseMonster::TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType ) {}
+Activity CBaseMonster::GetDeathActivity( void ) { return ACT_DIESIMPLE; }
+void CBaseMonster::Killed( entvars_t *pevAttacker, int iGib ) {}
+void CBaseMonster::GibMonster( void ) {}
+int CBaseMonster::HasHumanGibs( void ) { return 0; }
+int CBaseMonster::HasAlienGibs( void ) { return 0; }
+void CBaseMonster::FadeMonster( void ) {}
+Vector CBaseMonster::GetGunPosition( void ) { return pev ? pev->origin : g_vecZero; }
+int CBaseMonster::TakeHealth( float flHealth, int bitsDamageType ) { return 0; }
+int CBaseMonster::TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType ) { return 0; }
+int CBaseMonster::Save( CSave &save ) { return 1; }
+int CBaseMonster::Restore( CRestore &restore ) { return 1; }
+void CBaseMonster::KeyValue( KeyValueData *pkvd ) { if ( pkvd ) pkvd->fHandled = FALSE; }
+TYPEDESCRIPTION CBaseMonster::m_SaveData[] = {
+	DEFINE_FIELD( CBaseMonster, m_afConditions, FIELD_INTEGER ),
+	DEFINE_FIELD( CBaseMonster, m_afMemory, FIELD_INTEGER ),
+	DEFINE_FIELD( CBaseMonster, m_MonsterState, FIELD_INTEGER ),
+	DEFINE_FIELD( CBaseMonster, m_IdealMonsterState, FIELD_INTEGER ),
+	DEFINE_FIELD( CBaseMonster, m_movementGoal, FIELD_INTEGER ),
+	DEFINE_FIELD( CBaseMonster, m_iTaskStatus, FIELD_INTEGER ),
+};
+
 

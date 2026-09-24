@@ -445,6 +445,7 @@ node_viewer_human
 node_viewer_large
 path_corner
 path_track
+player
 player_loadsaved
 player_weaponstrip
 rpg_rocket

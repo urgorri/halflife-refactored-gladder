@@ -832,6 +832,80 @@
         }
       ]
     },
+    "CWallHealth": {
+      "array": "m_SaveData",
+      "file": "dlls/systems/chargers.cpp",
+      "field_count": 5,
+      "fields": [
+        {
+          "name": "m_flNextCharge",
+          "type": "FIELD_TIME",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_iReactivate",
+          "type": "FIELD_INTEGER",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_iJuice",
+          "type": "FIELD_INTEGER",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_iOn",
+          "type": "FIELD_INTEGER",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_flSoundTime",
+          "type": "FIELD_TIME",
+          "size": 1,
+          "global": false
+        }
+      ]
+    },
+    "CWallRecharge": {
+      "array": "m_SaveData",
+      "file": "dlls/systems/chargers.cpp",
+      "field_count": 5,
+      "fields": [
+        {
+          "name": "m_flNextCharge",
+          "type": "FIELD_TIME",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_iReactivate",
+          "type": "FIELD_INTEGER",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_iJuice",
+          "type": "FIELD_INTEGER",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_iOn",
+          "type": "FIELD_INTEGER",
+          "size": 1,
+          "global": false
+        },
+        {
+          "name": "m_flSoundTime",
+          "type": "FIELD_TIME",
+          "size": 1,
+          "global": false
+        }
+      ]
+    },
     "gEntvarsDescription": {
       "array": "gEntvarsDescription",
       "file": "dlls/core/util_saverestore.cpp",
@@ -1356,5 +1430,5 @@
       ]
     }
   },
-  "all_discovered_tables_count": 109
+  "all_discovered_tables_count": 110
 }

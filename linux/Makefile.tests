@@ -33,19 +33,38 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/test_item_registry.o \
 	$(TESTS_OBJ_DIR)/test_ai_factions.o \
 	$(TESTS_OBJ_DIR)/test_gamerules_skill.o \
+	$(TESTS_OBJ_DIR)/test_gameplay_hooks.o \
 	$(TESTS_OBJ_DIR)/test_client_lifecycle.o \
 	$(TESTS_OBJ_DIR)/test_client_studio.o \
+	$(TESTS_OBJ_DIR)/test_studio_transform.o \
+	$(TESTS_OBJ_DIR)/test_level_transition.o \
 	$(TESTS_OBJ_DIR)/weapon_registry.o \
 	$(TESTS_OBJ_DIR)/item_registry.o \
 	$(TESTS_OBJ_DIR)/monster_relationship_manager.o \
 	$(TESTS_OBJ_DIR)/talk_companion_registry.o \
+	$(TESTS_OBJ_DIR)/nodes_graph.o \
+	$(TESTS_OBJ_DIR)/nodes_routing.o \
+	$(TESTS_OBJ_DIR)/nodes_links.o \
 	$(TESTS_OBJ_DIR)/gamerules_factory.o \
 	$(TESTS_OBJ_DIR)/skill_manager.o \
 	$(TESTS_OBJ_DIR)/skill.o \
+	$(TESTS_OBJ_DIR)/user_message_registry.o \
 	$(TESTS_OBJ_DIR)/client_weapon_manager.o \
 	$(TESTS_OBJ_DIR)/event_registry.o \
 	$(TESTS_OBJ_DIR)/hud_registry.o \
-	$(TESTS_OBJ_DIR)/test_hud_registry.o
+	$(TESTS_OBJ_DIR)/entity_visual_registry.o \
+	$(TESTS_OBJ_DIR)/test_hud_registry.o \
+	$(TESTS_OBJ_DIR)/test_effects_beams.o \
+	$(TESTS_OBJ_DIR)/test_crash_handler.o \
+	$(TESTS_OBJ_DIR)/test_triggers.o \
+	$(TESTS_OBJ_DIR)/test_player_customization.o \
+	$(TESTS_OBJ_DIR)/test_ai_navigation.o \
+	$(TESTS_OBJ_DIR)/client_customization.o \
+	$(TESTS_OBJ_DIR)/chargers.o \
+	$(TESTS_OBJ_DIR)/effects_beams.o \
+	$(TESTS_OBJ_DIR)/triggers_audio.o \
+	$(TESTS_OBJ_DIR)/sound_sentences.o \
+	$(TESTS_OBJ_DIR)/crash_handler.o
 
 PM_OBJS = \
 	$(PM_OBJ_DIR)/pm_shared.o \
@@ -90,6 +109,15 @@ $(TESTS_OBJ_DIR)/monster_relationship_manager.o: $(HLDLL_SRC_DIR)/ai/monster_rel
 $(TESTS_OBJ_DIR)/talk_companion_registry.o: $(HLDLL_SRC_DIR)/ai/talk_companion_registry.cpp | dirs
 	$(DO_TESTS_CXX)
 
+$(TESTS_OBJ_DIR)/nodes_graph.o: $(HLDLL_SRC_DIR)/ai/nodes_graph.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/nodes_routing.o: $(HLDLL_SRC_DIR)/ai/nodes_routing.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/nodes_links.o: $(HLDLL_SRC_DIR)/ai/nodes_links.cpp | dirs
+	$(DO_TESTS_CXX)
+
 $(TESTS_OBJ_DIR)/gamerules_factory.o: $(HLDLL_SRC_DIR)/gameplay/gamerules_factory.cpp | dirs
 	$(DO_TESTS_CXX)
 
@@ -106,6 +134,30 @@ $(TESTS_OBJ_DIR)/event_registry.o: $(SOURCE_DIR)/cl_dll/events/event_registry.cp
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/hud_registry.o: $(SOURCE_DIR)/cl_dll/hud/hud_registry.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/user_message_registry.o: $(HLCORE_SRC_DIR)/user_message_registry.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/client_customization.o: $(HLCORE_SRC_DIR)/client_customization.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/entity_visual_registry.o: $(SOURCE_DIR)/cl_dll/entities/entity_visual_registry.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/chargers.o: $(HLDLL_SRC_DIR)/systems/chargers.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/effects_beams.o: $(HLDLL_SRC_DIR)/systems/effects_beams.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/triggers_audio.o: $(HLDLL_SRC_DIR)/systems/triggers_audio.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/sound_sentences.o: $(HLDLL_SRC_DIR)/systems/sound_sentences.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/crash_handler.o: $(HLDLL_SRC_DIR)/systems/crash_handler.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs

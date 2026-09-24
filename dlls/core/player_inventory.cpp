@@ -44,10 +44,6 @@ extern DLL_GLOBAL int gDisplayTitle;
 extern bool IsBustingGame();
 extern cvar_t weaponstay;
 
-#ifndef OBS_ROAMING
-#define OBS_ROAMING 1
-#endif
-
 extern DLL_GLOBAL ULONG g_ulModelIndexPlayer;
 extern DLL_GLOBAL BOOL g_fGameOver;
 

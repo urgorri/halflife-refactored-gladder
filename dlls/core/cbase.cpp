@@ -20,6 +20,7 @@
 #include "core/client.h"
 #include "gameplay/gamerules.h"
 #include "core/game.h"
+#include "systems/crash_handler.h"
 
 void EntvarsKeyvalue( entvars_t *pev, KeyValueData *pkvd );
 
@@ -208,7 +209,10 @@ void DispatchTouch( edict_t *pentTouched, edict_t *pentOther )
 	CBaseEntity *pOther  = (CBaseEntity *)GET_PRIVATE( pentOther );
 
 	if ( pEntity && pOther && !( ( pEntity->pev->flags | pOther->pev->flags ) & FL_KILLME ) )
+	{
+		g_CrashHandler.LogTouch( pentTouched, pentOther );
 		pEntity->Touch( pOther );
+	}
 }
 
 void DispatchUse( edict_t *pentUsed, edict_t *pentOther )
@@ -217,7 +221,10 @@ void DispatchUse( edict_t *pentUsed, edict_t *pentOther )
 	CBaseEntity *pOther  = (CBaseEntity *)GET_PRIVATE( pentOther );
 
 	if ( pEntity && !( pEntity->pev->flags & FL_KILLME ) )
+	{
+		g_CrashHandler.LogUse( pentUsed, pentOther, pentOther, USE_TOGGLE, 0 );
 		pEntity->Use( pOther, pOther, USE_TOGGLE, 0 );
+	}
 }
 
 void DispatchThink( edict_t *pent )
@@ -225,6 +232,7 @@ void DispatchThink( edict_t *pent )
 	CBaseEntity *pEntity = (CBaseEntity *)GET_PRIVATE( pent );
 	if ( pEntity )
 	{
+		g_CrashHandler.LogThink( pent, pEntity->pev->nextthink );
 		if ( FBitSet( pEntity->pev->flags, FL_DORMANT ) )
 			ALERT( at_error, "Dormant entity %s is thinking!!\n", STRING( pEntity->pev->classname ) );
 
@@ -238,7 +246,10 @@ void DispatchBlocked( edict_t *pentBlocked, edict_t *pentOther )
 	CBaseEntity *pOther  = (CBaseEntity *)GET_PRIVATE( pentOther );
 
 	if ( pEntity )
+	{
+		g_CrashHandler.LogBlocked( pentBlocked, pentOther );
 		pEntity->Blocked( pOther );
+	}
 }
 
 void DispatchSave( edict_t *pent, SAVERESTOREDATA *pSaveData )

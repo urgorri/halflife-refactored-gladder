@@ -42,4 +42,8 @@ extern cvar_t *g_psv_aim;
 extern cvar_t *g_psv_allow_autoaim;
 extern cvar_t *g_footsteps;
 
+// Diagnostic & Tracing Cvars
+extern cvar_t trace_crash;
+extern cvar_t developer_trace;
+
 #endif // GAME_H

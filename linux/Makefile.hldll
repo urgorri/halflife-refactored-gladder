@@ -47,6 +47,7 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/monsters/bloater.o \
 	$(HLDLL_OBJ_DIR)/world/bmodels.o \
 	$(HLDLL_OBJ_DIR)/systems/chargers.o \
+	$(HLDLL_OBJ_DIR)/systems/crash_handler.o \
 	$(HLDLL_OBJ_DIR)/items/items.o \
 	$(HLDLL_OBJ_DIR)/items/ammo_items.o \
 	$(HLDLL_OBJ_DIR)/systems/effects_shooters.o \
@@ -72,9 +73,11 @@ HLDLL_OBJS = \
 	$(HLCORE_OBJ_DIR)/player_combat.o \
 	$(HLCORE_OBJ_DIR)/player_cheats.o \
 	$(HLCORE_OBJ_DIR)/client_usermsg.o \
+	$(HLCORE_OBJ_DIR)/user_message_registry.o \
 	$(HLCORE_OBJ_DIR)/client_spectator.o \
 	$(HLCORE_OBJ_DIR)/client_networking.o \
 	$(HLCORE_OBJ_DIR)/client_commands.o \
+	$(HLCORE_OBJ_DIR)/client_customization.o \
 	$(HLDLL_OBJ_DIR)/monsters/controller.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_crossbow.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_damage.o \
@@ -178,6 +181,7 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/gameplay/singleplay_gamerules.o \
 	$(HLDLL_OBJ_DIR)/gameplay/stats.o \
 	$(HLDLL_OBJ_DIR)/systems/triggers_brush.o \
+	$(HLDLL_OBJ_DIR)/systems/triggers_audio.o \
 	$(HLDLL_OBJ_DIR)/systems/triggers_point.o \
 	$(HLDLL_OBJ_DIR)/monsters/tentacle.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_tripmine.o \

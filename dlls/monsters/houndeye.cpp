@@ -794,6 +794,7 @@ void CHoundeye::PrescheduleThink( void )
 	{
 		CSquadMonster *pSquadMember;
 		int iSquadCount = 0;
+		Vector vecSum   = g_vecZero;
 
 		for ( int i = 0; i < MAX_SQUAD_MEMBERS; i++ )
 		{
@@ -802,11 +803,18 @@ void CHoundeye::PrescheduleThink( void )
 			if ( pSquadMember )
 			{
 				iSquadCount++;
-				m_vecPackCenter = m_vecPackCenter + pSquadMember->pev->origin;
+				vecSum = vecSum + pSquadMember->pev->origin;
 			}
 		}
 
-		m_vecPackCenter = m_vecPackCenter / iSquadCount;
+		if ( iSquadCount > 0 )
+		{
+			m_vecPackCenter = vecSum / iSquadCount;
+		}
+		else
+		{
+			m_vecPackCenter = pev->origin;
+		}
 	}
 }
 

@@ -87,6 +87,8 @@ class CNode
 #define NODE_LARGE_HULL 2
 #define NODE_FLY_HULL 3
 
+#define ENTRY_STATE_EMPTY -1
+
 class CLink
 {
   public:
@@ -220,7 +222,7 @@ class CGraph
 	inline CNode &Node( int i )
 	{
 #ifdef _DEBUG
-		if ( !m_pNodes || i < 0 || i > m_cNodes )
+		if ( !m_pNodes || i < 0 || i >= m_cNodes )
 			ALERT( at_error, "Bad Node!\n" );
 #endif
 		return m_pNodes[i];
@@ -229,7 +231,7 @@ class CGraph
 	inline CLink &Link( int i )
 	{
 #ifdef _DEBUG
-		if ( !m_pLinkPool || i < 0 || i > m_cLinks )
+		if ( !m_pLinkPool || i < 0 || i >= m_cLinks )
 			ALERT( at_error, "Bad link!\n" );
 #endif
 		return m_pLinkPool[i];

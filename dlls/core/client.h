@@ -34,6 +34,8 @@ extern void ClientPrecache( void );
 
 extern const char *GetGameDescription( void );
 extern void PlayerCustomization( edict_t *pEntity, customization_t *pCust );
+extern int GetPendingCustomDecalFrames( int clientIndex );
+extern void ClearPendingCustomDecalFrames( int clientIndex );
 
 extern void SpectatorConnect( edict_t *pEntity );
 extern void SpectatorDisconnect( edict_t *pEntity );

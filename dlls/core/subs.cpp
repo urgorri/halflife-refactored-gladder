@@ -23,6 +23,7 @@
 #include "core/extdll.h"
 #include "core/util.h"
 #include "core/cbase.h"
+#include "systems/crash_handler.h"
 #include "core/saverestore.h"
 #include "ai/nodes.h"
 #include "systems/doors.h"
@@ -184,6 +185,8 @@ void FireTargets( const char *targetName, CBaseEntity *pActivator, CBaseEntity *
 	edict_t *pentTarget = NULL;
 	if ( !targetName )
 		return;
+
+	g_CrashHandler.LogFireTargets( targetName, pCaller ? pCaller->edict() : NULL, pActivator ? pActivator->edict() : NULL, (int)useType, value );
 
 	ALERT( at_aiconsole, "Firing: (%s)\n", targetName );
 

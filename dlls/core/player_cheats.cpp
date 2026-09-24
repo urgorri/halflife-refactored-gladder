@@ -19,6 +19,7 @@
 #include "world/trains.h"
 #include "ai/basemonster.h"
 #include "gameplay/gamerules.h"
+#include "core/client_customization.h"
 
 #define TRAIN_ACTIVE 0x80
 #define TRAIN_NEW 0xc0
@@ -118,32 +119,3 @@ void CBasePlayer ::EnableControl( BOOL fControl )
 //=========================================================
 // Autoaim
 // set crosshair position to point to enemey
-
-/*
-=============
-SetCustomDecalFrames
-
-  Maximum animation frame rate clamp
-  Note:  -1 means no custom frames present.
-=============
-*/
-void CBasePlayer ::SetCustomDecalFrames( int nFrames )
-{
-	if ( nFrames > 0 &&
-	     nFrames < 8 )
-		m_nCustomSprayFrames = nFrames;
-	else
-		m_nCustomSprayFrames = -1;
-}
-
-/*
-=============
-GetCustomDecalFrames
-
-  Returns the # of custom frames this player's custom clan logo contains.
-=============
-*/
-int CBasePlayer ::GetCustomDecalFrames( void )
-{
-	return m_nCustomSprayFrames;
-}

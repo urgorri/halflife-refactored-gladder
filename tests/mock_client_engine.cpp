@@ -773,12 +773,18 @@ bool LoadClientLibrary( const char *customPath )
 #if defined( _WIN32 )
 	candidatePaths.push_back( "build-cmake/bin/Release/client.dll" );
 	candidatePaths.push_back( "build-cmake/bin/client.dll" );
+	candidatePaths.push_back( "build/bin/Release/client.dll" );
+	candidatePaths.push_back( "build/bin/client.dll" );
+	candidatePaths.push_back( "bin/Release/client.dll" );
+	candidatePaths.push_back( "bin/client.dll" );
 	candidatePaths.push_back( "projects/vs2019/Release/hl_cdll/client.dll" );
 	candidatePaths.push_back( "Release/hl_cdll/client.dll" );
 	candidatePaths.push_back( "../hl_cdll/client.dll" );
 	candidatePaths.push_back( "client.dll" );
 #else
 	candidatePaths.push_back( "build-cmake/bin/client.so" );
+	candidatePaths.push_back( "build/bin/client.so" );
+	candidatePaths.push_back( "bin/client.so" );
 	candidatePaths.push_back( "linux/release/cl_dlls/client.so" );
 	candidatePaths.push_back( "release/cl_dlls/client.so" );
 	candidatePaths.push_back( "cl_dlls/client.so" );

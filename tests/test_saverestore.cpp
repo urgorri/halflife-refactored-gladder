@@ -23,6 +23,7 @@
 #include "weapons/weapon_satchel.h"
 #include "weapons/weapon_shotgun.h"
 #include "weapons/weapon_box.h"
+#include "systems/chargers.h"
 
 #if defined( _MSC_VER )
 
@@ -138,6 +139,15 @@ static_assert( offsetof( CBaseToggle, m_pfnCallWhenMoveDone ) == 204, "CBaseTogg
 static_assert( offsetof( CBaseToggle, m_vecFinalDest ) == 208, "CBaseToggle::m_vecFinalDest offset shifted" );
 static_assert( offsetof( CBaseToggle, m_vecFinalAngle ) == 220, "CBaseToggle::m_vecFinalAngle offset shifted" );
 
+// --- CBaseWallCharger ---
+static_assert( offsetof( CBaseWallCharger, m_flNextCharge ) == 240, "CBaseWallCharger::m_flNextCharge offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_iReactivate ) == 244, "CBaseWallCharger::m_iReactivate offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_iJuice ) == 248, "CBaseWallCharger::m_iJuice offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_iOn ) == 252, "CBaseWallCharger::m_iOn offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_flSoundTime ) == 256, "CBaseWallCharger::m_flSoundTime offset shifted" );
+static_assert( sizeof( CWallHealth ) == sizeof( CBaseWallCharger ), "CWallHealth size diverges from CBaseWallCharger" );
+static_assert( sizeof( CWallRecharge ) == sizeof( CBaseWallCharger ), "CWallRecharge size diverges from CBaseWallCharger" );
+
 #elif defined( __GNUC__ )
 
 // ============================================================================
@@ -252,4 +262,99 @@ static_assert( offsetof( CBaseToggle, m_pfnCallWhenMoveDone ) == 220, "CBaseTogg
 static_assert( offsetof( CBaseToggle, m_vecFinalDest ) == 228, "CBaseToggle::m_vecFinalDest offset shifted" );
 static_assert( offsetof( CBaseToggle, m_vecFinalAngle ) == 240, "CBaseToggle::m_vecFinalAngle offset shifted" );
 
+// --- CBaseWallCharger ---
+static_assert( offsetof( CBaseWallCharger, m_flNextCharge ) == 260, "CBaseWallCharger::m_flNextCharge offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_iReactivate ) == 264, "CBaseWallCharger::m_iReactivate offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_iJuice ) == 268, "CBaseWallCharger::m_iJuice offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_iOn ) == 272, "CBaseWallCharger::m_iOn offset shifted" );
+static_assert( offsetof( CBaseWallCharger, m_flSoundTime ) == 276, "CBaseWallCharger::m_flSoundTime offset shifted" );
+static_assert( sizeof( CWallHealth ) == sizeof( CBaseWallCharger ), "CWallHealth size diverges from CBaseWallCharger" );
+static_assert( sizeof( CWallRecharge ) == sizeof( CBaseWallCharger ), "CWallRecharge size diverges from CBaseWallCharger" );
+
 #endif
+
+#include "external/catch2/catch_amalgamated.hpp"
+#include "tests/mock_engine.h"
+
+TEST_CASE( "Charger: CWallHealth save/restore canonical chunk identifier and fallback", "[charger][saverestore]" )
+{
+	ResetMockEngine();
+
+	CWallHealth healthCharger;
+	SAVERESTOREDATA data;
+	memset( &data, 0, sizeof( data ) );
+	CSave saveHelper( &data );
+	CRestore restoreHelper( &data );
+
+	// Canonical rule: CWallHealth::Save must serialize under chunk identifier "CWallHealth"
+	healthCharger.Save( saveHelper );
+	CHECK( g_mockLastSaveChunk == "CWallHealth" );
+
+	// Canonical rule: CWallHealth::Restore must deserialize from "CWallHealth"
+	g_mockRestoreAvailableChunk = "CWallHealth";
+	int ok = healthCharger.Restore( restoreHelper );
+	CHECK( ok == 1 );
+	CHECK( g_mockLastRestoreChunk == "CWallHealth" );
+
+	// Fallback rule: CWallHealth::Restore must also accept "CBaseWallCharger" fallback
+	g_mockRestoreAvailableChunk = "CBaseWallCharger";
+	ok = healthCharger.Restore( restoreHelper );
+	CHECK( ok == 1 );
+}
+
+TEST_CASE( "Charger: CWallRecharge save/restore canonical chunk identifier (CRecharge) and fallback", "[charger][saverestore]" )
+{
+	ResetMockEngine();
+
+	CWallRecharge suitCharger;
+	SAVERESTOREDATA data;
+	memset( &data, 0, sizeof( data ) );
+	CSave saveHelper( &data );
+	CRestore restoreHelper( &data );
+
+	// Canonical rule: CWallRecharge::Save must serialize under canonical chunk identifier "CRecharge"
+	suitCharger.Save( saveHelper );
+	CHECK( g_mockLastSaveChunk == "CRecharge" );
+
+	// Canonical rule: CWallRecharge::Restore must deserialize from "CRecharge"
+	g_mockRestoreAvailableChunk = "CRecharge";
+	int ok = suitCharger.Restore( restoreHelper );
+	CHECK( ok == 1 );
+	CHECK( g_mockLastRestoreChunk == "CRecharge" );
+
+	// Fallback rule: CWallRecharge::Restore must also accept "CBaseWallCharger" fallback
+	g_mockRestoreAvailableChunk = "CBaseWallCharger";
+	ok = suitCharger.Restore( restoreHelper );
+	CHECK( ok == 1 );
+}
+
+TEST_CASE( "Charger: CWallHealth save table contains canonical 5 fields including m_flSoundTime (#145)", "[charger][saverestore]" )
+{
+	ResetMockEngine();
+
+	CWallHealth healthCharger;
+	SAVERESTOREDATA data;
+	memset( &data, 0, sizeof( data ) );
+	CSave saveHelper( &data );
+
+	healthCharger.Save( saveHelper );
+
+	// Canonical Valve GoldSrc healthkit.cpp defines 5 fields for CWallHealth::m_SaveData
+	// 0: m_flNextCharge (FIELD_TIME)
+	// 1: m_iReactivate (FIELD_INTEGER)
+	// 2: m_iJuice (FIELD_INTEGER)
+	// 3: m_iOn (FIELD_INTEGER)
+	// 4: m_flSoundTime (FIELD_TIME)
+	REQUIRE( g_mockLastSaveFieldCount == 5 );
+	REQUIRE( g_mockLastSaveFields != nullptr );
+	CHECK( strcmp( g_mockLastSaveFields[0].fieldName, "m_flNextCharge" ) == 0 );
+	CHECK( g_mockLastSaveFields[0].fieldType == FIELD_TIME );
+	CHECK( strcmp( g_mockLastSaveFields[1].fieldName, "m_iReactivate" ) == 0 );
+	CHECK( g_mockLastSaveFields[1].fieldType == FIELD_INTEGER );
+	CHECK( strcmp( g_mockLastSaveFields[2].fieldName, "m_iJuice" ) == 0 );
+	CHECK( g_mockLastSaveFields[2].fieldType == FIELD_INTEGER );
+	CHECK( strcmp( g_mockLastSaveFields[3].fieldName, "m_iOn" ) == 0 );
+	CHECK( g_mockLastSaveFields[3].fieldType == FIELD_INTEGER );
+	CHECK( strcmp( g_mockLastSaveFields[4].fieldName, "m_flSoundTime" ) == 0 );
+	CHECK( g_mockLastSaveFields[4].fieldType == FIELD_TIME );
+}

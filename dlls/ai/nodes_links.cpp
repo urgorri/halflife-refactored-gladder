@@ -119,6 +119,10 @@ int CGraph ::HandleLinkEnt( int iNode, entvars_t *pevLinkEnt, int afCapMask, NOD
 	{ // ent is a door.
 
 		pDoor = ( CBaseEntity::Instance( pevLinkEnt ) );
+		if ( !pDoor )
+		{
+			return FALSE;
+		}
 
 		if ( ( pevLinkEnt->spawnflags & SF_DOOR_USE_ONLY ) )
 		{ // door is use only.
@@ -192,11 +196,7 @@ int CGraph ::LinkVisibleNodes( CLink *pLinkPool, FILE *file, int *piBadNode )
 		return FALSE;
 	}
 
-	if ( !file )
-	{
-		ALERT( at_aiconsole, "**LinkVisibleNodes:\ncan't write to file." );
-	}
-	else
+	if ( file )
 	{
 		fprintf( file, "----------------------------------------------------------------------------\n" );
 		fprintf( file, "LinkVisibleNodes - Initial Connections\n" );
@@ -295,7 +295,10 @@ int CGraph ::LinkVisibleNodes( CLink *pLinkPool, FILE *file, int *piBadNode )
 			if ( cLinksThisNode == MAX_NODE_INITIAL_LINKS )
 			{
 				ALERT( at_aiconsole, "**LinkVisibleNodes:\nNode %d has NodeLinks > MAX_NODE_INITIAL_LINKS", i );
-				fprintf( file, "** NODE %d HAS NodeLinks > MAX_NODE_INITIAL_LINKS **\n", i );
+				if ( file )
+				{
+					fprintf( file, "** NODE %d HAS NodeLinks > MAX_NODE_INITIAL_LINKS **\n", i );
+				}
 				*piBadNode = i;
 				return FALSE;
 			}
@@ -308,7 +311,10 @@ int CGraph ::LinkVisibleNodes( CLink *pLinkPool, FILE *file, int *piBadNode )
 
 			if ( cLinksThisNode == 0 )
 			{
-				fprintf( file, "**NO INITIAL LINKS**\n" );
+				if ( file )
+				{
+					fprintf( file, "**NO INITIAL LINKS**\n" );
+				}
 			}
 
 			WorldGraph.m_pNodes[i].m_cNumLinks = cLinksThisNode;
@@ -325,8 +331,11 @@ int CGraph ::LinkVisibleNodes( CLink *pLinkPool, FILE *file, int *piBadNode )
 		}
 	}
 
-	fprintf( file, "\n%4d Total Initial Connections - %4d Maximum connections for a single node.\n", cTotalLinks, cMaxInitialLinks );
-	fprintf( file, "----------------------------------------------------------------------------\n\n\n" );
+	if ( file )
+	{
+		fprintf( file, "\n%4d Total Initial Connections - %4d Maximum connections for a single node.\n", cTotalLinks, cMaxInitialLinks );
+		fprintf( file, "----------------------------------------------------------------------------\n\n\n" );
+	}
 
 	return cTotalLinks;
 }
@@ -425,8 +434,6 @@ int CGraph ::RejectInlineLinks( CLink *pLinkPool, FILE *file )
 	return cRejectedLinks;
 }
 
-#define ENTRY_STATE_EMPTY -1
-
 struct tagNodePair
 {
 	short iSrc;
@@ -435,6 +442,11 @@ struct tagNodePair
 
 void CGraph::HashInsert( int iSrcNode, int iDestNode, int iKey )
 {
+	if ( !m_pHashLinks || m_nHashLinks <= 0 )
+	{
+		return;
+	}
+
 	struct tagNodePair np;
 
 	np.iSrc  = iSrcNode;
@@ -444,19 +456,29 @@ void CGraph::HashInsert( int iSrcNode, int iDestNode, int iKey )
 	CRC32_PROCESS_BUFFER( &dwHash, &np, sizeof( np ) );
 	dwHash = CRC32_FINAL( dwHash );
 
-	int di = m_HashPrimes[dwHash & 15];
-	int i  = ( dwHash >> 4 ) % m_nHashLinks;
-	while ( m_pHashLinks[i] != ENTRY_STATE_EMPTY )
+	int di            = m_HashPrimes[dwHash & 15];
+	int i             = ( dwHash >> 4 ) % m_nHashLinks;
+	int maxIterations = m_nHashLinks;
+	while ( m_pHashLinks[i] != ENTRY_STATE_EMPTY && maxIterations-- > 0 )
 	{
 		i += di;
 		if ( i >= m_nHashLinks )
 			i -= m_nHashLinks;
 	}
-	m_pHashLinks[i] = iKey;
+	if ( i >= 0 && i < m_nHashLinks )
+	{
+		m_pHashLinks[i] = iKey;
+	}
 }
 
 void CGraph::HashSearch( int iSrcNode, int iDestNode, int &iKey )
 {
+	iKey = ENTRY_STATE_EMPTY;
+	if ( !m_pHashLinks || m_nHashLinks <= 0 || !m_pLinkPool || m_cLinks <= 0 )
+	{
+		return;
+	}
+
 	struct tagNodePair np;
 
 	np.iSrc  = iSrcNode;
@@ -466,23 +488,28 @@ void CGraph::HashSearch( int iSrcNode, int iDestNode, int &iKey )
 	CRC32_PROCESS_BUFFER( &dwHash, &np, sizeof( np ) );
 	dwHash = CRC32_FINAL( dwHash );
 
-	int di = m_HashPrimes[dwHash & 15];
-	int i  = ( dwHash >> 4 ) % m_nHashLinks;
-	while ( m_pHashLinks[i] != ENTRY_STATE_EMPTY )
+	int di            = m_HashPrimes[dwHash & 15];
+	int i             = ( dwHash >> 4 ) % m_nHashLinks;
+	int maxIterations = m_nHashLinks;
+	while ( m_pHashLinks[i] != ENTRY_STATE_EMPTY && maxIterations-- > 0 )
 	{
-		CLink &link = Link( m_pHashLinks[i] );
-		if ( iSrcNode == link.m_iSrcNode && iDestNode == link.m_iDestNode )
+		int linkIdx = m_pHashLinks[i];
+		if ( linkIdx >= 0 && linkIdx < m_cLinks )
 		{
-			break;
+			CLink &link = m_pLinkPool[linkIdx];
+			if ( iSrcNode == link.m_iSrcNode && iDestNode == link.m_iDestNode )
+			{
+				break;
+			}
 		}
-		else
-		{
-			i += di;
-			if ( i >= m_nHashLinks )
-				i -= m_nHashLinks;
-		}
+		i += di;
+		if ( i >= m_nHashLinks )
+			i -= m_nHashLinks;
 	}
-	iKey = m_pHashLinks[i];
+	if ( i >= 0 && i < m_nHashLinks )
+	{
+		iKey = m_pHashLinks[i];
+	}
 }
 
 #define NUMBER_OF_PRIMES 177

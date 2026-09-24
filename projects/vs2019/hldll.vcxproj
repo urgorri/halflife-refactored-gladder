@@ -128,14 +128,17 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\core\player_combat.cpp" />
     <ClCompile Include="..\..\dlls\core\player_cheats.cpp" />
     <ClCompile Include="..\..\dlls\core\client_usermsg.cpp" />
+    <ClCompile Include="..\..\dlls\core\user_message_registry.cpp" />
     <ClCompile Include="..\..\dlls\core\client_spectator.cpp" />
     <ClCompile Include="..\..\dlls\core\client_networking.cpp" />
     <ClCompile Include="..\..\dlls\core\client_commands.cpp" />
+    <ClCompile Include="..\..\dlls\core\client_customization.cpp" />
     <ClCompile Include="..\..\dlls\monsters\controller.cpp" />
     <ClCompile Include="..\..\dlls\weapons\weapon_crowbar.cpp" />
     <ClCompile Include="..\..\dlls\ai\defaultai.cpp" />
     <ClCompile Include="..\..\dlls\systems\doors.cpp" />
     <ClCompile Include="..\..\dlls\systems\effects_beams.cpp" />
+    <ClCompile Include="..\..\dlls\systems\crash_handler.cpp" />
     <ClCompile Include="..\..\dlls\weapons\weapon_egon.cpp" />
     <ClCompile Include="..\..\dlls\systems\explode.cpp" />
     <ClCompile Include="..\..\dlls\ai\flyingmonster.cpp" />
@@ -228,6 +231,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\ai\talkmonster.cpp" />
     <ClCompile Include="..\..\dlls\gameplay\teamplay_gamerules.cpp" />
     <ClCompile Include="..\..\dlls\systems\triggers_brush.cpp" />
+    <ClCompile Include="..\..\dlls\systems\triggers_audio.cpp" />
     <ClCompile Include="..\..\dlls\systems\triggers_point.cpp" />
     <ClCompile Include="..\..\dlls\monsters\tentacle.cpp" />
     <ClCompile Include="..\..\dlls\weapons\weapon_tripmine.cpp" />
@@ -323,6 +327,9 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClInclude Include="..\..\dlls\core\player_inventory.h" />
     <ClInclude Include="..\..\dlls\core\player_physics.h" />
     <ClInclude Include="..\..\dlls\core\player_network.h" />
+    <ClInclude Include="..\..\dlls\core\user_message_registry.h" />
+    <ClInclude Include="..\..\dlls\core\client_usermsg.h" />
+    <ClInclude Include="..\..\dlls\core\client_customization.h" />
     <ClInclude Include="..\..\dlls\core\saverestore.h" />
     <ClInclude Include="..\..\dlls\schedule.h" />
     <ClInclude Include="..\..\dlls\gameplay\scripted.h" />

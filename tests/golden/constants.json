@@ -556,6 +556,7 @@
       "node_viewer_large": "CNodeViewer",
       "path_corner": "CPathCorner",
       "path_track": "CPathTrack",
+      "player": "CBasePlayer",
       "player_loadsaved": "CRevertSaved",
       "player_weaponstrip": "CStripWeapons",
       "rpg_rocket": "CRpgRocket",

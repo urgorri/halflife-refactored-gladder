@@ -1,16 +1,65 @@
 #include "systems/chargers.h"
 #include "weapons/weapon_base.h"
 
-TYPEDESCRIPTION CBaseWallCharger::m_SaveData[] =
-    {
-        DEFINE_FIELD( CBaseWallCharger, m_flNextCharge, FIELD_TIME ),
-        DEFINE_FIELD( CBaseWallCharger, m_iReactivate, FIELD_INTEGER ),
-        DEFINE_FIELD( CBaseWallCharger, m_iJuice, FIELD_INTEGER ),
-        DEFINE_FIELD( CBaseWallCharger, m_iOn, FIELD_INTEGER ),
-        DEFINE_FIELD( CBaseWallCharger, m_flSoundTime, FIELD_TIME ),
+TYPEDESCRIPTION CWallHealth::m_SaveData[] =
+{
+	DEFINE_FIELD( CWallHealth, m_flNextCharge, FIELD_TIME ),
+	DEFINE_FIELD( CWallHealth, m_iReactivate, FIELD_INTEGER ),
+	DEFINE_FIELD( CWallHealth, m_iJuice, FIELD_INTEGER ),
+	DEFINE_FIELD( CWallHealth, m_iOn, FIELD_INTEGER ),
+	DEFINE_FIELD( CWallHealth, m_flSoundTime, FIELD_TIME ),
 };
 
-IMPLEMENT_SAVERESTORE( CBaseWallCharger, CBaseToggle );
+int CWallHealth::Save( CSave &save )
+{
+	if ( !CBaseEntity::Save( save ) )
+		return 0;
+	return save.WriteFields( "CWallHealth", this, m_SaveData, ARRAYSIZE( m_SaveData ) );
+}
+
+int CWallHealth::Restore( CRestore &restore )
+{
+	if ( !CBaseEntity::Restore( restore ) )
+		return 0;
+	if ( restore.ReadFields( "CWallHealth", this, m_SaveData, ARRAYSIZE( m_SaveData ) ) )
+		return 1;
+	return restore.ReadFields( "CBaseWallCharger", this, m_SaveData, ARRAYSIZE( m_SaveData ) );
+}
+
+TYPEDESCRIPTION CWallRecharge::m_SaveData[] =
+{
+	DEFINE_FIELD( CWallRecharge, m_flNextCharge, FIELD_TIME ),
+	DEFINE_FIELD( CWallRecharge, m_iReactivate, FIELD_INTEGER ),
+	DEFINE_FIELD( CWallRecharge, m_iJuice, FIELD_INTEGER ),
+	DEFINE_FIELD( CWallRecharge, m_iOn, FIELD_INTEGER ),
+	DEFINE_FIELD( CWallRecharge, m_flSoundTime, FIELD_TIME ),
+};
+
+int CWallRecharge::Save( CSave &save )
+{
+	if ( !CBaseEntity::Save( save ) )
+		return 0;
+	return save.WriteFields( "CRecharge", this, m_SaveData, ARRAYSIZE( m_SaveData ) );
+}
+
+int CWallRecharge::Restore( CRestore &restore )
+{
+	if ( !CBaseEntity::Restore( restore ) )
+		return 0;
+	if ( restore.ReadFields( "CRecharge", this, m_SaveData, ARRAYSIZE( m_SaveData ) ) )
+		return 1;
+	return restore.ReadFields( "CBaseWallCharger", this, m_SaveData, ARRAYSIZE( m_SaveData ) );
+}
+
+int CBaseWallCharger::Save( CSave &save )
+{
+	return CBaseToggle::Save( save );
+}
+
+int CBaseWallCharger::Restore( CRestore &restore )
+{
+	return CBaseToggle::Restore( restore );
+}
 
 LINK_ENTITY_TO_CLASS( func_healthcharger, CWallHealth );
 LINK_ENTITY_TO_CLASS( func_recharge, CWallRecharge );

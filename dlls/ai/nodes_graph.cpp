@@ -801,7 +801,15 @@ void CGraph::SortNodes( void )
 void CGraph::BuildRegionTables( void )
 {
 	if ( m_di )
+	{
 		free( m_di );
+		m_di = NULL;
+	}
+
+	if ( m_cNodes <= 0 || !m_pNodes )
+	{
+		return;
+	}
 
 	// Go ahead and setup for range searching the nodes for FindNearestNodes
 	//
@@ -848,8 +856,8 @@ void CGraph::BuildRegionTables( void )
 		int j;
 		for ( j = 0; j < NUM_RANGES; j++ )
 		{
-			m_RangeStart[i][j] = 255;
-			m_RangeEnd[i][j]   = 0;
+			m_RangeStart[i][j] = MAX_NODES + 1;
+			m_RangeEnd[i][j]   = -1;
 		}
 		for ( j = 0; j < m_cNodes; j++ )
 		{

@@ -18,8 +18,10 @@
 #include "ai/monsters.h"
 #include "weapons/projectile_grenade.h"
 
-#define SF_WAITFORTRIGGER ( 1 << 6 )
-#define SF_NOWRECKAGE ( 1 << 7 )
+class CBeam;
+
+#define SF_WAITFORTRIGGER ( 0x04 | 0x40 )
+#define SF_NOWRECKAGE 0x08
 
 class CApache : public CBaseMonster
 {
