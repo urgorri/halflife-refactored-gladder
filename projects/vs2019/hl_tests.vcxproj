@@ -146,6 +146,7 @@
     <ClCompile Include="..\..\dlls\systems\effects_beams.cpp" />
     <ClCompile Include="..\..\dlls\systems\crash_handler.cpp" />
     <ClCompile Include="..\..\dlls\systems\triggers_audio.cpp" />
+    <ClCompile Include="..\..\dlls\systems\sound_sentences.cpp" />
     <ClCompile Include="..\..\tests\test_effects_beams.cpp" />
     <ClCompile Include="..\..\tests\test_crash_handler.cpp" />
     <ClCompile Include="..\..\tests\test_triggers.cpp" />

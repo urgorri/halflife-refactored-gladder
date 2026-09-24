@@ -148,6 +148,9 @@
     <ClCompile Include="..\..\dlls\systems\triggers_audio.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\systems\sound_sentences.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\tests\test_effects_beams.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

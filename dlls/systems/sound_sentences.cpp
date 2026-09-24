@@ -65,7 +65,7 @@ int USENTENCEG_PickSequential( int isentenceg, char *szfound, int ipick, int fre
 	if ( !fSentencesInit )
 		return -1;
 
-	if ( isentenceg < 0 )
+	if ( isentenceg < 0 || isentenceg >= CSENTENCEG_MAX )
 		return -1;
 
 	szgroupname = rgsentenceg[isentenceg].szgroupname;
@@ -115,7 +115,7 @@ int USENTENCEG_Pick( int isentenceg, char *szfound )
 	if ( !fSentencesInit )
 		return -1;
 
-	if ( isentenceg < 0 )
+	if ( isentenceg < 0 || isentenceg >= CSENTENCEG_MAX )
 		return -1;
 
 	szgroupname = rgsentenceg[isentenceg].szgroupname;
@@ -162,7 +162,7 @@ int SENTENCEG_GetIndex( const char *szgroupname )
 	// search rgsentenceg for match on szgroupname
 
 	i = 0;
-	while ( rgsentenceg[i].count )
+	while ( i < CSENTENCEG_MAX && rgsentenceg[i].count )
 	{
 		if ( !strcmp( szgroupname, rgsentenceg[i].szgroupname ) )
 			return i;
@@ -186,10 +186,13 @@ int SENTENCEG_PlayRndI( edict_t *entity, int isentenceg,
 	if ( !fSentencesInit )
 		return -1;
 
+	if ( isentenceg < 0 || isentenceg >= CSENTENCEG_MAX )
+		return -1;
+
 	name[0] = 0;
 
 	ipick = USENTENCEG_Pick( isentenceg, name );
-	if ( ipick > 0 && name )
+	if ( ipick >= 0 && name[0] )
 		EMIT_SOUND_DYN( entity, CHAN_VOICE, name, volume, attenuation, flags, pitch );
 	return ipick;
 }
@@ -257,7 +260,7 @@ void SENTENCEG_Stop( edict_t *entity, int isentenceg, int ipick )
 	if ( !fSentencesInit )
 		return;
 
-	if ( isentenceg < 0 || ipick < 0 )
+	if ( isentenceg < 0 || isentenceg >= CSENTENCEG_MAX || ipick < 0 )
 		return;
 
 	strcpy( buffer, "!" );
@@ -317,7 +320,7 @@ void SENTENCEG_Init()
 		if ( !buffer[j] )
 			continue;
 
-		if ( gcallsentences > CVOXFILESENTENCEMAX )
+		if ( gcallsentences >= CVOXFILESENTENCEMAX )
 		{
 			ALERT( at_error, "Too many sentences in sentences.txt!\n" );
 			break;
@@ -327,7 +330,7 @@ void SENTENCEG_Init()
 		buffer[j]           = 0;
 		const char *pString = buffer + i;
 
-		if ( strlen( pString ) >= CBSENTENCENAME_MAX )
+		if ( strlen( pString) >= CBSENTENCENAME_MAX )
 			ALERT( at_warning, "Sentence %s longer than %d letters\n", pString, CBSENTENCENAME_MAX - 1 );
 
 		strcpy( gszallsentencenames[gcallsentences++], pString );
@@ -371,7 +374,7 @@ void SENTENCEG_Init()
 		else
 		{
 			// name matches with previous, increment group count
-			if ( isentencegs >= 0 )
+			if ( isentencegs >= 0 && isentencegs < CSENTENCEG_MAX )
 				rgsentenceg[isentencegs].count++;
 		}
 	}
@@ -434,6 +437,9 @@ void EMIT_GROUPID_SUIT( edict_t *entity, int isentenceg )
 {
 	float fvol;
 	int pitch = PITCH_NORM;
+
+	if ( isentenceg < 0 || isentenceg >= CSENTENCEG_MAX )
+		return;
 
 	fvol = CVAR_GET_FLOAT( "suitvolume" );
 	if ( RANDOM_LONG( 0, 1 ) )

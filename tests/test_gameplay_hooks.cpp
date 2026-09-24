@@ -268,3 +268,66 @@ TEST_CASE( "Player: entity factory export creates valid CBasePlayer via CBaseEnt
 	CBaseEntity *pInvalid = CBaseEntity::Create( "nonexistent_class", g_vecZero, g_vecZero, NULL );
 	CHECK( pInvalid == nullptr );
 }
+
+extern int USENTENCEG_Pick( int isentenceg, char *szfound );
+extern int USENTENCEG_PickSequential( int isentenceg, char *szfound, int ipick, int freset );
+extern int fSentencesInit;
+
+TEST_CASE( "SoundSentences: boundary safety and group indexing validation", "[systems][sound][sentences]" )
+{
+	ResetMockEngine();
+
+	SECTION( "Uninitialized sentences state safely returns error codes" )
+	{
+		int originalInit = fSentencesInit;
+		fSentencesInit   = FALSE;
+
+		char name[64] = { 0 };
+		CHECK( SENTENCEG_GetIndex( "BA_ATTACK" ) == -1 );
+		CHECK( SENTENCEG_GetIndex( NULL ) == -1 );
+		CHECK( USENTENCEG_Pick( 0, name ) == -1 );
+		CHECK( USENTENCEG_PickSequential( 0, name, 0, 0 ) == -1 );
+		CHECK( SENTENCEG_Lookup( "!BA_ATTACK0", name ) == -1 );
+
+		// Stop sound and suit functions with uninitialized state should not crash
+		edict_t testEd;
+		memset( &testEd, 0, sizeof( testEd ) );
+		SENTENCEG_Stop( &testEd, 0, 0 );
+		EMIT_GROUPID_SUIT( &testEd, 0 );
+
+		fSentencesInit = originalInit;
+	}
+
+	SECTION( "Initialized state bounds validation prevents negative and out-of-range indexing" )
+	{
+		int originalInit = fSentencesInit;
+		fSentencesInit   = TRUE;
+
+		char name[64] = { 0 };
+
+		// Negative and out-of-range sentence group indices
+		CHECK( USENTENCEG_Pick( -1, name ) == -1 );
+		CHECK( USENTENCEG_Pick( 200, name ) == -1 );
+		CHECK( USENTENCEG_Pick( 999, name ) == -1 );
+
+		CHECK( USENTENCEG_PickSequential( -1, name, 0, 0 ) == -1 );
+		CHECK( USENTENCEG_PickSequential( 200, name, 0, 0 ) == -1 );
+		CHECK( USENTENCEG_PickSequential( 999, name, 0, 0 ) == -1 );
+
+		CHECK( SENTENCEG_GetIndex( NULL ) == -1 );
+		CHECK( SENTENCEG_GetIndex( "NONEXISTENT_GROUP_NAME" ) == -1 );
+
+		edict_t testEd;
+		memset( &testEd, 0, sizeof( testEd ) );
+
+		// Should not crash or dereference out of bounds memory
+		SENTENCEG_Stop( &testEd, -1, 0 );
+		SENTENCEG_Stop( &testEd, 200, 0 );
+		SENTENCEG_Stop( &testEd, 0, -1 );
+
+		EMIT_GROUPID_SUIT( &testEd, -1 );
+		EMIT_GROUPID_SUIT( &testEd, 200 );
+
+		fSentencesInit = originalInit;
+	}
+}

@@ -326,6 +326,7 @@ if(BUILD_TESTS)
         dlls/systems/chargers.cpp
         dlls/systems/crash_handler.cpp
         dlls/systems/triggers_audio.cpp
+        dlls/systems/sound_sentences.cpp
         dlls/weapons/weapon_registry.cpp
         dlls/items/item_registry.cpp
         dlls/ai/monster_relationship_manager.cpp
