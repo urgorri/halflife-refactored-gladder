@@ -87,6 +87,9 @@
     <ClCompile Include="..\..\dlls\core\client_commands.cpp">
       <Filter>Source Files\dlls\core</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\core\client_customization.cpp">
+      <Filter>Source Files\dlls\core</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\core\client_networking.cpp">
       <Filter>Source Files\dlls\core</Filter>
     </ClCompile>
@@ -759,6 +762,9 @@
       <Filter>Header Files\dlls</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\core\client_usermsg.h">
+      <Filter>Header Files\dlls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\core\client_customization.h">
       <Filter>Header Files\dlls</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\weapons\ammo_base.h">

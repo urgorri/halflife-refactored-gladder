@@ -28,6 +28,8 @@ void SetMockCvar( const char *szVarName, float flValue );
 void SetMockCvar( const char *szVarName, const char *szValue );
 void ClearMockCvars();
 
+edict_t *GetMockClientEntity( int clientIndex );
+
 typedef void ( *ENTITYFACTORY )( entvars_t *pev );
 void RegisterMockEntityFactory( const char *pszClassname, ENTITYFACTORY pfnFactory );
 void ClearMockEntityFactories();

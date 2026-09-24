@@ -319,6 +319,9 @@ if(BUILD_TESTS)
         tests/test_effects_beams.cpp
         tests/test_crash_handler.cpp
         tests/test_triggers.cpp
+        tests/test_player_customization.cpp
+        tests/test_ai_navigation.cpp
+        dlls/core/client_customization.cpp
         dlls/systems/effects_beams.cpp
         dlls/systems/chargers.cpp
         dlls/systems/crash_handler.cpp
@@ -327,6 +330,9 @@ if(BUILD_TESTS)
         dlls/items/item_registry.cpp
         dlls/ai/monster_relationship_manager.cpp
         dlls/ai/talk_companion_registry.cpp
+        dlls/ai/nodes_graph.cpp
+        dlls/ai/nodes_routing.cpp
+        dlls/ai/nodes_links.cpp
         dlls/gameplay/gamerules_factory.cpp
         dlls/core/skill_manager.cpp
         dlls/core/skill.cpp

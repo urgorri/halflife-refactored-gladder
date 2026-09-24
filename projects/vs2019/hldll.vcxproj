@@ -132,6 +132,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\core\client_spectator.cpp" />
     <ClCompile Include="..\..\dlls\core\client_networking.cpp" />
     <ClCompile Include="..\..\dlls\core\client_commands.cpp" />
+    <ClCompile Include="..\..\dlls\core\client_customization.cpp" />
     <ClCompile Include="..\..\dlls\monsters\controller.cpp" />
     <ClCompile Include="..\..\dlls\weapons\weapon_crowbar.cpp" />
     <ClCompile Include="..\..\dlls\ai\defaultai.cpp" />
@@ -328,6 +329,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClInclude Include="..\..\dlls\core\player_network.h" />
     <ClInclude Include="..\..\dlls\core\user_message_registry.h" />
     <ClInclude Include="..\..\dlls\core\client_usermsg.h" />
+    <ClInclude Include="..\..\dlls\core\client_customization.h" />
     <ClInclude Include="..\..\dlls\core\saverestore.h" />
     <ClInclude Include="..\..\dlls\schedule.h" />
     <ClInclude Include="..\..\dlls\gameplay\scripted.h" />

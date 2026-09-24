@@ -274,7 +274,7 @@ void CBaseMonster ::RouteSimplify( CBaseEntity *pTargetEnt )
 		return;
 	}
 
-	g_CrashHandler.LogCustom( "ROUTE_SIMP", "[%3d] %-20s -> RouteSimplify count=%d target=%s",
+	g_CrashHandler.LogCustom( "ROUTE_SIMP: [%3d] %-20s -> RouteSimplify count=%d target=%s",
 	                          entindex(), STRING( pev->classname ), count,
 	                          pTargetEnt ? STRING( pTargetEnt->pev->classname ) : "null" );
 
@@ -449,7 +449,7 @@ BOOL CBaseMonster ::BuildRoute( const Vector &vecGoal, int iMoveFlag, CBaseEntit
 	Vector vecApex;
 	int iLocalMove;
 
-	g_CrashHandler.LogCustom( "BUILD_ROUTE", "[%3d] %-20s -> BuildRoute goal=(%.1f, %.1f, %.1f), flag=%d, target=%s",
+	g_CrashHandler.LogCustom( "BUILD_ROUTE: [%3d] %-20s -> BuildRoute goal=(%.1f, %.1f, %.1f), flag=%d, target=%s",
 	                          entindex(), STRING( pev->classname ), vecGoal.x, vecGoal.y, vecGoal.z, iMoveFlag,
 	                          pTarget ? STRING( pTarget->pev->classname ) : "null" );
 
@@ -1099,11 +1099,16 @@ BOOL CBaseMonster ::BuildNearestRoute( Vector vecThreat, Vector vecViewOffset, f
 //=========================================================
 BOOL CBaseMonster ::FGetNodeRoute( Vector vecDest )
 {
-	int iPath[MAX_PATH_SIZE];
+	int iPath[MAX_PATH_SIZE] = {0};
 	int iSrcNode, iDestNode;
 	int iResult;
 	int i;
 	int iNumToCopy;
+
+	if ( !WorldGraph.m_fGraphPresent || !WorldGraph.m_fGraphPointersSet || WorldGraph.m_cNodes <= 0 || !WorldGraph.m_pNodes )
+	{
+		return FALSE;
+	}
 
 	iSrcNode  = WorldGraph.FindNearestNode( pev->origin, this );
 	iDestNode = WorldGraph.FindNearestNode( vecDest, this );
@@ -1153,18 +1158,22 @@ BOOL CBaseMonster ::FGetNodeRoute( Vector vecDest )
 
 	// don't copy ROUTE_SIZE entries if the path returned is shorter
 	// than ROUTE_SIZE!!!
-	if ( iResult < ROUTE_SIZE )
+	if ( iResult > 0 && iResult < ROUTE_SIZE && iResult <= MAX_PATH_SIZE )
 	{
 		iNumToCopy = iResult;
 	}
+	else if ( iResult > 0 )
+	{
+		iNumToCopy = min( ROUTE_SIZE, MAX_PATH_SIZE );
+	}
 	else
 	{
-		iNumToCopy = ROUTE_SIZE;
+		return FALSE;
 	}
 
 	for ( i = 0; i < iNumToCopy; i++ )
 	{
-		if ( iPath[i] >= 0 && iPath[i] < WorldGraph.m_cNodes && WorldGraph.m_pNodes )
+		if ( i < MAX_PATH_SIZE && iPath[i] >= 0 && iPath[i] < WorldGraph.m_cNodes && WorldGraph.m_pNodes )
 		{
 			m_Route[i].vecLocation = WorldGraph.m_pNodes[iPath[i]].m_vecOrigin;
 			m_Route[i].iType       = bits_MF_TO_NODE;
@@ -1192,7 +1201,7 @@ int CBaseMonster ::FindHintNode( void )
 	int i;
 	TraceResult tr;
 
-	if ( !WorldGraph.m_fGraphPresent )
+	if ( !WorldGraph.m_fGraphPresent || !WorldGraph.m_fGraphPointersSet || WorldGraph.m_cNodes <= 0 || !WorldGraph.m_pNodes )
 	{
 		ALERT( at_aiconsole, "find_hintnode: graph not ready!\n" );
 		return NO_NODE;

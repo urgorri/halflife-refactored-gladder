@@ -217,41 +217,55 @@ void CTestHull ::BuildNodeGraph( void )
 		return;
 	}
 
-	// make sure directories have been made
-	GET_GAME_DIR( szNrpFilename );
-	strcat( szNrpFilename, "/maps" );
-#ifdef _WIN32
-	CreateDirectory( szNrpFilename, NULL );
+	// Determine whether to generate the human-readable .nrp debug report.
+	// In retail Half-Life, .nrp generation was disabled by default.
+	// Only generate it if running in _DEBUG or if the 'developer' cvar is enabled (> 0).
+	BOOL fGenerateReport = FALSE;
+#if defined( _DEBUG )
+	fGenerateReport = TRUE;
 #else
-	mkdir( szNrpFilename, 0755 );
-#endif
-	strcat( szNrpFilename, "/graphs" );
-#ifdef _WIN32
-	CreateDirectory( szNrpFilename, NULL );
-#else
-	mkdir( szNrpFilename, 0755 );
+	if ( CVAR_GET_FLOAT( "developer" ) > 0.0f )
+	{
+		fGenerateReport = TRUE;
+	}
 #endif
 
-	strcat( szNrpFilename, "/" );
-	strcat( szNrpFilename, STRING( gpGlobals->mapname ) );
-	strcat( szNrpFilename, ".nrp" );
+	file = NULL;
 
-	file = fopen( szNrpFilename, "w+" );
+	if ( fGenerateReport )
+	{
+		// make sure directories have been made
+		GET_GAME_DIR( szNrpFilename );
+		strcat( szNrpFilename, "/maps" );
+#ifdef _WIN32
+		CreateDirectory( szNrpFilename, NULL );
+#else
+		mkdir( szNrpFilename, 0755 );
+#endif
+		strcat( szNrpFilename, "/graphs" );
+#ifdef _WIN32
+		CreateDirectory( szNrpFilename, NULL );
+#else
+		mkdir( szNrpFilename, 0755 );
+#endif
 
-	if ( !file )
-	{ // file error
-		ALERT( at_aiconsole, "Couldn't create %s!\n", szNrpFilename );
+		strcat( szNrpFilename, "/" );
+		strcat( szNrpFilename, STRING( gpGlobals->mapname ) );
+		strcat( szNrpFilename, ".nrp" );
 
-		if ( pTempPool )
-		{
-			free( pTempPool );
+		file = fopen( szNrpFilename, "w+" );
+
+		if ( !file )
+		{ // file error
+			ALERT( at_aiconsole, "Couldn't create %s!\n", szNrpFilename );
 		}
-
-		return;
 	}
 
-	fprintf( file, "Node Graph Report for map:  %s.bsp\n", STRING( gpGlobals->mapname ) );
-	fprintf( file, "%d Total Nodes\n\n", WorldGraph.m_cNodes );
+	if ( file )
+	{
+		fprintf( file, "Node Graph Report for map:  %s.bsp\n", STRING( gpGlobals->mapname ) );
+		fprintf( file, "%d Total Nodes\n\n", WorldGraph.m_cNodes );
+	}
 
 	for ( i = 0; i < WorldGraph.m_cNodes; i++ )
 	{ // print all node numbers and their locations to the file.
@@ -259,14 +273,20 @@ void CTestHull ::BuildNodeGraph( void )
 		WorldGraph.m_pNodes[i].m_iFirstLink = 0;
 		memset( WorldGraph.m_pNodes[i].m_pNextBestNode, 0, sizeof( WorldGraph.m_pNodes[i].m_pNextBestNode ) );
 
-		fprintf( file, "Node#         %4d\n", i );
-		fprintf( file, "Location      %4d,%4d,%4d\n", (int)WorldGraph.m_pNodes[i].m_vecOrigin.x, (int)WorldGraph.m_pNodes[i].m_vecOrigin.y, (int)WorldGraph.m_pNodes[i].m_vecOrigin.z );
-		fprintf( file, "HintType:     %4d\n", WorldGraph.m_pNodes[i].m_sHintType );
-		fprintf( file, "HintActivity: %4d\n", WorldGraph.m_pNodes[i].m_sHintActivity );
-		fprintf( file, "HintYaw:      %4f\n", WorldGraph.m_pNodes[i].m_flHintYaw );
-		fprintf( file, "-------------------------------------------------------------------------------\n" );
+		if ( file )
+		{
+			fprintf( file, "Node#         %4d\n", i );
+			fprintf( file, "Location      %4d,%4d,%4d\n", (int)WorldGraph.m_pNodes[i].m_vecOrigin.x, (int)WorldGraph.m_pNodes[i].m_vecOrigin.y, (int)WorldGraph.m_pNodes[i].m_vecOrigin.z );
+			fprintf( file, "HintType:     %4d\n", WorldGraph.m_pNodes[i].m_sHintType );
+			fprintf( file, "HintActivity: %4d\n", WorldGraph.m_pNodes[i].m_sHintActivity );
+			fprintf( file, "HintYaw:      %4f\n", WorldGraph.m_pNodes[i].m_flHintYaw );
+			fprintf( file, "-------------------------------------------------------------------------------\n" );
+		}
 	}
-	fprintf( file, "\n\n" );
+	if ( file )
+	{
+		fprintf( file, "\n\n" );
+	}
 
 	// Automatically recognize WATER nodes and drop the LAND nodes to the floor.
 	//

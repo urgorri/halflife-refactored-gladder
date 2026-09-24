@@ -40,6 +40,7 @@
 #include "usercmd.h"
 #include "netadr.h"
 #include "pm_shared.h"
+#include "core/client_customization.h"
 
 #if !defined( _WIN32 )
 #include <ctype.h>
@@ -59,6 +60,16 @@ extern cvar_t allow_spectators;
 extern int g_teamplay;
 
 void LinkUserMessages( void );
+
+int GetPendingCustomDecalFrames( int clientIndex )
+{
+	return CPlayerCustomizationBuffer::GetPendingDecalFrames( clientIndex );
+}
+
+void ClearPendingCustomDecalFrames( int clientIndex )
+{
+	CPlayerCustomizationBuffer::ClearPendingDecalFrames( clientIndex );
+}
 
 /*
  * used by kill command and disconnect command
@@ -85,6 +96,9 @@ called when a player connects to a server
 */
 BOOL ClientConnect( edict_t *pEntity, const char *pszName, const char *pszAddress, char szRejectReason[128] )
 {
+	int clientIndex = pEntity ? ENTINDEX( pEntity ) : 0;
+	CPlayerCustomizationBuffer::ClearPendingDecalFrames( clientIndex );
+
 	return g_pGameRules->ClientConnected( pEntity, pszName, pszAddress, szRejectReason );
 
 	// a client connecting during an intermission can cause problems
@@ -105,6 +119,9 @@ void ClientDisconnect( edict_t *pEntity )
 {
 	if ( g_fGameOver )
 		return;
+
+	int clientIndex = pEntity ? ENTINDEX( pEntity ) : 0;
+	CPlayerCustomizationBuffer::ClearPendingDecalFrames( clientIndex );
 
 	char text[256] = "";
 	if ( pEntity->v.netname )
@@ -204,7 +221,9 @@ void ClientPutInServer( edict_t *pEntity )
 	entvars_t *pev = &pEntity->v;
 
 	pPlayer = GetClassPtr( (CBasePlayer *)pev );
-	pPlayer->SetCustomDecalFrames( -1 ); // Assume none;
+
+	int clientIndex = pEntity ? ENTINDEX( pEntity ) : 0;
+	CPlayerCustomizationBuffer::ApplyPendingDecalFrames( clientIndex, pPlayer );
 
 	// Allocate a CBasePlayer for pev, and call spawn
 	pPlayer->Spawn();
@@ -296,6 +315,7 @@ void ServerDeactivate( void )
 	}
 
 	g_serveractive = 0;
+	CPlayerCustomizationBuffer::ClearAll();
 
 	// Peform any shutdown operations here...
 	//
@@ -308,6 +328,7 @@ void ServerActivate( edict_t *pEdictList, int edictCount, int clientMax )
 
 	// Every call to ServerActivate should be matched by a call to ServerDeactivate
 	g_serveractive = 1;
+	CPlayerCustomizationBuffer::ClearAll();
 
 	// Clients have not been initialized yet
 	for ( i = 0; i < edictCount; i++ )
@@ -548,35 +569,7 @@ animation right now.
 */
 void PlayerCustomization( edict_t *pEntity, customization_t *pCust )
 {
-	entvars_t *pev       = &pEntity->v;
-	CBasePlayer *pPlayer = (CBasePlayer *)GET_PRIVATE( pEntity );
-
-	if ( !pPlayer )
-	{
-		ALERT( at_console, "PlayerCustomization:  Couldn't get player!\n" );
-		return;
-	}
-
-	if ( !pCust )
-	{
-		ALERT( at_console, "PlayerCustomization:  NULL customization!\n" );
-		return;
-	}
-
-	switch ( pCust->resource.type )
-	{
-	case t_decal:
-		pPlayer->SetCustomDecalFrames( pCust->nUserData2 ); // Second int is max # of frames.
-		break;
-	case t_sound:
-	case t_skin:
-	case t_model:
-		// Ignore for now.
-		break;
-	default:
-		ALERT( at_console, "PlayerCustomization:  Unknown customization type!\n" );
-		break;
-	}
+	CPlayerCustomizationBuffer::HandlePlayerCustomization( pEntity, pCust );
 }
 
 /*

@@ -77,6 +77,7 @@ HLDLL_OBJS = \
 	$(HLCORE_OBJ_DIR)/client_spectator.o \
 	$(HLCORE_OBJ_DIR)/client_networking.o \
 	$(HLCORE_OBJ_DIR)/client_commands.o \
+	$(HLCORE_OBJ_DIR)/client_customization.o \
 	$(HLDLL_OBJ_DIR)/monsters/controller.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_crossbow.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_damage.o \
