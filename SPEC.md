@@ -87,8 +87,10 @@ Mirroring the native GoldSrc convention for node navigation graphs (`maps/graphs
 * At each grid coordinate, a downward vertical raycast traces from the ceiling or upper boundary of the defined area to detect the highest solid supporting surface:
   * **Dynamic Surface / Floor Detection**: The raycast identifies the actual walkable surface at that coordinate—whether it is the primary level floor, a raised platform, stairs, or the top of an obstacle such as a crate or container.
   * **Surface Top Placement**: By recording the exact impact height (Z), any entity spawned at that grid coordinate is placed resting cleanly on top of the detected surface (e.g., directly on top of the crate) rather than inside the obstacle or below it.
-  * **Clearance Verification**: An upward check or clearance hull trace verifies that the space between the detected surface and any overhead ceiling/obstruction provides adequate height clearance for players, monsters, or item bounding boxes.
-* Cells identified with valid supporting surfaces and adequate vertical clearance are recorded into the grid database, ready to receive randomized entity spawns during waves.
+  * **Clearance Verification & Structural Obstacle Avoidance**:
+    * An upward check or clearance hull trace verifies that the space between the detected surface and any overhead ceiling/obstruction provides adequate vertical clearance for entities.
+    * **Static Architecture Collision Check**: To prevent monsters or items from spawning embedded inside structural map elements (such as architectural columns, pillars, or support beams situated within a Gladder area boundary), grid indexing performs a lightweight bounding hull/box collision trace against solid world brushes (`contents == CONTENTS_SOLID`). Grid points overlapping structural geometry or lacking standard entity clearance hull bounds are automatically flagged as invalid and excluded from the active spawn pool.
+* Cells identified with valid supporting surfaces, zero architectural collision overlap, and adequate vertical clearance are recorded into the grid database, ready to receive randomized entity spawns during waves.
 
 ### 4.4 Special Entity Spawning Behaviors
 To accommodate distinct enemy mechanics and level geometry, specific monster types follow modified spawning rules when selected from the procedural spawn pool:
