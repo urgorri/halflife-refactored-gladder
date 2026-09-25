@@ -16,15 +16,31 @@
 cvar_t gladder = { "gladder", "1", FCVAR_SERVER | FCVAR_ARCHIVE };
 cvar_t gladder_timelimit = { "gladder_timelimit", "600", FCVAR_SERVER | FCVAR_ARCHIVE }; // default 10 minutes
 
+// Block server console commands for saving and loading
+static void Gladder_BlockSaveCmd( void )
+{
+	ALERT( at_console, "Saving and loading are disabled in Half-Life: Gladder.\n" );
+}
+
 CGladderRules::CGladderRules()
     : m_bInitialSpawnDone( false ),
       m_iTotalFrags( 0 ),
       m_iCollectiblesCount( 0 ),
       m_flLastTelemetryBroadcast( 0.0f )
 {
-	// Register cvars if not registered
+	// Register cvars
 	CVAR_REGISTER( &gladder );
 	CVAR_REGISTER( &gladder_timelimit );
+
+	// Intercept and disable host save/load console commands
+	if ( g_engfuncs.pfnAddServerCommand )
+	{
+		g_engfuncs.pfnAddServerCommand( (char *)"save", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"load", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"quicksave", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"quickload", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"autosave", Gladder_BlockSaveCmd );
+	}
 
 	float flLimit = gladder_timelimit.value;
 	if ( flLimit <= 0.0f )
@@ -69,11 +85,15 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 	{
 		m_bInitialSpawnDone = true;
 
-		// Equip HEV suit
-		pPlayer->GiveNamedItem( "item_suit" );
+		// Equip HEV suit: set weapon bitmask directly to guarantee HUD/battery activation
+		pPlayer->pev->weapons |= ( 1 << WEAPON_SUIT );
 
-		// Equip Crowbar
+		// Equip Crowbar and select it into hands
+		int iAutoWepSwitch = pPlayer->m_iAutoWepSwitch;
+		pPlayer->m_iAutoWepSwitch = 1;
 		pPlayer->GiveNamedItem( "weapon_crowbar" );
+		pPlayer->SelectItem( "weapon_crowbar" );
+		pPlayer->m_iAutoWepSwitch = iAutoWepSwitch;
 
 		// Re-initialize match clock from actual player spawn time
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;

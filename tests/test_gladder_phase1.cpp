@@ -204,3 +204,10 @@ TEST_CASE( "Gladder Phase 1: Client HUD Overlay Telemetry Sync", "[gladder][hud]
 	REQUIRE( hud.GetCompletedLaps() == 2 );
 	REQUIRE( hud.GetFrags() == 47 );
 }
+
+#ifdef DEBUG
+edict_t *DBG_EntOfVars( const entvars_t *pev )
+{
+	return pev ? pev->pContainingEntity : nullptr;
+}
+#endif

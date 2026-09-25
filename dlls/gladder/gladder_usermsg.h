@@ -17,9 +17,9 @@ extern int gmsgGladderWave;
 extern int gmsgGladderTelemetry;
 #endif
 
-// Message names
-#define GLADDER_MSG_WAVE_NAME "GladderWave"
-#define GLADDER_MSG_TELEMETRY_NAME "GladderTelemetry"
+// Message names (must be <= 11 characters in GoldSrc engine REG_USER_MSG)
+#define GLADDER_MSG_WAVE_NAME "GladWave"
+#define GLADDER_MSG_TELEMETRY_NAME "GladTelem"
 
 // Fixed sizes for network messages (-1 means variable, or exact byte count)
 // GladderWave:
