@@ -175,6 +175,7 @@ $(HL1_OBJ_DIR):
 	mkdir -p $(HL1_OBJ_DIR)/VGUI
 	mkdir -p $(HL1_OBJ_DIR)/systems
 	mkdir -p $(HL1_OBJ_DIR)/events
+	mkdir -p $(HL1_OBJ_DIR)/gladder
 
 $(HL1_SERVER_OBJ_DIR):
 	mkdir -p $(HL1_SERVER_OBJ_DIR)
@@ -197,6 +198,12 @@ $(PM_SHARED_OBJ_DIR):
 	mkdir -p $(PM_SHARED_OBJ_DIR)
 
 
+
+$(HL1_OBJ_DIR)/gladder:
+	mkdir -p $(HL1_OBJ_DIR)/gladder
+
+$(HL1_OBJ_DIR)/gladder/%.o: $(HL_SRC_DIR)/gladder/%.cpp $(filter-out $(wildcard  $(HL1_OBJ_DIR)/gladder),  $(HL1_OBJ_DIR)/gladder)
+	$(DO_CC)
 
 $(HL1_OBJ_DIR)/hud/%.o: $(HL_SRC_DIR)/hud/%.cpp $(filter-out $(wildcard  $(HL1_OBJ_DIR)/hud),  $(HL1_OBJ_DIR)/hud)
 	$(DO_CC)
@@ -256,7 +263,4 @@ $(HL1_OBJ_DIR)/systems/%.o: $(HL_SRC_DIR)/systems/%.cpp $(filter-out $(wildcard 
 	$(DO_CC)
 
 $(HL1_OBJ_DIR)/events/%.o: $(HL_SRC_DIR)/events/%.cpp $(filter-out $(wildcard  $(HL1_OBJ_DIR)/events),  $(HL1_OBJ_DIR)/events)
-	$(DO_CC)
-
-$(HL1_OBJ_DIR)/gladder/%.o: $(HL_SRC_DIR)/gladder/%.cpp $(filter-out $(wildcard  $(HL1_OBJ_DIR)/gladder),  $(HL1_OBJ_DIR)/gladder)
 	$(DO_CC)
