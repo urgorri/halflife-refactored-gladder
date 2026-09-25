@@ -90,6 +90,15 @@ Mirroring the native GoldSrc convention for node navigation graphs (`maps/graphs
   * **Clearance Verification**: An upward check or clearance hull trace verifies that the space between the detected surface and any overhead ceiling/obstruction provides adequate height clearance for players, monsters, or item bounding boxes.
 * Cells identified with valid supporting surfaces and adequate vertical clearance are recorded into the grid database, ready to receive randomized entity spawns during waves.
 
+### 4.4 Special Entity Spawning Behaviors
+To accommodate distinct enemy mechanics and level geometry, specific monster types follow modified spawning rules when selected from the procedural spawn pool:
+* **Barnacle Ceiling Attachment (`monster_barnacle`)**:
+  * Barnacles feature a unique ceiling-bound spawning mechanism. When selected to spawn at a designated grid coordinate, the spawner executes an upward vertical trace/raycast from the grid point to locate the exact ceiling geometry directly above it (or uses cached ceiling heights stored in the spatial grid indexer).
+  * The barnacle entity is attached flush to the detected ceiling surface rather than placed on the floor, preserving authentic barnacle placement and ambush behavior across procedural waves.
+* **Flying Monsters Variable Altitude Spawning**:
+  * Flying enemies (such as `monster_flyer`, `monster_alien_controller`, or other airborne species) do not spawn grounded on floor surfaces.
+  * When spawned at a grid coordinate, their vertical position (Z axis) is randomized dynamically along a variable altitude range between the floor elevation and the ceiling clearance height of that grid cell, creating diverse vertical engagement angles and unpredictable combat encounters in every wave.
+
 ---
 
 ## 5. Map-Specific Configuration & Filtering Rules
@@ -237,3 +246,11 @@ Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 
 * **Dropped Item Purge**: Uncollected weapons, ammunition boxes, and medical kits scattered across the map are removed to prevent entity buildup.
 * **Transient Entity Clearing**: Lingering projectiles, gibs, corpses, and temporary decal effects are purged.
 * **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
+
+### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`func_breakable`)
+To maintain consistent level interactivity and route geometry without entity degradation or corruption across wave resets:
+* **Avoidance of Pushables (`func_pushable`)**: Movable pushable objects (`func_pushable`) are excluded from general mod design to prevent physics desynchronization and blocking geometry across repeated laps.
+* **Breakable Object Wave Regeneration (`func_breakable`)**:
+  * Breakable environmental objects (such as wooden crates, glass panes, or barricades) are retained across waves and regenerated at the start of each wave reset.
+  * **Non-Destructive Break Simulation**: When a `func_breakable` takes lethal damage during an active wave, it triggers its standard breaking visual/audio effects, debris particles, and collision removal, but the underlying server entity is preserved in memory rather than permanently deleted (`UTIL_Remove`).
+  * **State Hiding & Reset**: Upon destruction, the object enters a hidden/disabled state (`EF_NODRAW`, solid state set to `SOLID_NOT`). During wave reset garbage collection, all broken `func_breakable` entities are restored to their original visual appearance, collision bounds, and hit points, cleanly resetting the environment for the incoming wave.
