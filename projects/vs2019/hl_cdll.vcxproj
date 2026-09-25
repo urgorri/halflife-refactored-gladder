@@ -60,7 +60,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;CLIENT_DLL;CLIENT_WEAPONS;HL_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\cl_dll;..\..\public;..\..\common;..\..\pm_shared;..\..\engine;..\..\utils\vgui\include;..\..\game_shared;..\..\external;%(AdditionalIncludeDirectories);..\..\cl_dll\studio;..\..\cl_dll\input;..\..\cl_dll\core;..\..\cl_dll\render;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\systems;..\..\cl_dll\events</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\gladder;..\..\public;..\..\common;..\..\pm_shared;..\..\engine;..\..\utils\vgui\include;..\..\game_shared;..\..\external;%(AdditionalIncludeDirectories);..\..\cl_dll\studio;..\..\cl_dll\input;..\..\cl_dll\core;..\..\cl_dll\render;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\systems;..\..\cl_dll\events</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
     </ClCompile>
     <Link>
@@ -88,7 +88,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;CLIENT_DLL;CLIENT_WEAPONS;HL_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\cl_dll;..\..\public;..\..\common;..\..\pm_shared;..\..\engine;..\..\utils\vgui\include;..\..\game_shared;..\..\external;%(AdditionalIncludeDirectories);..\..\cl_dll\studio;..\..\cl_dll\input;..\..\cl_dll\core;..\..\cl_dll\render;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\systems;..\..\cl_dll\events</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\gladder;..\..\public;..\..\common;..\..\pm_shared;..\..\engine;..\..\utils\vgui\include;..\..\game_shared;..\..\external;%(AdditionalIncludeDirectories);..\..\cl_dll\studio;..\..\cl_dll\input;..\..\cl_dll\core;..\..\cl_dll\render;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\systems;..\..\cl_dll\events</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
     </ClCompile>
     <Link>
@@ -211,8 +211,10 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\pm_shared\pm_duck.c" />
     <ClCompile Include="..\..\pm_shared\pm_hull.c" />
     <ClCompile Include="..\..\public\interface.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_overlay.h" />
     <ClInclude Include="..\..\cl_dll\hud\hud_ammo.h" />
     <ClInclude Include="..\..\cl_dll\core\camera.h" />
     <ClInclude Include="..\..\cl_dll\core\cl_dll.h" />

@@ -62,6 +62,13 @@
     </Filter>
     <Filter Include="Header Files\cl_dll\hud">
       <UniqueIdentifier>{a5dcdae3-b427-4517-a477-bfa2583b2e20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\cl_dll\gladder">
+      <UniqueIdentifier>{e1b8d565-8fa1-4999-8cb6-01da5dd1e557}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\cl_dll\gladder">
+      <UniqueIdentifier>{a5dcdae3-b427-4517-a477-bfa2583b2e21}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\studio">
       <UniqueIdentifier>{6d26d83a-49bd-4604-bb9e-4a6c90c7ef03}</UniqueIdentifier>
     </Filter>
@@ -428,8 +435,14 @@
     <ClCompile Include="..\..\cl_dll\entities\entity_visual_registry.cpp">
       <Filter>Source Files\cl_dll</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_overlay.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\cl_dll\entities\entity_visual_registry.h">
       <Filter>Header Files\cl_dll</Filter>
     </ClInclude>

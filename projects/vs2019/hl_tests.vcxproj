@@ -60,7 +60,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;VALVE_DLL;HL_TESTS;CATCH_AMALGAMATED_CUSTOM_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\cl_dll;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\hud;..\..\cl_dll\events;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\gladder;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
@@ -78,7 +78,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;VALVE_DLL;HL_TESTS;CATCH_AMALGAMATED_CUSTOM_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\cl_dll;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\hud;..\..\cl_dll\events;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\gladder;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <LanguageStandard>stdcpp14</LanguageStandard>
@@ -153,6 +153,9 @@
     <ClCompile Include="..\..\tests\test_player_customization.cpp" />
     <ClCompile Include="..\..\tests\test_ai_navigation.cpp" />
     <ClCompile Include="..\..\dlls\core\client_customization.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_wave_manager.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_usermsg.cpp" />
+    <ClCompile Include="..\..\tests\test_gladder_phase1.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

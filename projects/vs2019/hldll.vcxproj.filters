@@ -52,6 +52,12 @@
     <Filter Include="Header Files\dlls\world">
       <UniqueIdentifier>{9f858c21-12c8-4770-bdc9-2785d0d86e13}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\dlls\gladder">
+      <UniqueIdentifier>{af858c21-12c8-4770-bdc9-2785d0d86e14}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\dlls\gladder">
+      <UniqueIdentifier>{bf858c21-12c8-4770-bdc9-2785d0d86e15}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\dlls\monsters\aflock.cpp">
@@ -756,8 +762,32 @@
     <ClCompile Include="..\..\dlls\core\user_message_registry.cpp">
       <Filter>Source Files\dlls\core</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_rules.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_entities.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_wave_manager.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_usermsg.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\dlls\gladder\gladder_rules.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_entities.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_wave_manager.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_usermsg.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\dlls\core\user_message_registry.h">
       <Filter>Header Files\dlls</Filter>
     </ClInclude>

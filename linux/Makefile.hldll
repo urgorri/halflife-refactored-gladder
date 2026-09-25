@@ -19,7 +19,7 @@ HL_OUTPUT_DIR=$(SOURCE_DIR)/../game/valve
 CFLAGS=$(BASE_CFLAGS)  $(ARCH_CFLAGS)  -DCLIENT_WEAPONS
 #-O3 -ffast-math -fno-strength-reduce
 
-HLDLL_INCLUDEDIRS=-I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR) -I$(SOURCE_DIR)/public -I../public
+HLDLL_INCLUDEDIRS=-I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(HLDLL_SRC_DIR)/gladder -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR) -I$(SOURCE_DIR)/public -I../public
 HLWPN_INCLUDEDIRS=-I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR) -I$(SOURCE_DIR)/public -I../public
 PM_INCLUDEDIRS=-I$(COMMON_SRC_DIR)  -I$(PUBLIC_SRC_DIR) -I$(SOURCE_DIR)/public -I../public
 GAME_SHARED_INCLUDEDIRS=-I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR) -I$(SOURCE_DIR)/public -I../public
@@ -98,6 +98,10 @@ HLDLL_OBJS = \
 	$(HLCORE_OBJ_DIR)/game.o \
 	$(HLDLL_OBJ_DIR)/gameplay/gamerules.o \
 	$(HLDLL_OBJ_DIR)/gameplay/gamerules_factory.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_rules.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_entities.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_wave_manager.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_usermsg.o \
 	$(HLDLL_OBJ_DIR)/monsters/gargantua.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_gauss.o \
 	$(HLDLL_OBJ_DIR)/monsters/genericmonster.o \
@@ -269,6 +273,9 @@ $(HLDLL_OBJ_DIR)/monsters/%.o : $(HLDLL_SRC_DIR)/monsters/%.cpp
 	$(DO_HLDLL_CC)
 
 $(HLDLL_OBJ_DIR)/gameplay/%.o : $(HLDLL_SRC_DIR)/gameplay/%.cpp
+	$(DO_HLDLL_CC)
+
+$(HLDLL_OBJ_DIR)/gladder/%.o : $(HLDLL_SRC_DIR)/gladder/%.cpp
 	$(DO_HLDLL_CC)
 
 $(HLDLL_OBJ_DIR)/%.o : $(HLDLL_SRC_DIR)/%.cpp

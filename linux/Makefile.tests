@@ -10,7 +10,7 @@ EXTERNAL_SRC_DIR=$(SOURCE_DIR)/external
 TESTS_OBJ_DIR=$(BUILD_OBJ_DIR)/tests
 PM_OBJ_DIR=$(BUILD_OBJ_DIR)/tests_pm
 
-TESTS_INCLUDEDIRS=-I$(SOURCE_DIR) -I$(TESTS_SRC_DIR) -I$(EXTERNAL_SRC_DIR)/catch2 -I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(SOURCE_DIR)/cl_dll -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR)
+TESTS_INCLUDEDIRS=-I$(SOURCE_DIR) -I$(TESTS_SRC_DIR) -I$(EXTERNAL_SRC_DIR)/catch2 -I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(HLDLL_SRC_DIR)/gladder -I$(SOURCE_DIR)/cl_dll -I$(SOURCE_DIR)/cl_dll/hud -I$(SOURCE_DIR)/cl_dll/events -I$(SOURCE_DIR)/cl_dll/entities -I$(SOURCE_DIR)/cl_dll/hl -I$(SOURCE_DIR)/cl_dll/gladder -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR)
 
 TESTS_CFLAGS=$(BASE_CFLAGS) $(ARCH_CFLAGS) -std=c++14 -DHL_TESTS -DVALVE_DLL -DCATCH_AMALGAMATED_CUSTOM_MAIN
 PM_CFLAGS=$(BASE_CFLAGS) $(ARCH_CFLAGS)
@@ -64,7 +64,11 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/effects_beams.o \
 	$(TESTS_OBJ_DIR)/triggers_audio.o \
 	$(TESTS_OBJ_DIR)/sound_sentences.o \
-	$(TESTS_OBJ_DIR)/crash_handler.o
+	$(TESTS_OBJ_DIR)/crash_handler.o \
+	$(TESTS_OBJ_DIR)/gladder_wave_manager.o \
+	$(TESTS_OBJ_DIR)/gladder_usermsg.o \
+	$(TESTS_OBJ_DIR)/test_gladder_phase1.o
+
 
 PM_OBJS = \
 	$(PM_OBJ_DIR)/pm_shared.o \
@@ -158,6 +162,12 @@ $(TESTS_OBJ_DIR)/sound_sentences.o: $(HLDLL_SRC_DIR)/systems/sound_sentences.cpp
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/crash_handler.o: $(HLDLL_SRC_DIR)/systems/crash_handler.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_wave_manager.o: $(HLDLL_SRC_DIR)/gladder/gladder_wave_manager.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_usermsg.o: $(HLDLL_SRC_DIR)/gladder/gladder_usermsg.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs
