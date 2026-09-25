@@ -141,15 +141,28 @@ TEST_CASE( "Gladder Phase 1: Save & Respawn Prevention Logic", "[gladder][rules]
 		"SAVE", "LOAD", "RELOAD"
 	};
 
-	auto IsBlockedCommand = []( const char *pcmd ) -> bool {
+	auto CaseInsensitiveEquals = []( const char *s1, const char *s2 ) -> bool {
+		if ( !s1 || !s2 )
+			return s1 == s2;
+		while ( *s1 && *s2 )
+		{
+			if ( tolower( (unsigned char)*s1 ) != tolower( (unsigned char)*s2 ) )
+				return false;
+			s1++;
+			s2++;
+		}
+		return *s1 == *s2;
+	};
+
+	auto IsBlockedCommand = [&]( const char *pcmd ) -> bool {
 		if ( !pcmd )
 			return false;
-		if ( _stricmp( pcmd, "save" ) == 0 ||
-		     _stricmp( pcmd, "load" ) == 0 ||
-		     _stricmp( pcmd, "reload" ) == 0 ||
-		     _stricmp( pcmd, "autosave" ) == 0 ||
-		     _stricmp( pcmd, "quickload" ) == 0 ||
-		     _stricmp( pcmd, "quicksave" ) == 0 )
+		if ( CaseInsensitiveEquals( pcmd, "save" ) ||
+		     CaseInsensitiveEquals( pcmd, "load" ) ||
+		     CaseInsensitiveEquals( pcmd, "reload" ) ||
+		     CaseInsensitiveEquals( pcmd, "autosave" ) ||
+		     CaseInsensitiveEquals( pcmd, "quickload" ) ||
+		     CaseInsensitiveEquals( pcmd, "quicksave" ) )
 		{
 			return true;
 		}

@@ -10,8 +10,8 @@
 #ifndef HUD_GLADDER_OVERLAY_H
 #define HUD_GLADDER_OVERLAY_H
 
-#include "hud_base.h"
-#include "hud_registry.h"
+#include "hud/hud_base.h"
+#include "hud/hud_registry.h"
 
 class CHudGladderOverlay : public CHudBase
 {
