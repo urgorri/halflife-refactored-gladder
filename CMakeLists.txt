@@ -134,6 +134,7 @@ if(BUILD_SERVER)
         dlls
         dlls/core
         dlls/weapons
+        dlls/gladder
         engine
         common
         pm_shared
@@ -236,6 +237,7 @@ if(BUILD_CLIENT)
         dlls
         dlls/core
         dlls/weapons
+        dlls/gladder
         cl_dll
         cl_dll/hud
         cl_dll/studio
@@ -246,6 +248,7 @@ if(BUILD_CLIENT)
         cl_dll/hl
         cl_dll/systems
         cl_dll/events
+        cl_dll/gladder
         public
         common
         pm_shared
@@ -342,6 +345,9 @@ if(BUILD_TESTS)
         cl_dll/events/event_registry.cpp
         cl_dll/hud/hud_registry.cpp
         cl_dll/entities/entity_visual_registry.cpp
+        dlls/gladder/gladder_wave_manager.cpp
+        dlls/gladder/gladder_usermsg.cpp
+        tests/test_gladder_phase1.cpp
         ${PM_SHARED_SOURCES}
     )
 
@@ -370,7 +376,13 @@ if(BUILD_TESTS)
         dlls/weapons
         dlls/ai
         dlls/gameplay
+        dlls/gladder
         cl_dll
+        cl_dll/hud
+        cl_dll/events
+        cl_dll/entities
+        cl_dll/hl
+        cl_dll/gladder
         engine
         common
         pm_shared

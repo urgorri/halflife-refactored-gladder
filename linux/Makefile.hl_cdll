@@ -18,7 +18,7 @@ HL_OUTPUT_DIR=$(SOURCE_DIR)/../game/valve
 
 CFLAGS=$(BASE_CFLAGS) $(ARCH_CFLAGS) -DCLIENT_DLL -DCLIENT_WEAPONS -DHL_DLL -I/usr/include/malloc -D_snwprintf=swprintf \
 		 -DDISABLE_JUMP_ORIGIN -DDISABLE_VEC_ORIGIN
-INCLUDEDIRS=-I$(HL_SRC_DIR) -I$(HL_SRC_DIR)/hud -I$(HL_SRC_DIR)/studio -I$(HL_SRC_DIR)/input -I$(HL_SRC_DIR)/core -I$(HL_SRC_DIR)/render -I$(HL_SRC_DIR)/entities -I$(HL_SRC_DIR)/hl -I$(HL_SRC_DIR)/systems -I$(HL_SRC_DIR)/events -I../dlls -I../dlls/core -I../dlls/weapons -I../tfc -I$(COMMON_SRC_DIR) -I$(PUBLIC_SRC_DIR) -I../pm_shared -I../engine -I../utils/vgui/include -I ../game_shared -I../external
+INCLUDEDIRS=-I$(HL_SRC_DIR) -I$(HL_SRC_DIR)/hud -I$(HL_SRC_DIR)/studio -I$(HL_SRC_DIR)/input -I$(HL_SRC_DIR)/core -I$(HL_SRC_DIR)/render -I$(HL_SRC_DIR)/entities -I$(HL_SRC_DIR)/hl -I$(HL_SRC_DIR)/systems -I$(HL_SRC_DIR)/events -I$(HL_SRC_DIR)/gladder -I../dlls -I../dlls/core -I../dlls/weapons -I../dlls/gladder -I../tfc -I$(COMMON_SRC_DIR) -I$(PUBLIC_SRC_DIR) -I../pm_shared -I../engine -I../utils/vgui/include -I ../game_shared -I../external
 ifeq ($(OS),Darwin)
 LDFLAGS=$(SHLIBLDFLAGS) $(CPP_LIB) -framework Carbon $(CFG)/vgui.dylib -L. -lSDL2-2.0.0
 else
@@ -101,6 +101,7 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/VGUI/vgui_TeamMenuPanel.o \
 	$(HL1_OBJ_DIR)/hud/voice_status.o \
 	$(HL1_OBJ_DIR)/hud/hud_servers.o \
+	$(HL1_OBJ_DIR)/gladder/hud_gladder_overlay.o \
 
 
 DLL_OBJS = \
@@ -174,6 +175,7 @@ $(HL1_OBJ_DIR):
 	mkdir -p $(HL1_OBJ_DIR)/VGUI
 	mkdir -p $(HL1_OBJ_DIR)/systems
 	mkdir -p $(HL1_OBJ_DIR)/events
+	mkdir -p $(HL1_OBJ_DIR)/gladder
 
 $(HL1_SERVER_OBJ_DIR):
 	mkdir -p $(HL1_SERVER_OBJ_DIR)
@@ -196,6 +198,12 @@ $(PM_SHARED_OBJ_DIR):
 	mkdir -p $(PM_SHARED_OBJ_DIR)
 
 
+
+$(HL1_OBJ_DIR)/gladder:
+	mkdir -p $(HL1_OBJ_DIR)/gladder
+
+$(HL1_OBJ_DIR)/gladder/%.o: $(HL_SRC_DIR)/gladder/%.cpp $(filter-out $(wildcard  $(HL1_OBJ_DIR)/gladder),  $(HL1_OBJ_DIR)/gladder)
+	$(DO_CC)
 
 $(HL1_OBJ_DIR)/hud/%.o: $(HL_SRC_DIR)/hud/%.cpp $(filter-out $(wildcard  $(HL1_OBJ_DIR)/hud),  $(HL1_OBJ_DIR)/hud)
 	$(DO_CC)
