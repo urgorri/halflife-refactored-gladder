@@ -88,15 +88,11 @@ int CHudGladderOverlay::Draw( float flTime )
 	{
 		sprintf( szBuf, "WAVE: %d [STANDBY]", m_iWaveNumber );
 	}
-	else if ( m_iWaveState == 2 ) // GLADDER_STATE_WAVE_COMPLETED
-	{
-		sprintf( szBuf, "WAVE: %d [COMPLETED]", m_iWaveNumber );
-	}
 	else if ( m_iWaveState == 3 ) // GLADDER_STATE_MATCH_OVER
 	{
 		sprintf( szBuf, "WAVE: %d [MATCH OVER]", m_iWaveNumber );
 	}
-	else
+	else // GLADDER_STATE_WAVE_ACTIVE (1)
 	{
 		sprintf( szBuf, "WAVE: %d", m_iWaveNumber );
 	}
