@@ -47,7 +47,10 @@ TEST_CASE( "Gladder Phase 1: Wave State Machine Transitions", "[gladder][wave_ma
 	{
 		manager.StartWave( 100.0f );
 		manager.CompleteWave( 120.0f ); // 20 second lap
-		REQUIRE( manager.GetState() == GLADDER_STATE_WAVE_COMPLETED );
+		// CompleteWave now transitions directly to STANDBY (WAITING_FOR_START) for the
+		// next wave, skipping the transient WAVE_COMPLETED state. The HUD shows
+		// "WAVE N+1 [STANDBY]" immediately so the player can prepare without confusion.
+		REQUIRE( manager.GetState() == GLADDER_STATE_WAITING_FOR_START );
 		REQUIRE( manager.GetCompletedWavesCount() == 1 );
 		REQUIRE( manager.GetWaveNumber() == 2 );
 		REQUIRE( manager.GetLapTimes().back() == Catch::Approx( 20.0f ) );
@@ -204,3 +207,10 @@ TEST_CASE( "Gladder Phase 1: Client HUD Overlay Telemetry Sync", "[gladder][hud]
 	REQUIRE( hud.GetCompletedLaps() == 2 );
 	REQUIRE( hud.GetFrags() == 47 );
 }
+
+#ifdef DEBUG
+edict_t *DBG_EntOfVars( const entvars_t *pev )
+{
+	return pev ? pev->pContainingEntity : nullptr;
+}
+#endif

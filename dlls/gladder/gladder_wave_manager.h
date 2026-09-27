@@ -63,6 +63,7 @@ class CGladderWaveManager
 	float m_flSessionEndTime;
 	float m_flWaveStartTime;
 	float m_flCurrentLapElapsed;
+	float m_flIdleEntryTime;    // Engine time when we last entered a non-active state
 	bool m_bSurvived;
 
 	std::vector<float> m_lapTimes;

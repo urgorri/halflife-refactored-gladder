@@ -14,12 +14,12 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 
-static int MsgFunc_GladderWave_Dispatcher( const char *pszName, int iSize, void *pbuf )
+static int MsgFunc_GladWave_Dispatcher( const char *pszName, int iSize, void *pbuf )
 {
 	return g_HudGladderOverlay.MsgFunc_GladderWave( pszName, iSize, pbuf );
 }
 
-static int MsgFunc_GladderTelemetry_Dispatcher( const char *pszName, int iSize, void *pbuf )
+static int MsgFunc_GladTelem_Dispatcher( const char *pszName, int iSize, void *pbuf )
 {
 	return g_HudGladderOverlay.MsgFunc_GladderTelemetry( pszName, iSize, pbuf );
 }
@@ -30,8 +30,8 @@ CHudGladderOverlay g_HudGladderOverlay;
 int CHudGladderOverlay::Init( void )
 {
 #ifdef CLIENT_DLL
-	gEngfuncs.pfnHookUserMsg( "GladderWave", MsgFunc_GladderWave_Dispatcher );
-	gEngfuncs.pfnHookUserMsg( "GladderTelemetry", MsgFunc_GladderTelemetry_Dispatcher );
+	gEngfuncs.pfnHookUserMsg( "GladWave", MsgFunc_GladWave_Dispatcher );
+	gEngfuncs.pfnHookUserMsg( "GladTelem", MsgFunc_GladTelem_Dispatcher );
 #endif
 	m_iFlags |= HUD_ACTIVE;
 	return 1;
@@ -83,8 +83,19 @@ int CHudGladderOverlay::Draw( float flTime )
 	int y = 16;
 	char szBuf[128];
 
-	// 1. Current Wave Counter
-	sprintf( szBuf, "WAVE: %d", m_iWaveNumber );
+	// 1. Current Wave Counter & Status
+	if ( m_iWaveState == 0 ) // GLADDER_STATE_WAITING_FOR_START
+	{
+		sprintf( szBuf, "WAVE: %d [STANDBY]", m_iWaveNumber );
+	}
+	else if ( m_iWaveState == 3 ) // GLADDER_STATE_MATCH_OVER
+	{
+		sprintf( szBuf, "WAVE: %d [MATCH OVER]", m_iWaveNumber );
+	}
+	else // GLADDER_STATE_WAVE_ACTIVE (1)
+	{
+		sprintf( szBuf, "WAVE: %d", m_iWaveNumber );
+	}
 	DrawConsoleString( x, y, szBuf );
 	y += 16;
 
@@ -101,9 +112,16 @@ int CHudGladderOverlay::Draw( float flTime )
 	y += 16;
 
 	// 3. Current Lap Timer
-	int lapMin = static_cast<int>( m_flLapTime ) / 60;
-	int lapSec = static_cast<int>( m_flLapTime ) % 60;
-	sprintf( szBuf, "WAVE TIME: %02d:%02d", lapMin, lapSec );
+	if ( m_iWaveState == 1 ) // GLADDER_STATE_WAVE_ACTIVE
+	{
+		int lapMin = static_cast<int>( m_flLapTime ) / 60;
+		int lapSec = static_cast<int>( m_flLapTime ) % 60;
+		sprintf( szBuf, "WAVE TIME: %02d:%02d", lapMin, lapSec );
+	}
+	else
+	{
+		sprintf( szBuf, "WAVE TIME: --:--" );
+	}
 	DrawConsoleString( x, y, szBuf );
 	y += 16;
 

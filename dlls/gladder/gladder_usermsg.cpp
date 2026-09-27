@@ -11,6 +11,6 @@
 int gmsgGladderWave = 0;
 int gmsgGladderTelemetry = 0;
 
-REGISTER_USER_MSG( GladderWave, GLADDER_MSG_WAVE_SIZE, &gmsgGladderWave );
-REGISTER_USER_MSG( GladderTelemetry, GLADDER_MSG_TELEMETRY_SIZE, &gmsgGladderTelemetry );
+REGISTER_USER_MSG( GladWave, GLADDER_MSG_WAVE_SIZE, &gmsgGladderWave );
+REGISTER_USER_MSG( GladTelem, GLADDER_MSG_TELEMETRY_SIZE, &gmsgGladderTelemetry );
 #endif

@@ -12,9 +12,33 @@
 #include "items/item_base.h"
 #include "weapons/weapon_base.h"
 
-// Gladder gamemode cvar (1 enables Gladder mode)
-cvar_t gladder = { "gladder", "1", FCVAR_SERVER | FCVAR_ARCHIVE };
-cvar_t gladder_timelimit = { "gladder_timelimit", "600", FCVAR_SERVER | FCVAR_ARCHIVE }; // default 10 minutes
+// Gladder gamemode cvar (1 enables Gladder mode).
+// NOTE: value MUST be initialized to 1.0f here. ConditionGladder() checks gladder.value
+// before CVAR_REGISTER() runs (which is what sets value from the string). Without this
+// explicit initialization the struct leaves value=0.0f, the condition always returns false,
+// and the factory falls back to CHalfLifeRules — CGladderRules is never instantiated.
+cvar_t gladder         = { "gladder",         "1",   FCVAR_SERVER | FCVAR_ARCHIVE, 1.0f,   nullptr };
+cvar_t gladder_timelimit = { "gladder_timelimit", "600", FCVAR_SERVER | FCVAR_ARCHIVE, 600.0f, nullptr };
+
+// Early cvar registration: called from ConditionGladder() so the engine has the "gladder"
+// cvar available on the console before CGladderRules is ever constructed.
+static bool s_bGladderCvarsRegistered = false;
+static void Gladder_RegisterCvars( void )
+{
+	if ( s_bGladderCvarsRegistered )
+		return;
+	if ( !g_engfuncs.pfnCVarRegister )
+		return;
+	CVAR_REGISTER( &gladder );
+	CVAR_REGISTER( &gladder_timelimit );
+	s_bGladderCvarsRegistered = true;
+}
+
+// Block server console commands for saving and loading
+static void Gladder_BlockSaveCmd( void )
+{
+	ALERT( at_console, "Saving and loading are disabled in Half-Life: Gladder.\n" );
+}
 
 CGladderRules::CGladderRules()
     : m_bInitialSpawnDone( false ),
@@ -22,9 +46,18 @@ CGladderRules::CGladderRules()
       m_iCollectiblesCount( 0 ),
       m_flLastTelemetryBroadcast( 0.0f )
 {
-	// Register cvars if not registered
-	CVAR_REGISTER( &gladder );
-	CVAR_REGISTER( &gladder_timelimit );
+	// Ensure cvars are registered with the engine (idempotent if already done by ConditionGladder)
+	Gladder_RegisterCvars();
+
+	// Intercept and disable host save/load console commands
+	if ( g_engfuncs.pfnAddServerCommand )
+	{
+		g_engfuncs.pfnAddServerCommand( (char *)"save", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"load", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"quicksave", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"quickload", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"autosave", Gladder_BlockSaveCmd );
+	}
 
 	float flLimit = gladder_timelimit.value;
 	if ( flLimit <= 0.0f )
@@ -69,11 +102,15 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 	{
 		m_bInitialSpawnDone = true;
 
-		// Equip HEV suit
-		pPlayer->GiveNamedItem( "item_suit" );
+		// Equip HEV suit: set weapon bitmask directly to guarantee HUD/battery activation
+		pPlayer->pev->weapons |= ( 1 << WEAPON_SUIT );
 
-		// Equip Crowbar
+		// Equip Crowbar and select it into hands
+		int iAutoWepSwitch = pPlayer->m_iAutoWepSwitch;
+		pPlayer->m_iAutoWepSwitch = 1;
 		pPlayer->GiveNamedItem( "weapon_crowbar" );
+		pPlayer->SelectItem( "weapon_crowbar" );
+		pPlayer->m_iAutoWepSwitch = iAutoWepSwitch;
 
 		// Re-initialize match clock from actual player spawn time
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
@@ -323,9 +360,18 @@ CGameRules *CreateGladderRules( void )
 
 bool ConditionGladder( void )
 {
-	// Active when not in deathmatch and gladder cvar is enabled (or deathmatch is 0)
 	if ( !gpGlobals || gpGlobals->deathmatch != 0 )
 		return false;
+
+	// Register Gladder CVARs as early as possible so the engine knows about them
+	// even before CGladderRules is instantiated. Safe to call after GiveFnptrsToDll.
+	Gladder_RegisterCvars();
+
+	// Prefer the engine-tracked cvar value (updated from cfg overrides) when available;
+	// fall back to the statically initialized 1.0f before the first engine map load.
+	cvar_t *pRegistered = g_engfuncs.pfnCVarGetPointer ? CVAR_GET_POINTER( "gladder" ) : nullptr;
+	if ( pRegistered )
+		return ( pRegistered->value != 0.0f );
 
 	return ( gladder.value != 0.0f );
 }

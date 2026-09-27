@@ -16,6 +16,7 @@ CGladderWaveManager::CGladderWaveManager()
       m_flSessionEndTime( 0.0f ),
       m_flWaveStartTime( 0.0f ),
       m_flCurrentLapElapsed( 0.0f ),
+      m_flIdleEntryTime( 0.0f ),
       m_bSurvived( false )
 {
 }
@@ -33,6 +34,9 @@ void CGladderWaveManager::InitializeMatch( float flStartTime )
 	m_flSessionEndTime   = flStartTime + m_flSessionDuration;
 	m_flWaveStartTime    = 0.0f;
 	m_flCurrentLapElapsed = 0.0f;
+	// Timer starts paused: the countdown only runs while a wave is ACTIVE.
+	// m_flIdleEntryTime marks when idle began so Tick() can defer the end time.
+	m_flIdleEntryTime    = flStartTime;
 	m_bSurvived          = false;
 	m_lapTimes.clear();
 }
@@ -41,6 +45,16 @@ void CGladderWaveManager::StartWave( float flCurrentTime )
 {
 	if ( m_state == GLADDER_STATE_MATCH_OVER )
 		return;
+
+	// Compensate the session end time by the idle period that just elapsed.
+	// This ensures the countdown only runs while a wave is ACTIVE.
+	if ( m_flIdleEntryTime > 0.0f )
+	{
+		float flIdleDuration = flCurrentTime - m_flIdleEntryTime;
+		if ( flIdleDuration > 0.0f )
+			m_flSessionEndTime += flIdleDuration;
+		m_flIdleEntryTime = 0.0f;
+	}
 
 	m_state             = GLADDER_STATE_WAVE_ACTIVE;
 	m_flWaveStartTime   = flCurrentTime;
@@ -57,7 +71,6 @@ void CGladderWaveManager::CompleteWave( float flCurrentTime )
 		flLapDuration = 0.0f;
 
 	m_lapTimes.push_back( flLapDuration );
-	m_state = GLADDER_STATE_WAVE_COMPLETED;
 	m_iWaveNumber++;
 	m_flCurrentLapElapsed = 0.0f;
 
@@ -65,7 +78,13 @@ void CGladderWaveManager::CompleteWave( float flCurrentTime )
 	if ( flCurrentTime >= m_flSessionEndTime )
 	{
 		EndMatch( flCurrentTime, true );
+		return;
 	}
+
+	// Transition directly to STANDBY for the next wave (skip COMPLETED state).
+	// The HUD will show "WAVE N+1 [STANDBY]" — the player already knows wave N was cleared.
+	m_state           = GLADDER_STATE_WAITING_FOR_START;
+	m_flIdleEntryTime = flCurrentTime; // start tracking idle again
 }
 
 void CGladderWaveManager::EndMatch( float flCurrentTime, bool bSurvived )
@@ -85,11 +104,16 @@ void CGladderWaveManager::Tick( float flCurrentTime )
 			EndMatch( flCurrentTime, true );
 		}
 	}
-	else if ( m_state == GLADDER_STATE_WAITING_FOR_START || m_state == GLADDER_STATE_WAVE_COMPLETED )
+	else if ( m_state == GLADDER_STATE_WAITING_FOR_START )
 	{
-		if ( flCurrentTime >= m_flSessionEndTime )
+		// The session countdown is paused while the player is in STANDBY.
+		// Slide the end time forward so GetSessionTimeRemaining stays constant.
+		if ( m_flIdleEntryTime > 0.0f )
 		{
-			EndMatch( flCurrentTime, true );
+			float flIdleDuration = flCurrentTime - m_flIdleEntryTime;
+			if ( flIdleDuration > 0.0f )
+				m_flSessionEndTime += flIdleDuration;
+			m_flIdleEntryTime = flCurrentTime;
 		}
 	}
 }
@@ -146,6 +170,7 @@ void CGladderWaveManager::Reset( void )
 	m_flSessionEndTime   = 0.0f;
 	m_flWaveStartTime    = 0.0f;
 	m_flCurrentLapElapsed = 0.0f;
+	m_flIdleEntryTime    = 0.0f;
 	m_bSurvived          = false;
 	m_lapTimes.clear();
 }
