@@ -22,12 +22,19 @@ extern int gmsgGladderTelemetry;
 #define GLADDER_MSG_TELEMETRY_NAME "GladTelem"
 
 // Fixed sizes for network messages (-1 means variable, or exact byte count)
-// GladderWave:
-// byte iState, short iWaveNumber, float flSessionTimeRemaining, float flLapTime
-#define GLADDER_MSG_WAVE_SIZE 9
+// GladderWave wire format (7 bytes total):
+//   WRITE_BYTE  iState                  (1 byte)
+//   WRITE_SHORT iWaveNumber             (2 bytes)
+//   WRITE_COORD flSessionTimeRemaining  (2 bytes — GoldSrc WRITE_COORD is a scaled short)
+//   WRITE_COORD flLapTime               (2 bytes)
+#define GLADDER_MSG_WAVE_SIZE 7
 
-// GladderTelemetry:
-// float flFastestLap, float flSlowestLap, float flAverageLap, short iCompletedLaps, short iFrags
-#define GLADDER_MSG_TELEMETRY_SIZE 16
+// GladderTelemetry wire format (10 bytes total):
+//   WRITE_COORD flFastestLap    (2 bytes — GoldSrc WRITE_COORD is a scaled short)
+//   WRITE_COORD flSlowestLap    (2 bytes)
+//   WRITE_COORD flAverageLap    (2 bytes)
+//   WRITE_SHORT iCompletedLaps  (2 bytes)
+//   WRITE_SHORT iFrags          (2 bytes)
+#define GLADDER_MSG_TELEMETRY_SIZE 10
 
 #endif // GLADDER_USERMSG_H
