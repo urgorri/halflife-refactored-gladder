@@ -256,3 +256,13 @@ To maintain consistent level interactivity and route geometry without entity deg
   * Breakable environmental objects (such as wooden crates, glass panes, or barricades) are retained across waves and regenerated at the start of each wave reset.
   * **Non-Destructive Break Simulation**: When a `func_breakable` takes lethal damage during an active wave, it triggers its standard breaking visual/audio effects, debris particles, and collision removal, but the underlying server entity is preserved in memory rather than permanently deleted (`UTIL_Remove`).
   * **State Hiding & Reset**: Upon destruction, the object enters a hidden/disabled state (`EF_NODRAW`, solid state set to `SOLID_NOT`). During wave reset garbage collection, all broken `func_breakable` entities are restored to their original visual appearance, collision bounds, and hit points, cleanly resetting the environment for the incoming wave.
+### 11.3 Breakable Entity Regeneration Policy
+* **Dedicated Breakable Subclass**: A new entity class `gladder_breakable` (inherits from `func_breakable`) is introduced. It behaves exactly like a standard breakable (produces gibs, optional explosion) but is flagged for wave‑reset handling.
+* **Wave‑Independent Lifecycle**: `gladder_breakable` instances are placed anywhere in the map and are **not** tied to any grid‑area or wave‑area definitions. At the end of each wave the entity is automatically restored to its pristine state regardless of its location.
+* **Reset Mechanism**: Upon destruction during a wave the entity is hidden (`EF_NODRAW`) and its solidity set to `SOLID_NOT`. During the wave reset phase the engine respawns the entity, re‑applies its original health, model, and collision bounds, and reenables its visual and physical effects so that it behaves indistinguishably from a freshly‑placed breakable in the next wave.
+* **Preservation of Original Effects**: All standard breakable side‑effects (debris particles, sound cues, optional `func_explosive`‑style explosion) are retained because the underlying `func_breakable` logic is executed before the entity enters the hidden state.
+
+### 12. Wave Transition UI Feedback
+* **Start Trigger UI**: When the player activates a wave start trigger, a transient overlay appears at the screen centre displaying `WAVE <N> STARTED` (where `<N>` is the current wave number). The text fades out after 2 seconds.
+* **Completion Trigger UI**: Upon wave completion trigger activation, a similar overlay displays `WAVE <N> COMPLETED` for 2 seconds before fading.
+* **Implementation Note**: These messages are rendered via the client HUD system (`CHudMessage`) and are not tied to any sound cue; they may be combined with existing wave start/completion audio cues for enhanced feedback.
