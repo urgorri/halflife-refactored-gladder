@@ -26,7 +26,21 @@
 // Helper to ensure target directories exist for binary cache
 static void EnsureGridDirectoryExists( const std::string &filePath )
 {
-	// Ensure "maps" and "maps/grid" exist
+	char szGameDir[260] = { 0 };
+	if ( g_engfuncs.pfnGetGameDir )
+	{
+		GET_GAME_DIR( szGameDir );
+	}
+
+	if ( szGameDir[0] )
+	{
+		std::string mapsDir = std::string( szGameDir ) + "/maps";
+		std::string gridDir = mapsDir + "/grid";
+		MKDIR( mapsDir.c_str() );
+		MKDIR( gridDir.c_str() );
+	}
+
+	// Also ensure relative maps/grid exists for CWD and unit test execution
 	MKDIR( "maps" );
 	MKDIR( "maps/grid" );
 }
@@ -62,6 +76,18 @@ std::string GladderGridIndexer::GetGridFilePath( const char *pszMapName )
 	size_t lastDot = base.find_last_of( '.' );
 	if ( lastDot != std::string::npos )
 		base = base.substr( 0, lastDot );
+
+	// Prepend game directory if running under engine (e.g. "gladder/")
+	char szGameDir[260] = { 0 };
+	if ( g_engfuncs.pfnGetGameDir )
+	{
+		GET_GAME_DIR( szGameDir );
+	}
+
+	if ( szGameDir[0] )
+	{
+		return std::string( szGameDir ) + "/maps/grid/" + base + ".grid";
+	}
 
 	return "maps/grid/" + base + ".grid";
 }
@@ -106,6 +132,17 @@ bool GladderGridIndexer::LoadFromFile( const char *pszFilePath )
 		return false;
 
 	FILE *pFile = fopen( pszFilePath, "rb" );
+	if ( !pFile )
+	{
+		// Fallback: if absolute path failed, try relative path, or vice versa
+		std::string fallbackPath = pszFilePath;
+		size_t mapsPos = fallbackPath.find( "maps/grid/" );
+		if ( mapsPos != std::string::npos )
+		{
+			std::string relPath = fallbackPath.substr( mapsPos );
+			pFile = fopen( relPath.c_str(), "rb" );
+		}
+	}
 	if ( !pFile )
 		return false;
 

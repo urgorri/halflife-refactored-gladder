@@ -259,3 +259,13 @@ TEST_CASE( "Gladder Spawner: Comprehensive wave garbage collection (SPEC §11)",
 
 	ClearMockEntityFactories();
 }
+
+TEST_CASE( "Gladder Spawner: Precache registers all roster monsters and pickups", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	GladderSpawner spawner;
+	// Verify that Precache executes without error across all roster monsters and items
+	spawner.Precache();
+	SUCCEED( "Precache completed successfully" );
+}

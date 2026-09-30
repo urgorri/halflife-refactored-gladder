@@ -249,6 +249,28 @@ GladderSpawner::~GladderSpawner()
 	PurgeWaveEntities();
 }
 
+void GladderSpawner::Precache( void )
+{
+	// 1. Precache full monster roster for procedural waves (prevents Host_Error in GoldSrc)
+	for ( size_t i = 0; i < s_monsterRosterCount; ++i )
+	{
+		UTIL_PrecacheOther( s_monsterRoster[i].szClassname );
+	}
+
+	// 2. Precache full pickup & ammo roster
+	for ( size_t i = 0; i < s_pickupRosterCount; ++i )
+	{
+		UTIL_PrecacheOther( s_pickupRoster[i].szClassname );
+	}
+
+	// 3. Precache custom Lambda collectible entity
+	UTIL_PrecacheOther( "item_gladder_lambda" );
+
+	ALERT( at_console, "[Gladder] Precached %u monster types and %u pickups for procedural spawning\n",
+	       static_cast<unsigned int>( s_monsterRosterCount ),
+	       static_cast<unsigned int>( s_pickupRosterCount ) );
+}
+
 float GladderSpawner::GetMonsterTierWeight( int tier, int iWaveNumber )
 {
 	float w = static_cast<float>( (std::max)( 1, iWaveNumber ) );

@@ -25,11 +25,39 @@ TEST_CASE( "Gladder Grid Indexer: Default state & path formatting", "[gladder][g
 	CHECK( indexer.IsLoaded() == false );
 	CHECK( indexer.GetCells().empty() );
 
-	CHECK( GladderGridIndexer::GetGridFilePath( "c1a0" ) == "maps/grid/c1a0.grid" );
-	CHECK( GladderGridIndexer::GetGridFilePath( "maps/c1a0.bsp" ) == "maps/grid/c1a0.grid" );
-	CHECK( GladderGridIndexer::GetGridFilePath( "custom\\boot_camp.bsp" ) == "maps/grid/boot_camp.grid" );
-	CHECK( GladderGridIndexer::GetGridFilePath( "" ) == "maps/grid/unknown.grid" );
-	CHECK( GladderGridIndexer::GetGridFilePath( nullptr ) == "maps/grid/unknown.grid" );
+	SECTION( "Path formatting with default mock engine game directory" )
+	{
+		CHECK( GladderGridIndexer::GetGridFilePath( "c1a0" ) == "valve/maps/grid/c1a0.grid" );
+		CHECK( GladderGridIndexer::GetGridFilePath( "maps/c1a0.bsp" ) == "valve/maps/grid/c1a0.grid" );
+		CHECK( GladderGridIndexer::GetGridFilePath( "custom\\boot_camp.bsp" ) == "valve/maps/grid/boot_camp.grid" );
+		CHECK( GladderGridIndexer::GetGridFilePath( "" ) == "maps/grid/unknown.grid" );
+		CHECK( GladderGridIndexer::GetGridFilePath( nullptr ) == "maps/grid/unknown.grid" );
+	}
+
+	SECTION( "Path formatting without engine game directory" )
+	{
+		auto originalGetGameDir = g_engfuncs.pfnGetGameDir;
+		g_engfuncs.pfnGetGameDir = nullptr;
+
+		CHECK( GladderGridIndexer::GetGridFilePath( "c1a0" ) == "maps/grid/c1a0.grid" );
+		CHECK( GladderGridIndexer::GetGridFilePath( "maps/c1a0.bsp" ) == "maps/grid/c1a0.grid" );
+		CHECK( GladderGridIndexer::GetGridFilePath( "custom\\boot_camp.bsp" ) == "maps/grid/boot_camp.grid" );
+
+		g_engfuncs.pfnGetGameDir = originalGetGameDir;
+	}
+
+	SECTION( "Path formatting with custom engine game directory" )
+	{
+		auto originalGetGameDir = g_engfuncs.pfnGetGameDir;
+		g_engfuncs.pfnGetGameDir = []( char *szGetGameDir ) {
+			strcpy( szGetGameDir, "E:/Half-Life/gladder" );
+		};
+
+		CHECK( GladderGridIndexer::GetGridFilePath( "c1a0" ) == "E:/Half-Life/gladder/maps/grid/c1a0.grid" );
+		CHECK( GladderGridIndexer::GetGridFilePath( "gl_01" ) == "E:/Half-Life/gladder/maps/grid/gl_01.grid" );
+
+		g_engfuncs.pfnGetGameDir = originalGetGameDir;
+	}
 }
 
 TEST_CASE( "Gladder Grid Indexer: Binary serialization & cache round-trip", "[gladder][grid]" )

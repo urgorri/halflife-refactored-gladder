@@ -69,9 +69,10 @@ CGladderRules::CGladderRules()
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.InitializeMatch( flTime );
 
-	// Precache essential Gladder cues
+	// Precache essential Gladder cues and spawner roster (monsters, weapons, pickups)
 	PRECACHE_SOUND( "debris/beamstart1.wav" );
 	PRECACHE_SOUND( "buttons/bell1.wav" );
+	m_spawner.Precache();
 
 	CGameRules::RefreshSkillData();
 

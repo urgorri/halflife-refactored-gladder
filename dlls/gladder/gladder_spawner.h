@@ -80,6 +80,9 @@ class GladderSpawner
 	GladderSpawner();
 	~GladderSpawner();
 
+	// Precache all monster models, sounds and weapon/pickup assets during map load
+	void Precache( void );
+
 	// Spawn full procedural wave across indexed spatial grid cells (SPEC §2, §3, §7.3)
 	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config );
 

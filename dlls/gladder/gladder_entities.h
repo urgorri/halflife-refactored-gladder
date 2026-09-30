@@ -143,6 +143,18 @@ class CGladderWaveRelay : public CBaseDelay
 	int m_iWaveEvent;
 };
 
+//
+// item_gladder_lambda
+// Floating collectible insignia awarded for exploration (SPEC §7.3, §9.1)
+//
+class CItemGladderLambda : public CBaseEntity
+{
+  public:
+	void Spawn( void );
+	void Precache( void );
+	void EXPORT ItemTouch( CBaseEntity *pOther );
+};
+
 void Gladder_FireWaveRelays( int iEvent, CBaseEntity *pActivator );
 
 #endif // GLADDER_ENTITIES_H

@@ -109,3 +109,13 @@
 	]
 	light_origin(string) : "Light Origin Target"
 ]
+
+//=============================================================================
+//
+// Gladder Collectibles & Pickups
+//
+//=============================================================================
+
+@PointClass base(Targetname) color(255 180 0) = item_gladder_lambda : "Gladder: Collectible Lambda Insignia"
+[
+]
