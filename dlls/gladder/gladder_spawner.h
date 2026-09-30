@@ -106,16 +106,19 @@ class GladderSpawner
 	// Manual entity creation helper that respects edict budget and registers with spawner
 	CBaseEntity *CreateWaveEntity( const char *szClassname, const Vector &vecOrigin, const Vector &vecAngles = g_vecZero );
 
+	// Entity properties query
+	static bool IsLargeMonster( const char *szClassname );
+
   private:
 	std::vector<EHANDLE> m_spawnedEntities;
 	int m_iLastMonsterCount;
 	int m_iLastPickupCount;
 	bool m_bLambdaSpawned;
 
-	// Internal procedural generation routines
-	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count );
-	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count );
-	void SpawnLambdaCollectible( const GladderGridIndexer &indexer );
+	// Internal procedural generation routines (with cell occupancy tracking)
+	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
+	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
+	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
 
 	const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
 	const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config );

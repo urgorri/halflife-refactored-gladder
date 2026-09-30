@@ -477,103 +477,307 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 	return s_pickupRoster[indices.back()].szClassname;
 }
 
-void GladderSpawner::SpawnLambdaCollectible( const GladderGridIndexer &indexer )
+bool GladderSpawner::IsLargeMonster( const char *szClassname )
+{
+	if ( !szClassname || !*szClassname )
+		return false;
+
+	return ( strcmp( szClassname, "monster_bullchicken" ) == 0 ||
+	         strcmp( szClassname, "monster_alien_grunt" ) == 0 ||
+	         strcmp( szClassname, "monster_gargantua" ) == 0 ||
+	         strcmp( szClassname, "monster_bigmomma" ) == 0 );
+}
+
+void GladderSpawner::SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells )
 {
 	m_bLambdaSpawned = false;
 
-	// Pick a random valid cell that has clearance
-	const GladderGridCell *pCell = indexer.GetRandomCell( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK );
-	if ( !pCell )
+	// Pick a random valid cell that has clearance and is unoccupied
+	int cellIdx = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, pOccupiedCells );
+	if ( cellIdx < 0 )
 		return;
 
+	const GladderGridCell &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
+
 	// Elevate 36 units above surface for prominent floating/bobbing arcade display (SPEC §7.3)
-	Vector spawnPos = pCell->origin + Vector( 0.0f, 0.0f, 36.0f );
+	Vector spawnPos = cell.origin + Vector( 0.0f, 0.0f, 36.0f );
 	CBaseEntity *pLambda = CreateWaveEntity( "item_gladder_lambda", spawnPos, g_vecZero );
 	if ( pLambda )
 	{
 		m_bLambdaSpawned = true;
+		if ( pOccupiedCells && cellIdx < static_cast<int>( pOccupiedCells->size() ) )
+		{
+			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+		}
 	}
 }
 
-void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count )
+void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells )
 {
 	m_iLastMonsterCount = 0;
+
+	if ( indexer.GetCellCount() == 0 || count <= 0 )
+		return;
+
+	std::vector<bool> localOccupied;
+	if ( !pOccupiedCells )
+	{
+		localOccupied.assign( indexer.GetCellCount(), false );
+		pOccupiedCells = &localOccupied;
+	}
+
+	struct SpawnedMonsterRecord
+	{
+		Vector pos;
+		bool isLarge;
+		bool isBarnacle;
+		bool isFlying;
+	};
+	std::vector<SpawnedMonsterRecord> spawned;
+	spawned.reserve( count );
 
 	for ( int i = 0; i < count; ++i )
 	{
 		if ( GetFreeEdictCount() <= SAFE_FREE_EDICT_THRESHOLD )
+		{
+			ALERT( at_console, "[Gladder] Spawner edict budget threshold reached (%d active). Stopping monster spawn at wave %d.\n",
+			       GetActiveEdictCount(), iWaveNumber );
 			break;
+		}
 
 		bool isFlying = false;
 		bool isBarnacle = false;
 		const char *szSpecies = RollMonsterSpecies( iWaveNumber, config, isFlying, isBarnacle );
+		bool isLarge = IsLargeMonster( szSpecies );
+		int hullNum = isLarge ? large_hull : human_hull;
 
-		// Select a suitable grid cell
+		// Select required flags for spatial candidate
 		uint32_t reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
 		if ( isBarnacle )
+		{
 			reqFlags |= GLADDER_CELL_CEILING_VALID;
-
-		const GladderGridCell *pCell = indexer.GetRandomCell( -1, reqFlags );
-		if ( !pCell )
+		}
+		else if ( isLarge )
 		{
-			// Try without ceiling requirement if barnacle failed
-			pCell = indexer.GetRandomCell( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK );
-			if ( !pCell )
+			reqFlags |= GLADDER_CELL_LARGE_CLEARANCE;
+		}
+
+		// Collect all unoccupied candidate cells matching required flags
+		std::vector<size_t> candidates;
+		for ( size_t cIdx = 0; cIdx < indexer.GetCellCount(); ++cIdx )
+		{
+			if ( ( *pOccupiedCells )[cIdx] )
 				continue;
+
+			const auto &c = indexer.GetCell( cIdx );
+			if ( ( c.flags & reqFlags ) == reqFlags )
+			{
+				candidates.push_back( cIdx );
+			}
+		}
+
+		// Fallback for barnacle or large monster if strict flags yield no candidates
+		if ( candidates.empty() )
+		{
 			if ( isBarnacle )
-				isBarnacle = false; // Downgrade
+			{
+				isBarnacle = false;
+				reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+			}
+			else if ( isLarge )
+			{
+				reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+			}
+
+			for ( size_t cIdx = 0; cIdx < indexer.GetCellCount(); ++cIdx )
+			{
+				if ( ( *pOccupiedCells )[cIdx] )
+					continue;
+
+				const auto &c = indexer.GetCell( cIdx );
+				if ( ( c.flags & reqFlags ) == reqFlags )
+				{
+					candidates.push_back( cIdx );
+				}
+			}
 		}
 
-		// Calculate exact spawn position according to monster mechanics (SPEC §4.4)
-		Vector vecSpawnPos = pCell->origin;
-		if ( isBarnacle )
+		if ( candidates.empty() )
 		{
-			// Attached flush to overhead ceiling geometry
-			vecSpawnPos.z = pCell->ceilingZ - 8.0f;
-		}
-		else if ( isFlying )
-		{
-			// Variable altitude between ground clearance and ceiling
-			float flMinZ = pCell->origin.z + 32.0f;
-			float flMaxZ = (std::max)( flMinZ + 16.0f, pCell->ceilingZ - 32.0f );
-			vecSpawnPos.z = RANDOM_FLOAT( flMinZ, flMaxZ );
-		}
-		else
-		{
-			// Ground resting position
-			vecSpawnPos.z += 1.0f;
+			// No more unoccupied cells available on the grid
+			ALERT( at_console, "[Gladder] No free grid cells remaining for monster %d (%s). Stopping wave spawns.\n",
+			       i + 1, szSpecies );
+			break;
 		}
 
-		Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
-		CBaseEntity *pMonster = CreateWaveEntity( szSpecies, vecSpawnPos, vecAngles );
-		if ( pMonster )
+		// Test candidate cells without duplicates to find one that satisfies distance and clearance
+		bool bSpawnSuccess = false;
+		size_t remaining = candidates.size();
+
+		while ( remaining > 0 )
 		{
-			m_iLastMonsterCount++;
+			size_t pick = static_cast<size_t>( RANDOM_LONG( 0, static_cast<long>( remaining - 1 ) ) );
+			size_t chosenIdx = candidates[pick];
+			std::swap( candidates[pick], candidates[remaining - 1] );
+			remaining--;
+
+			const auto &cell = indexer.GetCell( chosenIdx );
+
+			// Calculate exact spawn position according to monster mechanics (SPEC §4.4)
+			Vector vecSpawnPos = cell.origin;
+			if ( isBarnacle )
+			{
+				vecSpawnPos.z = cell.ceilingZ - 8.0f;
+			}
+			else if ( isFlying )
+			{
+				float flMinZ = cell.origin.z + 32.0f;
+				float flMaxZ = (std::max)( flMinZ + 16.0f, cell.ceilingZ - 32.0f );
+				vecSpawnPos.z = RANDOM_FLOAT( flMinZ, flMaxZ );
+			}
+			else
+			{
+				vecSpawnPos.z += 1.0f;
+			}
+
+			// 1. Distance separation check against already spawned monsters
+			bool bTooClose = false;
+			for ( const auto &prev : spawned )
+			{
+				if ( isBarnacle || prev.isBarnacle )
+				{
+					if ( isBarnacle && prev.isBarnacle )
+					{
+						if ( ( vecSpawnPos - prev.pos ).Length2D() < 48.0f )
+						{
+							bTooClose = true;
+							break;
+						}
+					}
+					continue;
+				}
+
+				if ( isFlying || prev.isFlying )
+				{
+					if ( ( vecSpawnPos - prev.pos ).Length() < 48.0f )
+					{
+						bTooClose = true;
+						break;
+					}
+					continue;
+				}
+
+				// Ground monsters:
+				float flDist2D = ( vecSpawnPos - prev.pos ).Length2D();
+				float flMinSeparation = 48.0f;
+				if ( isLarge && prev.isLarge )
+				{
+					flMinSeparation = 72.0f;
+				}
+				else if ( isLarge || prev.isLarge )
+				{
+					flMinSeparation = 56.0f;
+				}
+
+				if ( flDist2D < flMinSeparation )
+				{
+					bTooClose = true;
+					break;
+				}
+			}
+
+			if ( bTooClose )
+				continue;
+
+			// 2. Live collision clearance sweep (detect breakables, walls, other entities)
+			Vector vecHullCheck = vecSpawnPos + Vector( 0.0f, 0.0f, 36.0f );
+			if ( isBarnacle )
+			{
+				vecHullCheck = vecSpawnPos - Vector( 0.0f, 0.0f, 16.0f );
+			}
+
+			TraceResult trHull;
+			UTIL_TraceHull( vecHullCheck, vecHullCheck, dont_ignore_monsters, hullNum, NULL, &trHull );
+			if ( trHull.fStartSolid || trHull.fAllSolid )
+			{
+				continue;
+			}
+
+			// 3. Valid candidate confirmed: instantiate monster entity
+			Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
+			CBaseEntity *pMonster = CreateWaveEntity( szSpecies, vecSpawnPos, vecAngles );
+			if ( pMonster )
+			{
+				m_iLastMonsterCount++;
+				( *pOccupiedCells )[chosenIdx] = true;
+
+				SpawnedMonsterRecord rec;
+				rec.pos = vecSpawnPos;
+				rec.isLarge = isLarge;
+				rec.isBarnacle = isBarnacle;
+				rec.isFlying = isFlying;
+				spawned.push_back( rec );
+
+				bSpawnSuccess = true;
+				break;
+			}
+		}
+
+		if ( !bSpawnSuccess )
+		{
+			ALERT( at_console, "[Gladder] Spatial clearance exhausted for wave %d (spawned %d of %d monsters).\n",
+			       iWaveNumber, m_iLastMonsterCount, count );
+			break;
 		}
 	}
 }
 
-void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count )
+void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells )
 {
 	m_iLastPickupCount = 0;
+
+	if ( indexer.GetCellCount() == 0 || count <= 0 )
+		return;
+
+	std::vector<bool> localOccupied;
+	if ( !pOccupiedCells )
+	{
+		localOccupied.assign( indexer.GetCellCount(), false );
+		pOccupiedCells = &localOccupied;
+	}
 
 	for ( int i = 0; i < count; ++i )
 	{
 		if ( GetFreeEdictCount() <= SAFE_FREE_EDICT_THRESHOLD )
 			break;
 
-		const char *szPickup = RollPickupItem( iWaveNumber, config );
-		const GladderGridCell *pCell = indexer.GetRandomCell( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK );
-		if ( !pCell )
-			continue;
+		int cellIdx = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, pOccupiedCells );
+		if ( cellIdx < 0 )
+		{
+			// No more unoccupied cells for pickups
+			break;
+		}
 
-		Vector vecSpawnPos = pCell->origin + Vector( 0.0f, 0.0f, 4.0f );
+		const auto &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
+		const char *szPickup = RollPickupItem( iWaveNumber, config );
+
+		Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
 		Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
+
+		// Live hull check for pickup (point_hull or head_hull)
+		TraceResult trHull;
+		UTIL_TraceHull( vecSpawnPos + Vector( 0, 0, 16 ), vecSpawnPos + Vector( 0, 0, 16 ), dont_ignore_monsters, head_hull, NULL, &trHull );
+		if ( trHull.fStartSolid || trHull.fAllSolid )
+		{
+			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+			continue;
+		}
 
 		CBaseEntity *pItem = CreateWaveEntity( szPickup, vecSpawnPos, vecAngles );
 		if ( pItem )
 		{
 			m_iLastPickupCount++;
+			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
 		}
 	}
 }
@@ -586,6 +790,9 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 		return 0;
 	}
 
+	// Track occupied cells across the entire wave generation to ensure no two entities share the same cell
+	std::vector<bool> occupiedCells( indexer.GetCellCount(), false );
+
 	// 1. Calculate wave quota based on wave progression curve (SPEC §3)
 	int monsterCount = static_cast<int>( config.baseMonsters + ( iWaveNumber - 1 ) * config.monstersPerWave );
 	monsterCount = (std::min)( monsterCount, config.maxMonsters );
@@ -594,13 +801,13 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 	pickupCount = (std::min)( pickupCount, config.maxPickups );
 
 	// 2. Spawn exactly 1 Lambda collectible item per wave (SPEC §7.3)
-	SpawnLambdaCollectible( indexer );
+	SpawnLambdaCollectible( indexer, &occupiedCells );
 
 	// 3. Procedurally generate monsters across spatial grid cells
-	SpawnMonsters( iWaveNumber, indexer, config, monsterCount );
+	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells );
 
 	// 4. Procedurally generate randomized pickups & weapons
-	SpawnPickups( iWaveNumber, indexer, config, pickupCount );
+	SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells );
 
 	ALERT( at_console, "[Gladder] Wave %d spawned: %d monsters, %d supplies, lambda=%s (Tracked total: %u entities)\n",
 	       iWaveNumber, m_iLastMonsterCount, m_iLastPickupCount, m_bLambdaSpawned ? "yes" : "no",

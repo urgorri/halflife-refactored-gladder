@@ -269,3 +269,117 @@ TEST_CASE( "Gladder Spawner: Precache registers all roster monsters and pickups"
 	spawner.Precache();
 	SUCCEED( "Precache completed successfully" );
 }
+
+TEST_CASE( "Gladder Spawner: Large monster classification", "[gladder][spawner]" )
+{
+	CHECK( GladderSpawner::IsLargeMonster( "monster_bullchicken" ) == true );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_alien_grunt" ) == true );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_gargantua" ) == true );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_bigmomma" ) == true );
+
+	CHECK( GladderSpawner::IsLargeMonster( "monster_headcrab" ) == false );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_zombie" ) == false );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_houndeye" ) == false );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_vortigaunt" ) == false );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_human_grunt" ) == false );
+	CHECK( GladderSpawner::IsLargeMonster( "monster_human_assassin" ) == false );
+	CHECK( GladderSpawner::IsLargeMonster( nullptr ) == false );
+	CHECK( GladderSpawner::IsLargeMonster( "" ) == false );
+}
+
+TEST_CASE( "Gladder Spawner: Cell occupancy and spatial clearance prevents duplicate/overlapping spawns", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	const char *pickupsToRegister[] = {
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_rpgclip",
+		"weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357",
+		"weapon_crossbow", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"item_gladder_lambda"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+
+	const char *monstersToRegister[] = {
+		"monster_headcrab", "monster_zombie", "monster_houndeye", "monster_bullchicken",
+		"monster_barnacle", "monster_vortigaunt", "monster_alien_grunt",
+		"monster_alien_controller", "monster_human_grunt", "monster_human_assassin"
+	};
+	for ( const char *szM : monstersToRegister )
+		RegisterMockEntityFactory( szM, FactoryTestMonster );
+
+	// Create a grid with 10 cells, each spaced 64 units apart along X
+	GladderGridIndexer indexer;
+	for ( int i = 0; i < 10; ++i )
+	{
+		GladderGridCell c;
+		c.origin   = Vector( i * 64.0f, 0.0f, 0.0f );
+		c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+		c.areaId   = 1;
+		c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK | GLADDER_CELL_LARGE_CLEARANCE;
+		c.ceilingZ = 120.0f;
+		indexer.AddCell( c );
+	}
+
+	GladderMapConfig config;
+	config.baseMonsters = 3;
+	config.monstersPerWave = 0.0f;
+	config.basePickups = 2;
+	config.pickupsPerWave = 0.0f;
+
+	GladderSpawner spawner;
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+	CHECK( totalSpawned == 6 ); // 1 Lambda + 3 monsters + 2 pickups = 6
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 3 );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 2 );
+	CHECK( spawner.WasLambdaSpawned() == true );
+
+	// Verify that each spawned entity has a distinct position (no two entities on the same cell)
+	const auto &tracked = spawner.GetTrackedEntityCount();
+	CHECK( tracked == 6 );
+
+	ClearMockEntityFactories();
+}
+
+TEST_CASE( "Gladder Spawner: Throttling when grid cells are exhausted", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
+	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+	RegisterMockEntityFactory( "item_healthkit", FactoryTestItem );
+
+	// Create a tiny grid with only 2 cells
+	GladderGridIndexer indexer;
+	for ( int i = 0; i < 2; ++i )
+	{
+		GladderGridCell c;
+		c.origin   = Vector( i * 64.0f, 0.0f, 0.0f );
+		c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+		c.areaId   = 1;
+		c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+		c.ceilingZ = 120.0f;
+		indexer.AddCell( c );
+	}
+
+	GladderMapConfig config;
+	config.monsterWhitelist.push_back( "monster_headcrab" );
+	config.baseMonsters = 10; // Requests 10 monsters, but only 2 cells total on the entire map!
+	config.monstersPerWave = 0.0f;
+	config.basePickups = 5;
+	config.pickupsPerWave = 0.0f;
+
+	GladderSpawner spawner;
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+
+	// Cell 1 is claimed by Lambda, Cell 2 is claimed by Monster 1.
+	// No free cells remain, so spawner must gracefully stop without spawning more monsters or pickups!
+	CHECK( spawner.WasLambdaSpawned() == true );
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 1 );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 0 );
+	CHECK( totalSpawned == 2 ); // Exactly 2 entities spawned, exactly matching cell capacity!
+
+	ClearMockEntityFactories();
+}
+

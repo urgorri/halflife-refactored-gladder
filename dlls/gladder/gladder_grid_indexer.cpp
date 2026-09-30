@@ -327,8 +327,9 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	Vector vecEnd = Vector( x, y, zBottom - 32.0f );
 
 	// Downward raycast to find walkable solid surface
+	// Using FALSE (dont_ignore_monsters) so brush entities (func_breakable, etc.) are detected
 	TraceResult tr;
-	TRACE_LINE( vecStart, vecEnd, TRUE, NULL, &tr );
+	TRACE_LINE( vecStart, vecEnd, FALSE, NULL, &tr );
 
 	// Must hit a solid surface within bounds
 	if ( tr.flFraction >= 1.0f || tr.fStartSolid || tr.fAllSolid )
@@ -337,6 +338,19 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	// Surface normal slope check (GoldSrc walkable slope: normal.z >= 0.7)
 	if ( tr.vecPlaneNormal.z < WALKABLE_NORMAL_Z )
 		return false;
+
+	// Reject if hit entity is a breakable, pushable, or monster/client (do not spawn on top of breakables!)
+	if ( tr.pHit )
+	{
+		const char *pszHitClass = STRING( tr.pHit->v.classname );
+		if ( pszHitClass && ( strcmp( pszHitClass, "func_breakable" ) == 0 ||
+		                      strcmp( pszHitClass, "gladder_breakable" ) == 0 ||
+		                      strcmp( pszHitClass, "func_pushable" ) == 0 ||
+		                      ( tr.pHit->v.flags & ( FL_MONSTER | FL_CLIENT ) ) ) )
+		{
+			return false;
+		}
+	}
 
 	Vector vecSurface = tr.vecEndPos;
 
@@ -358,9 +372,10 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	// Standing hull obstruction sweep (GoldSrc human_hull: 32x32x72)
 	// In GoldSrc, human_hull origin is centered at entity waist: mins(-16,-16,-36), maxs(16,16,36).
 	// To position feet resting on the walkable surface, the hull origin must be at vecSurface.z + 37.0f.
+	// Using FALSE (dont_ignore_monsters) so breakables, walls, and solid entities block invalid cells!
 	Vector vecHullPos = vecSurface + Vector( 0.0f, 0.0f, 37.0f );
 	TraceResult trHull;
-	TRACE_HULL( vecHullPos, vecHullPos, TRUE, human_hull, NULL, &trHull );
+	TRACE_HULL( vecHullPos, vecHullPos, FALSE, human_hull, NULL, &trHull );
 
 	if ( trHull.fStartSolid || trHull.fAllSolid )
 		return false;
@@ -373,6 +388,14 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	if ( trCeiling.flFraction < 1.0f )
 		outCell.flags |= GLADDER_CELL_CEILING_VALID;
 	outCell.ceilingZ = flCeilingZ;
+
+	// Also test large hull (64x64x72) clearance for large monsters (Bullsquid, Alien Grunt)
+	TraceResult trLargeHull;
+	TRACE_HULL( vecHullPos, vecHullPos, FALSE, large_hull, NULL, &trLargeHull );
+	if ( !trLargeHull.fStartSolid && !trLargeHull.fAllSolid )
+	{
+		outCell.flags |= GLADDER_CELL_LARGE_CLEARANCE;
+	}
 
 	return true;
 }
@@ -435,16 +458,19 @@ const GladderGridCell *GladderGridIndexer::FindNearestCell( const Vector &pos, f
 	return pBest;
 }
 
-const GladderGridCell *GladderGridIndexer::GetRandomCell( int32_t areaId, uint32_t requiredFlags ) const
+int GladderGridIndexer::GetRandomCellIndex( int32_t areaId, uint32_t requiredFlags, const std::vector<bool> *pOccupiedCells ) const
 {
 	if ( m_cells.empty() )
-		return nullptr;
+		return -1;
 
 	std::vector<size_t> eligible;
 	eligible.reserve( m_cells.size() );
 
 	for ( size_t i = 0; i < m_cells.size(); ++i )
 	{
+		if ( pOccupiedCells && i < pOccupiedCells->size() && ( *pOccupiedCells )[i] )
+			continue;
+
 		const auto &c = m_cells[i];
 		if ( ( c.flags & requiredFlags ) != requiredFlags )
 			continue;
@@ -454,10 +480,16 @@ const GladderGridCell *GladderGridIndexer::GetRandomCell( int32_t areaId, uint32
 	}
 
 	if ( eligible.empty() )
-		return nullptr;
+		return -1;
 
 	size_t idx = static_cast<size_t>( RANDOM_LONG( 0, static_cast<long>( eligible.size() - 1 ) ) );
-	return &m_cells[eligible[idx]];
+	return static_cast<int>( eligible[idx] );
+}
+
+const GladderGridCell *GladderGridIndexer::GetRandomCell( int32_t areaId, uint32_t requiredFlags ) const
+{
+	int idx = GetRandomCellIndex( areaId, requiredFlags, nullptr );
+	return ( idx >= 0 ) ? &m_cells[static_cast<size_t>( idx )] : nullptr;
 }
 
 // Console command: gladder_reindex_grid

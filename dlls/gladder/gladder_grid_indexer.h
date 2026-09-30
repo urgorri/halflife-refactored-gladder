@@ -25,7 +25,8 @@ enum GladderGridCellFlags : uint32_t
 	GLADDER_CELL_CLEARANCE_OK  = ( 1u << 1 ), // Vertical standing clearance confirmed (no overhead obstruction)
 	GLADDER_CELL_CEILING_VALID = ( 1u << 2 ), // Valid solid ceiling detected overhead
 	GLADDER_CELL_NO_MONSTERS   = ( 1u << 3 ), // Excluded from monster spawns (e.g. staging safe zone)
-	GLADDER_CELL_PICKUP_ONLY   = ( 1u << 4 ), // Dedicated for item/ammo/pickup spawns
+	GLADDER_CELL_PICKUP_ONLY     = ( 1u << 4 ), // Dedicated for item/ammo/pickup spawns
+	GLADDER_CELL_LARGE_CLEARANCE = ( 1u << 5 ), // Large hull (64x64) clearance confirmed
 };
 
 // Runtime in-memory grid cell
@@ -94,6 +95,7 @@ class GladderGridIndexer
 
 	// Spatial queries
 	const GladderGridCell *FindNearestCell( const Vector &pos, float maxDist = 256.0f ) const;
+	int GetRandomCellIndex( int32_t areaId = -1, uint32_t requiredFlags = ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ), const std::vector<bool> *pOccupiedCells = nullptr ) const;
 	const GladderGridCell *GetRandomCell( int32_t areaId = -1, uint32_t requiredFlags = ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) ) const;
 
 	// Helper for cache path resolution: "maps/grid/<mapname>.grid"

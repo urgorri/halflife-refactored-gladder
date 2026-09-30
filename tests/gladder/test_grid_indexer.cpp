@@ -408,6 +408,81 @@ TEST_CASE( "Gladder Grid Indexer: trigger_gladder_area volumetric bounds & netna
 	CHECK( maxs.z == Catch::Approx( 59.0f ) );
 }
 
+TEST_CASE( "Gladder Grid Indexer: GetRandomCellIndex occupancy filtering", "[gladder][grid]" )
+{
+	GladderGridIndexer indexer;
+	for ( int i = 0; i < 5; ++i )
+	{
+		GladderGridCell c;
+		c.origin   = Vector( i * 32.0f, 0.0f, 0.0f );
+		c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+		c.areaId   = 1;
+		c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+		c.ceilingZ = 120.0f;
+		indexer.AddCell( c );
+	}
+
+	REQUIRE( indexer.GetCellCount() == 5 );
+
+	// Unoccupied query returns valid index in [0, 4]
+	int idx = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, nullptr );
+	CHECK( idx >= 0 );
+	CHECK( idx < 5 );
+
+	// Mark all except index 3 as occupied
+	std::vector<bool> occupied( 5, true );
+	occupied[3] = false;
+
+	int chosen = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, &occupied );
+	CHECK( chosen == 3 ); // Exactly the only free cell remaining!
+
+	// Mark index 3 as occupied too -> all cells occupied!
+	occupied[3] = true;
+	int noneLeft = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, &occupied );
+	CHECK( noneLeft == -1 ); // Gracefully returns -1
+}
+
+TEST_CASE( "Gladder Grid Indexer: TraceCellCandidate rejects breakable crates as walking surface", "[gladder][grid]" )
+{
+	ResetMockEngine();
+
+	// Hook custom engine trace functions
+	auto originalTraceLine = g_engfuncs.pfnTraceLine;
+	auto originalTraceHull = g_engfuncs.pfnTraceHull;
+	g_engfuncs.pfnTraceLine = CustomTraceLine;
+	g_engfuncs.pfnTraceHull = CustomTraceHull;
+
+	GladderGridIndexer indexer;
+	GladderGridCell outCell;
+
+	// Mock breakable crate hit
+	edict_t edBreakable;
+	std::memset( &edBreakable, 0, sizeof( edBreakable ) );
+	edBreakable.v.classname = MAKE_STRING( "func_breakable" );
+
+	std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+	s_mockDownwardTrace.flFraction      = 0.5f;
+	s_mockDownwardTrace.vecPlaneNormal  = Vector( 0.0f, 0.0f, 1.0f );
+	s_mockDownwardTrace.vecEndPos       = Vector( 100.0f, 200.0f, 50.0f );
+	s_mockDownwardTrace.pHit            = &edBreakable; // Ray hit top of a breakable box!
+
+	std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+	s_mockCeilingTrace.flFraction       = 0.3f;
+	s_mockCeilingTrace.vecEndPos        = Vector( 100.0f, 200.0f, 200.0f );
+
+	std::memset( &s_mockHullTrace, 0, sizeof( s_mockHullTrace ) );
+	s_mockHullTrace.flFraction          = 1.0f;
+	s_mockHullTrace.fStartSolid         = 0;
+
+	// Candidate on top of a breakable box must be rejected!
+	bool ok = indexer.TraceCellCandidate( 100.0f, 200.0f, 500.0f, -100.0f, 1, outCell );
+	CHECK( ok == false );
+
+	// Restore original engine callbacks
+	g_engfuncs.pfnTraceLine = originalTraceLine;
+	g_engfuncs.pfnTraceHull = originalTraceHull;
+}
+
 // Test mock stubs for hl_tests linkage
 void UTIL_TraceHull( const Vector &vecStart, const Vector &vecEnd, IGNORE_MONSTERS igmon, int hullNumber, edict_t *pentIgnore, TraceResult *ptr )
 {
