@@ -1,4 +1,4 @@
-﻿/***
+/***
  *
  *	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
  *
@@ -691,3 +691,22 @@ void UTIL_StripToken( const char *pKey, char *pDest, int nLen )
 // CSave
 //
 // --------------------------------------------------------------
+
+void UTIL_ForEachEntity( void ( *pfnCallback )( CBaseEntity *pEntity, void *pUserData ), void *pUserData )
+{
+	if ( !pfnCallback || !gpGlobals )
+		return;
+
+	for ( int i = 1; i < gpGlobals->maxEntities; i++ )
+	{
+		edict_t *pEdict = INDEXENT( i );
+		if ( !pEdict || pEdict->free )
+			continue;
+		CBaseEntity *pEntity = CBaseEntity::Instance( pEdict );
+		if ( !pEntity )
+			continue;
+		pfnCallback( pEntity, pUserData );
+	}
+}
+
+

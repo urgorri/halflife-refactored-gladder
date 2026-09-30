@@ -788,6 +788,9 @@ void CMomentaryRotButton::PlaySound( void )
 // current, not future position.
 void CMomentaryRotButton::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
+	if ( m_flMoveDistance <= 0.0f )
+		return;
+
 	pev->ideal_yaw = CBaseToggle::AxisDelta( pev->spawnflags, pev->angles, m_start ) / m_flMoveDistance;
 
 	UpdateAllButtons( pev->ideal_yaw, 1 );
@@ -896,6 +899,9 @@ void CMomentaryRotButton::Off( void )
 
 void CMomentaryRotButton::Return( void )
 {
+	if ( m_flMoveDistance <= 0.0f )
+		return;
+
 	float value = CBaseToggle::AxisDelta( pev->spawnflags, pev->angles, m_start ) / m_flMoveDistance;
 
 	UpdateAllButtons( value, 0 ); // This will end up calling UpdateSelfReturn() n times, but it still works right

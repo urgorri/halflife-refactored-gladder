@@ -85,6 +85,12 @@ class CTestHookRules : public CGameRules
 	float FlHEVChargerCapacity( void ) override { return 84.0f; }
 	BOOL FAllowAutoSave( void ) override { return m_bCustomAutoSave; }
 
+	std::vector<CBaseEntity *> m_spawnedEntities;
+	void OnEntitySpawned( CBaseEntity *pEntity ) override
+	{
+		m_spawnedEntities.push_back( pEntity );
+	}
+
 	void MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override
 	{
 		m_bMonsterKilledCalled = true;
@@ -331,3 +337,31 @@ TEST_CASE( "SoundSentences: boundary safety and group indexing validation", "[sy
 		fSentencesInit = originalInit;
 	}
 }
+
+TEST_CASE( "GameplayHooks: CGameRules::OnEntitySpawned lifecycle hook (#163)", "[gameplay][gamerules][spawn]" )
+{
+	ResetMockEngine();
+
+	CTestHookRules rules;
+	g_pGameRules = &rules;
+
+	edict_t edict;
+	std::memset( &edict, 0, sizeof( edict ) );
+
+	CBaseEntity testEntity;
+	edict.pvPrivateData = &testEntity;
+	testEntity.pev       = &edict.v;
+
+	SECTION( "DispatchSpawn calls OnEntitySpawned on successful entity spawn" )
+	{
+		int res = DispatchSpawn( &edict );
+		CHECK( res == 0 );
+
+		// Red phase check: DispatchSpawn in red phase does not invoke OnEntitySpawned yet
+		REQUIRE( rules.m_spawnedEntities.size() == 1 );
+		CHECK( rules.m_spawnedEntities[0] == &testEntity );
+	}
+
+	g_pGameRules = nullptr;
+}
+

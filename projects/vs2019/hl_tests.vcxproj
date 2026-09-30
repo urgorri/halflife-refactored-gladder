@@ -152,6 +152,13 @@
     <ClCompile Include="..\..\tests\test_triggers.cpp" />
     <ClCompile Include="..\..\tests\test_player_customization.cpp" />
     <ClCompile Include="..\..\tests\test_ai_navigation.cpp" />
+    <ClCompile Include="..\..\tests\test_bodygroup_bounds.cpp" />
+    <ClCompile Include="..\..\tests\test_buttons.cpp" />
+    <ClCompile Include="..\..\tests\test_breakable_lifecycle.cpp" />
+    <ClCompile Include="..\..\tests\test_entity_iteration.cpp" />
+    <ClCompile Include="..\..\dlls\core\animation.cpp" />
+    <ClCompile Include="..\..\dlls\systems\buttons.cpp" />
+    <ClCompile Include="..\..\dlls\systems\func_break.cpp" />
     <ClCompile Include="..\..\dlls\core\client_customization.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_wave_manager.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_usermsg.cpp" />

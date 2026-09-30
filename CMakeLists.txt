@@ -324,6 +324,13 @@ if(BUILD_TESTS)
         tests/test_triggers.cpp
         tests/test_player_customization.cpp
         tests/test_ai_navigation.cpp
+        tests/test_bodygroup_bounds.cpp
+        tests/test_buttons.cpp
+        tests/test_breakable_lifecycle.cpp
+        tests/test_entity_iteration.cpp
+        dlls/core/animation.cpp
+        dlls/systems/buttons.cpp
+        dlls/systems/func_break.cpp
         dlls/core/client_customization.cpp
         dlls/systems/effects_beams.cpp
         dlls/systems/chargers.cpp

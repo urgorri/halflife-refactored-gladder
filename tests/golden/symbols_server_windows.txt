@@ -62,7 +62,6 @@
 ?DestroyItem@CBasePlayerItem@@QAEXXZ
 ?Detonate@CGrenade@@QAEXXZ
 ?DetonateUse@CGrenade@@QAEXPAVCBaseEntity@@0W4USE_TYPE@@M@Z
-?Die@CBreakable@@QAEXXZ
 ?DieThink@CControllerHeadBall@@QAEXXZ
 ?DieThink@CTentacle@@QAEXXZ
 ?DieTouch@CHornet@@QAEXPAVCBaseEntity@@@Z

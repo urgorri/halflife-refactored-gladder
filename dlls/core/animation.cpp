@@ -482,7 +482,7 @@ void SetBodygroup( void *pmodel, entvars_t *pev, int iGroup, int iValue )
 	if ( !pstudiohdr )
 		return;
 
-	if ( iGroup > pstudiohdr->numbodyparts )
+	if ( iGroup < 0 || iGroup >= pstudiohdr->numbodyparts )
 		return;
 
 	mstudiobodyparts_t *pbodypart = (mstudiobodyparts_t *)( (byte *)pstudiohdr + pstudiohdr->bodypartindex ) + iGroup;
@@ -503,7 +503,7 @@ int GetBodygroup( void *pmodel, entvars_t *pev, int iGroup )
 	if ( !pstudiohdr )
 		return 0;
 
-	if ( iGroup > pstudiohdr->numbodyparts )
+	if ( iGroup < 0 || iGroup >= pstudiohdr->numbodyparts )
 		return 0;
 
 	mstudiobodyparts_t *pbodypart = (mstudiobodyparts_t *)( (byte *)pstudiohdr + pstudiohdr->bodypartindex ) + iGroup;

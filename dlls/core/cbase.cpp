@@ -171,6 +171,9 @@ int DispatchSpawn( edict_t *pent )
 				//				ALERT( at_console, "Added global entity %s (%s)\n", STRING(pEntity->pev->classname), STRING(pEntity->pev->globalname) );
 			}
 		}
+
+		if ( pEntity && g_pGameRules )
+			g_pGameRules->OnEntitySpawned( pEntity );
 	}
 
 	return 0;

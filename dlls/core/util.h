@@ -521,3 +521,19 @@ void EMIT_GROUPNAME_SUIT( edict_t *entity, const char *groupname );
 #define GROUP_OP_NAND 1
 
 float UTIL_WeaponTimeBase( void );
+
+#include <type_traits>
+
+// Safely iterates all live server entities, calling callback for each valid CBaseEntity*.
+// Skips free edicts, world entity (index 0), and edicts with no CBaseEntity instance.
+void UTIL_ForEachEntity( void ( *pfnCallback )( CBaseEntity *pEntity, void *pUserData ), void *pUserData = nullptr );
+
+template <typename Fn>
+inline void UTIL_ForEachEntity( Fn &&fn )
+{
+	UTIL_ForEachEntity(
+		[]( CBaseEntity *pEntity, void *pCtx ) {
+			( *reinterpret_cast<typename std::remove_reference<Fn>::type *>( pCtx ) )( pEntity );
+		},
+		reinterpret_cast<void *>( &fn ) );
+}
