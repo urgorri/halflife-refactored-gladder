@@ -147,16 +147,23 @@ TEST_CASE( "Gladder Spawner: Wave generation across grid indexer & Lambda item (
 {
 	ResetMockEngine();
 
-	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
-	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
-	RegisterMockEntityFactory( "item_healthkit", FactoryTestItem );
-	RegisterMockEntityFactory( "item_battery", FactoryTestItem );
-	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
-	RegisterMockEntityFactory( "ammo_9mmclip", FactoryTestItem );
-	RegisterMockEntityFactory( "ammo_9mmAR", FactoryTestItem );
-	RegisterMockEntityFactory( "ammo_buckshot", FactoryTestItem );
-	RegisterMockEntityFactory( "weapon_glock", FactoryTestItem );
-	RegisterMockEntityFactory( "weapon_shotgun", FactoryTestItem );
+	const char *pickupsToRegister[] = {
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_rpgclip",
+		"weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357",
+		"weapon_crossbow", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"item_gladder_lambda"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+
+	const char *monstersToRegister[] = {
+		"monster_headcrab", "monster_zombie", "monster_houndeye", "monster_bullchicken",
+		"monster_barnacle", "monster_vortigaunt", "monster_alien_grunt",
+		"monster_alien_controller", "monster_human_grunt", "monster_human_assassin"
+	};
+	for ( const char *szM : monstersToRegister )
+		RegisterMockEntityFactory( szM, FactoryTestMonster );
 
 	GladderGridIndexer indexer;
 	for ( int i = 0; i < 20; ++i )
