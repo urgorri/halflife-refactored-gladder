@@ -58,6 +58,7 @@ CGladderRules::CGladderRules()
 		g_engfuncs.pfnAddServerCommand( (char *)"quicksave", Gladder_BlockSaveCmd );
 		g_engfuncs.pfnAddServerCommand( (char *)"quickload", Gladder_BlockSaveCmd );
 		g_engfuncs.pfnAddServerCommand( (char *)"autosave", Gladder_BlockSaveCmd );
+		g_engfuncs.pfnAddServerCommand( (char *)"gladder_reindex_grid", Gladder_ReindexGrid_Cmd );
 	}
 
 	float flLimit = gladder_timelimit.value;
@@ -73,6 +74,17 @@ CGladderRules::CGladderRules()
 	PRECACHE_SOUND( "buttons/bell1.wav" );
 
 	CGameRules::RefreshSkillData();
+
+	// Initialize spatial grid cache and map profile if mapname is valid
+	if ( gpGlobals && gpGlobals->mapname )
+	{
+		const char *pszMap = STRING( gpGlobals->mapname );
+		if ( pszMap && *pszMap )
+		{
+			m_gridIndexer.LoadOrCreate( pszMap );
+			m_mapConfig.LoadForMap( pszMap );
+		}
+	}
 }
 
 CGladderRules::~CGladderRules()
@@ -203,6 +215,20 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 		m_waveManager.StartWave( flTime );
 
+		// Ensure spatial grid is loaded
+		if ( !m_gridIndexer.IsLoaded() && gpGlobals && gpGlobals->mapname )
+		{
+			const char *pszMap = STRING( gpGlobals->mapname );
+			if ( pszMap && *pszMap )
+			{
+				m_gridIndexer.LoadOrCreate( pszMap );
+				m_mapConfig.LoadForMap( pszMap );
+			}
+		}
+
+		// Procedurally spawn wave threats, weapons & supplies across indexed spatial grid
+		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig );
+
 		// Acoustic cue for wave start
 		if ( pActivator && pActivator->edict() )
 		{
@@ -268,39 +294,7 @@ void CGladderRules::ResetWave( void )
 
 void CGladderRules::PurgeWaveEntities( void )
 {
-	if ( !gpGlobals )
-		return;
-
-	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
-		// 0. Protect persistent wave-resettable entities
-		if ( FClassnameIs( pEnt->pev, "gladder_breakable" ) )
-			return;
-
-		// 1. Eradicate surviving monsters
-		if ( pEnt->MyMonsterPointer() && !pEnt->IsPlayer() )
-		{
-			UTIL_Remove( pEnt );
-			return;
-		}
-
-		// 2. Remove dropped weapon boxes and ammo
-		if ( FClassnameIs( pEnt->pev, "weaponbox" ) )
-		{
-			UTIL_Remove( pEnt );
-			return;
-		}
-
-		// 3. Remove world dropped items (weapons/ammo lying on floor not owned by players)
-		if ( strncmp( STRING( pEnt->pev->classname ), "weapon_", 7 ) == 0 ||
-		     strncmp( STRING( pEnt->pev->classname ), "ammo_", 5 ) == 0 )
-		{
-			if ( pEnt->pev->owner == nullptr )
-			{
-				UTIL_Remove( pEnt );
-				return;
-			}
-		}
-	} );
+	m_spawner.PurgeWaveEntities();
 }
 
 void CGladderRules::ResetBreakableEntities( void )

@@ -355,8 +355,12 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_wave_manager.cpp
         dlls/gladder/gladder_usermsg.cpp
         dlls/gladder/gladder_breakable.cpp
+        dlls/gladder/gladder_grid_indexer.cpp
+        dlls/gladder/gladder_spawner.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
+        tests/gladder/test_grid_indexer.cpp
+        tests/gladder/test_spawner.cpp
         ${PM_SHARED_SOURCES}
     )
 
