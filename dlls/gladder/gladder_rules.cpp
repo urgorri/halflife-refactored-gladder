@@ -7,6 +7,7 @@
 
 #include "gladder_rules.h"
 #include "gladder_entities.h"
+#include "gladder_breakable.h"
 #include "gladder_usermsg.h"
 #include "core/skill_manager.h"
 #include "items/item_base.h"
@@ -230,9 +231,8 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	// Fire wave completion relays (event = 1)
 	Gladder_FireWaveRelays( 1, pActivator );
 
-	// Garbage collection of old wave entities & diminishing wall station recharge
-	PurgeWaveEntities();
-	RechargeWallStations();
+	// Reset wave environment: GC entities, recharge wall stations, restore breakables
+	ResetWave();
 
 	// Advance engine skill tier based on wave milestones
 	// Wave 1-4: Easy (skill 1), Wave 5-9: Medium (skill 2), Wave 10+: Hard (skill 3)
@@ -259,34 +259,35 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	BroadcastTelemetryUpdate();
 }
 
+void CGladderRules::ResetWave( void )
+{
+	PurgeWaveEntities();
+	RechargeWallStations();
+	ResetBreakableEntities();
+}
+
 void CGladderRules::PurgeWaveEntities( void )
 {
 	if ( !gpGlobals )
 		return;
 
-	// Garbage collect leftover monsters and dropped items to protect edict budget
-	for ( int i = 1; i < gpGlobals->maxEntities; i++ )
-	{
-		edict_t *pEdict = g_engfuncs.pfnPEntityOfEntIndex( i );
-		if ( FNullEnt( pEdict ) || pEdict->free )
-			continue;
-
-		CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
-		if ( !pEnt )
-			continue;
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		// 0. Protect persistent wave-resettable entities
+		if ( FClassnameIs( pEnt->pev, "gladder_breakable" ) )
+			return;
 
 		// 1. Eradicate surviving monsters
 		if ( pEnt->MyMonsterPointer() && !pEnt->IsPlayer() )
 		{
 			UTIL_Remove( pEnt );
-			continue;
+			return;
 		}
 
 		// 2. Remove dropped weapon boxes and ammo
 		if ( FClassnameIs( pEnt->pev, "weaponbox" ) )
 		{
 			UTIL_Remove( pEnt );
-			continue;
+			return;
 		}
 
 		// 3. Remove world dropped items (weapons/ammo lying on floor not owned by players)
@@ -296,10 +297,24 @@ void CGladderRules::PurgeWaveEntities( void )
 			if ( pEnt->pev->owner == nullptr )
 			{
 				UTIL_Remove( pEnt );
-				continue;
+				return;
 			}
 		}
-	}
+	} );
+}
+
+void CGladderRules::ResetBreakableEntities( void )
+{
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		if ( FClassnameIs( pEnt->pev, "gladder_breakable" ) )
+		{
+			CGladderBreakable *pBreakable = dynamic_cast<CGladderBreakable *>( pEnt );
+			if ( pBreakable )
+			{
+				pBreakable->Reset();
+			}
+		}
+	} );
 }
 
 void CGladderRules::RechargeWallStations( void )

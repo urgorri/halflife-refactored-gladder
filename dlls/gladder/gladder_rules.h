@@ -52,9 +52,11 @@ class CGladderRules : public CHalfLifeRules
 	void OnWaveTriggerStart( CBaseEntity *pActivator );
 	void OnWaveTriggerFinish( CBaseEntity *pActivator );
 
-	// Resource cleanup & recharge
+	// Resource cleanup, wave reset & recharge
+	void ResetWave( void );
 	void PurgeWaveEntities( void );
 	void RechargeWallStations( void );
+	void ResetBreakableEntities( void );
 
 	// Network telemetry broadcast
 	void BroadcastWaveUpdate( CBasePlayer *pPlayer = nullptr );

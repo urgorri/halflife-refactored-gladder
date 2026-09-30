@@ -774,6 +774,9 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_usermsg.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_breakable.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\dlls\gladder\gladder_rules.h">
@@ -786,6 +789,9 @@
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_usermsg.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_breakable.h">
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\core\user_message_registry.h">

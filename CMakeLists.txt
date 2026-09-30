@@ -354,7 +354,9 @@ if(BUILD_TESTS)
         cl_dll/entities/entity_visual_registry.cpp
         dlls/gladder/gladder_wave_manager.cpp
         dlls/gladder/gladder_usermsg.cpp
+        dlls/gladder/gladder_breakable.cpp
         tests/test_gladder_phase1.cpp
+        tests/gladder/test_gladder_breakable.cpp
         ${PM_SHARED_SOURCES}
     )
 

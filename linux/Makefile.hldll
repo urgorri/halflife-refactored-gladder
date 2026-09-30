@@ -102,6 +102,7 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_entities.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_wave_manager.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_usermsg.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_breakable.o \
 	$(HLDLL_OBJ_DIR)/monsters/gargantua.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_gauss.o \
 	$(HLDLL_OBJ_DIR)/monsters/genericmonster.o \
