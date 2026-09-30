@@ -108,12 +108,24 @@ ctest --test-dir build --output-on-failure
 
 ## Mapping & Level Design Integration
 
-`Half-Life: Gladder` provides mapper-friendly entities to adapt existing maps or build custom gauntlet arenas:
-* **Point A Spawn**: Player spawn origin and wave reset destination.
-* **Point B Trigger**: Trigger brush or entity marking the lap finish line.
-* **Area Definition Volumes**: Bounding box entities with min/max bounds and custom IDs to guide spatial grid generation.
-* **End-Game Camera**: In-map static camera (`trigger_camera`) for the final score screen backdrop.
-* **Wave Relays**: Logic relays triggered on wave start, wave victory, and game over.
+`Half-Life: Gladder` provides mapper-friendly entities to adapt existing maps or build custom gauntlet arenas. All custom entities are defined in [**`gladder.fgd`**](./gladder.fgd) at the repository root for full compatibility with GoldSrc level editors.
+
+### Custom Entities
+* **`trigger_gladder_start`**: Brush trigger placed at Point A (staging area). Crossed or used by the player to initiate wave commencement on demand and start the stopwatch.
+* **`trigger_gladder_finish`**: Brush trigger placed at Point B (finish line / extraction zone). Completes the active wave, triggers environmental outputs, and teleports the player back to Point A target destination (preserving loadout).
+* **`trigger_gladder_area`**: Brush bounding volume marking spatial zones (`areaname`, `areaid`) for procedural spawning and density budget calculations.
+* **`gladder_wave_relay`**: Point logic relay firing targeted outputs on game rules wave transitions (`0: Wave Start`, `1: Wave Win`, `2: Match Over`, `3: Player Defeat`).
+* **`gladder_breakable`**: Wave-resettable destructible brush entity. Becomes hidden on destruction and automatically restores its hitpoints, visual state, and collision upon each new wave reset.
+
+### Map Editor Setup (`gladder.fgd`)
+* **Valve Hammer Editor 3.4 / 3.5 & J.A.C.K.**:
+  1. Open **Tools** > **Options** > **Game Configurations**.
+  2. Under **Game Data files**, ensure `halflife.fgd` is present.
+  3. Click **Add...** and select `gladder.fgd` from the repository root.
+* **TrenchBroom**:
+  * Include both `halflife.fgd` and `gladder.fgd` in your game profile (`GameConfig.cfg`) under `entityDefinitions.files`.
+
+> **Contributor Guideline:** Every new map entity introduced to Gladder (via `LINK_ENTITY_TO_CLASS`) must be registered in `gladder.fgd` with accurate properties and spawnflags.
 
 ---
 

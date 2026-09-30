@@ -54,6 +54,21 @@ The repository maintains multiple build systems that must remain strictly synchr
 * **Update filters**: Keep Visual Studio `.vcxproj.filters` aligned with the folder structure under `dlls/`, `cl_dll/`, and `tests/`.
 * **Verify symbol exports**: Ensure entity factories and exported functions (`tests/verify_symbols.py`, `dlls/hl.def`, `tests/golden/symbols_*`) compile and export properly across both Windows DLLs and Linux `.so` shared libraries.
 * **Synchronize test suites**: Ensure all unit test files added under `tests/` are included in `CMakeLists.txt` (`TESTS_SOURCES`), `projects/vs2019/hl_tests.vcxproj`, and `linux/Makefile.tests`.
+* **Synchronize map editor definitions (`gladder.fgd`)**: Whenever an entity is added, modified, or removed in `dlls/gladder/` (via `LINK_ENTITY_TO_CLASS`), update `gladder.fgd` at the root of the repository so level designers can place and configure the entity in map editors (Valve Hammer Editor, J.A.C.K., TrenchBroom).
+
+---
+
+## Level Design & Map Editor Compatibility (`gladder.fgd`)
+
+The repository maintains **`gladder.fgd`** at the repository root. Forge Game Data (.fgd) files provide level editors (Valve Hammer Editor 3.4/3.5, J.A.C.K., TrenchBroom, Sledge) with definitions, property dialogs, spawnflag checkboxes, and bounding hulls for all entities available in the mod.
+
+### Rules for Entity Authoring:
+- **Mandatory FGD Registration**: Every new map-placeable entity introduced in downstream code (`dlls/gladder/`) MUST be registered in `gladder.fgd`. Never introduce or merge a map entity PR without its corresponding FGD entry.
+- **Entity Classification**:
+  - Point entities (relays, markers, ambient logic) must be declared with `@PointClass` and appropriate base classes (e.g. `base(Targetname, Targetx)`).
+  - Brush entities (triggers, area volumes, breakables) must be declared with `@SolidClass` and appropriate base classes (e.g. `base(Trigger)`, `base(Breakable, RenderFields)`).
+- **KeyValues & Spawnflags Completeness**: Every `KeyValue` handled in C++ (such as `areaname`, `areaid`, `wave_event`) and every spawnflag bitmask must be documented with clear labels, default values, and dropdown choices.
+- **Base Class Hygiene**: Gladder's FGD extends standard `halflife.fgd`. It must not redefine standard Half-Life base classes (`Targetname`, `Target`, `Trigger`, `Breakable`, etc.) to avoid duplicate symbol collision in editors that load both files.
 
 ---
 
