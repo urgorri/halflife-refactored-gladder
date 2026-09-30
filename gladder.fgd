@@ -1,0 +1,110 @@
+//=============================================================================
+// Half-Life: Gladder - Forge Game Data (.fgd)
+//
+// Level editor definition file for the Half-Life: Gladder arcade gauntlet mod.
+// Compatible with:
+//   - Valve Hammer Editor 3.4 / 3.5
+//   - J.A.C.K. (Jackhammer)
+//   - TrenchBroom (GoldSrc game profile)
+//   - Sledge
+//
+// Map Editor Setup:
+// -----------------
+// 1. Valve Hammer Editor / J.A.C.K.:
+//    - Open Tools -> Options -> Game Configurations.
+//    - Under "Game Data files", ensure standard "halflife.fgd" is loaded first.
+//    - Click "Add..." and select "gladder.fgd" from this repository root.
+//    (Note: If your editor supports @include and halflife.fgd is in the editor's
+//     search path or working directory, the @include directive below will load
+//     it automatically. If your editor loads halflife.fgd separately and warns
+//     about duplicate class definitions, comment out the @include line below.)
+//
+// 2. TrenchBroom:
+//    - In your GoldSrc game configuration file (GameConfig.cfg), reference both
+//      "halflife.fgd" and "gladder.fgd" in the entityDefinitions array:
+//      "files": [ "halflife.fgd", "gladder.fgd" ]
+//
+// Maintenance Rule for Contributors:
+// ----------------------------------
+// Whenever a new map entity (LINK_ENTITY_TO_CLASS) is added to the mod, its
+// definition MUST be documented in this file with accurate properties, choices,
+// and spawnflags to preserve compatibility with level design tools.
+//=============================================================================
+
+@include "halflife.fgd"
+
+//=============================================================================
+//
+// Gladder Triggers & Gauntlet Volumes
+//
+//=============================================================================
+
+@SolidClass base(Trigger) = trigger_gladder_start : "Gladder: Wave Start Trigger"
+[
+	spawnflags(flags) =
+	[
+		1 : "Monsters" : 0
+		2 : "No Clients" : 0
+		4 : "Pushables" : 0
+	]
+]
+
+@SolidClass base(Trigger) = trigger_gladder_finish : "Gladder: Wave Finish Trigger"
+[
+	target(target_destination) : "Teleport Target Destination (Point A)"
+	spawnflags(flags) =
+	[
+		1 : "Monsters" : 0
+		2 : "No Clients" : 0
+		4 : "Pushables" : 0
+	]
+]
+
+@SolidClass base(Targetname) = trigger_gladder_area : "Gladder: Spatial Area Volume / Indexer"
+[
+	areaname(string) : "Area Name" : "" : "Unique identifier for this spatial section (e.g., staging, corridor_a, arena, boss_chamber)."
+	areaid(integer) : "Area ID" : 0 : "Numeric index for spatial entity indexing and procedural monster spawn budgets."
+]
+
+//=============================================================================
+//
+// Gladder Logic & Wave Relays
+//
+//=============================================================================
+
+@PointClass base(Targetname, Targetx) color(200 180 0) = gladder_wave_relay : "Gladder: Wave Event Relay"
+[
+	wave_event(choices) : "Wave Event Trigger" : 0 : "Specifies which game rules wave transition fires this relay's target." =
+	[
+		0 : "On Wave Start (crossing Point A)"
+		1 : "On Wave Win / Completed (reaching Point B)"
+		2 : "On Match Over / Victory (all laps finished)"
+		3 : "On Player Death / Defeat"
+	]
+]
+
+//=============================================================================
+//
+// Gladder Interactive World Entities
+//
+//=============================================================================
+
+@SolidClass base(Breakable, RenderFields) = gladder_breakable : "Gladder: Wave-Resettable Breakable"
+[
+	spawnflags(flags) =
+	[
+		1 : "Only Trigger" : 0
+		2 : "Touch" : 0
+		4 : "Pressure" : 0
+		256: "Instant Crowbar" : 1
+	]
+	_minlight(string) : "Minimum light level"
+	zhlt_lightflags(choices) : "ZHLT Lightflags" : 0 =
+	[
+		0 : "Default"
+		1 : "Embedded Fix"
+		2 : "Opaque (blocks light)"
+		3 : "Opaque + Embedded fix"
+	]
+	light_origin(string) : "Light Origin Target"
+]
