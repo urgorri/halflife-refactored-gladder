@@ -74,7 +74,9 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/crash_handler.o \
 	$(TESTS_OBJ_DIR)/gladder_wave_manager.o \
 	$(TESTS_OBJ_DIR)/gladder_usermsg.o \
-	$(TESTS_OBJ_DIR)/test_gladder_phase1.o
+	$(TESTS_OBJ_DIR)/gladder_breakable.o \
+	$(TESTS_OBJ_DIR)/test_gladder_phase1.o \
+	$(TESTS_OBJ_DIR)/test_gladder_breakable.o
 
 
 PM_OBJS = \
@@ -184,6 +186,12 @@ $(TESTS_OBJ_DIR)/gladder_wave_manager.o: $(HLDLL_SRC_DIR)/gladder/gladder_wave_m
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/gladder_usermsg.o: $(HLDLL_SRC_DIR)/gladder/gladder_usermsg.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_breakable.o: $(HLDLL_SRC_DIR)/gladder/gladder_breakable.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_gladder_breakable.o: $(TESTS_SRC_DIR)/gladder/test_gladder_breakable.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs
