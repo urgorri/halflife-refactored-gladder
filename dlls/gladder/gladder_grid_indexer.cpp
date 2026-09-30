@@ -233,7 +233,7 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 
 	while ( ( pEnt = UTIL_FindEntityByClassname( pEnt, "trigger_gladder_area" ) ) != nullptr )
 	{
-		CTriggerGladderArea *pArea = dynamic_cast<CTriggerGladderArea *>( pEnt );
+		CTriggerGladderArea *pArea = static_cast<CTriggerGladderArea *>( pEnt );
 		if ( pArea )
 		{
 			IndexArea( pArea->GetMins(), pArea->GetMaxs(), pArea->GetAreaId() );
