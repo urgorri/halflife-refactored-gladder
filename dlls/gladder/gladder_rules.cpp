@@ -81,7 +81,14 @@ CGladderRules::CGladderRules()
 		const char *pszMap = STRING( gpGlobals->mapname );
 		if ( pszMap && *pszMap )
 		{
-			m_gridIndexer.LoadOrCreate( pszMap );
+			// Try fast-path cache load (SPEC §4.1). If missing on disk, defer generation
+			// to Think() once all map entities (trigger_gladder_area) are spawned.
+			std::string gridPath = GladderGridIndexer::GetGridFilePath( pszMap );
+			if ( m_gridIndexer.LoadFromFile( gridPath.c_str() ) )
+			{
+				ALERT( at_console, "[Gladder] Loaded %u spatial grid cells from '%s'\n",
+				       static_cast<unsigned int>( m_gridIndexer.GetCellCount() ), gridPath.c_str() );
+			}
 			m_mapConfig.LoadForMap( pszMap );
 		}
 	}
@@ -95,6 +102,16 @@ void CGladderRules::Think( void )
 {
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.Tick( flTime );
+
+	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active
+	if ( !m_gridIndexer.IsLoaded() && gpGlobals && gpGlobals->mapname )
+	{
+		const char *pszMap = STRING( gpGlobals->mapname );
+		if ( pszMap && *pszMap )
+		{
+			m_gridIndexer.LoadOrCreate( pszMap );
+		}
+	}
 
 	// Broadcast periodic telemetry (e.g. every 0.25 seconds) to keep client HUD synchronized
 	if ( flTime - m_flLastTelemetryBroadcast >= 0.25f )

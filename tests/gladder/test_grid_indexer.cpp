@@ -15,6 +15,7 @@
 #include "core/cbase.h"
 #include "tests/mock_engine.h"
 #include "dlls/gladder/gladder_grid_indexer.h"
+#include "dlls/gladder/gladder_entities.h"
 
 TEST_CASE( "Gladder Grid Indexer: Default state & path formatting", "[gladder][grid]" )
 {
@@ -296,9 +297,87 @@ TEST_CASE( "Gladder Grid Indexer: TraceCellCandidate raycasting verification", "
 		CHECK( ok == false );
 	}
 
+	SECTION( "Start point inside solid ceiling steps downward into open air" )
+	{
+		auto originalPointContents = g_engfuncs.pfnPointContents;
+		g_engfuncs.pfnPointContents = []( const float *p ) -> int {
+			// Simulate solid ceiling above Z = 450
+			if ( p[2] >= 450.0f )
+				return -1; // CONTENTS_SOLID
+			return 0;      // CONTENTS_EMPTY
+		};
+
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction      = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal  = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos       = Vector( 100.0f, 200.0f, 50.0f );
+		s_mockDownwardTrace.fStartSolid     = 0;
+		s_mockDownwardTrace.fAllSolid       = 0;
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction       = 0.3f;
+		s_mockCeilingTrace.vecEndPos        = Vector( 100.0f, 200.0f, 200.0f );
+
+		std::memset( &s_mockHullTrace, 0, sizeof( s_mockHullTrace ) );
+		s_mockHullTrace.flFraction          = 1.0f;
+		s_mockHullTrace.fStartSolid         = 0;
+		s_mockHullTrace.fAllSolid           = 0;
+
+		// zTop = 500 (inside ceiling >= 450), steps down below 450 and finds floor
+		bool ok = indexer.TraceCellCandidate( 100.0f, 200.0f, 500.0f, -100.0f, 1, outCell );
+		CHECK( ok == true );
+		CHECK( outCell.origin.z == Catch::Approx( 51.0f ) );
+
+		g_engfuncs.pfnPointContents = originalPointContents;
+	}
+
 	// Restore original engine callbacks
 	g_engfuncs.pfnTraceLine = originalTraceLine;
 	g_engfuncs.pfnTraceHull = originalTraceHull;
+}
+
+TEST_CASE( "Gladder Grid Indexer: trigger_gladder_area volumetric bounds & netname", "[gladder][grid]" )
+{
+	ResetMockEngine();
+
+	CTriggerGladderArea area;
+	entvars_t localPev;
+	std::memset( &localPev, 0, sizeof( localPev ) );
+	area.pev = &localPev;
+
+	// Test netname KeyValue handling
+	KeyValueData kvdNetname;
+	std::memset( &kvdNetname, 0, sizeof( kvdNetname ) );
+	kvdNetname.szKeyName = const_cast<char *>( "netname" );
+	kvdNetname.szValue   = const_cast<char *>( "Sector 1 - Pasillo Central" );
+	area.KeyValue( &kvdNetname );
+	CHECK( kvdNetname.fHandled == TRUE );
+	CHECK( std::string( area.GetAreaName() ) == "Sector 1 - Pasillo Central" );
+
+	// Test areaid KeyValue handling
+	KeyValueData kvdId;
+	std::memset( &kvdId, 0, sizeof( kvdId ) );
+	kvdId.szKeyName = const_cast<char *>( "areaid" );
+	kvdId.szValue   = const_cast<char *>( "42" );
+	area.KeyValue( &kvdId );
+	CHECK( kvdId.fHandled == TRUE );
+	CHECK( area.GetAreaId() == 42 );
+
+	// Test volumetric bounds calculation (origin: 576, -260, -12; size: 904, 406, 142)
+	area.pev->origin = Vector( 576.0f, -260.0f, -12.0f );
+	area.pev->mins   = Vector( -452.0f, -203.0f, -71.0f );
+	area.pev->maxs   = Vector( 452.0f, 203.0f, 71.0f );
+
+	Vector mins = area.GetMins();
+	Vector maxs = area.GetMaxs();
+
+	CHECK( mins.x == Catch::Approx( 124.0f ) );
+	CHECK( mins.y == Catch::Approx( -463.0f ) );
+	CHECK( mins.z == Catch::Approx( -83.0f ) );
+
+	CHECK( maxs.x == Catch::Approx( 1028.0f ) );
+	CHECK( maxs.y == Catch::Approx( -57.0f ) );
+	CHECK( maxs.z == Catch::Approx( 59.0f ) );
 }
 
 // Test mock stubs for hl_tests linkage

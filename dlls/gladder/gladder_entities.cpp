@@ -136,39 +136,6 @@ void CTriggerGladderFinish::DoFinish( CBaseEntity *pActivator )
 //
 LINK_ENTITY_TO_CLASS( trigger_gladder_area, CTriggerGladderArea );
 
-void CTriggerGladderArea::Spawn( void )
-{
-	pev->solid      = SOLID_NOT;
-	pev->movetype   = MOVETYPE_NONE;
-	pev->effects   |= EF_NODRAW;
-
-	if ( pev->model )
-	{
-		SET_MODEL( ENT( pev ), STRING( pev->model ) );
-		pev->model      = NULL;
-		pev->modelindex = 0;
-	}
-}
-
-void CTriggerGladderArea::KeyValue( KeyValueData *pkvd )
-{
-	if ( FStrEq( pkvd->szKeyName, "areaname" ) )
-	{
-		strncpy( m_szAreaName, pkvd->szValue, sizeof( m_szAreaName ) - 1 );
-		m_szAreaName[sizeof( m_szAreaName ) - 1] = '\0';
-		pkvd->fHandled = TRUE;
-	}
-	else if ( FStrEq( pkvd->szKeyName, "areaid" ) )
-	{
-		m_iAreaId      = atoi( pkvd->szValue );
-		pkvd->fHandled = TRUE;
-	}
-	else
-	{
-		CPointEntity::KeyValue( pkvd );
-	}
-}
-
 //
 // gladder_wave_relay
 //

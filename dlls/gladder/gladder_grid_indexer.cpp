@@ -236,7 +236,16 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 		CTriggerGladderArea *pArea = static_cast<CTriggerGladderArea *>( pEnt );
 		if ( pArea )
 		{
-			IndexArea( pArea->GetMins(), pArea->GetMaxs(), pArea->GetAreaId() );
+			Vector mins = pArea->GetMins();
+			Vector maxs = pArea->GetMaxs();
+			const char *pszAreaName = pArea->GetAreaName();
+			int areaId = pArea->GetAreaId();
+
+			ALERT( at_console, "[Gladder] Indexing area '%s' (ID %d): mins(%.1f, %.1f, %.1f) maxs(%.1f, %.1f, %.1f)\n",
+			       ( pszAreaName && *pszAreaName ) ? pszAreaName : "unnamed", areaId,
+			       mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z );
+
+			IndexArea( mins, maxs, areaId );
 			areaCount++;
 		}
 	}
@@ -257,17 +266,28 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 			}
 		}
 
+		ALERT( at_console, "[Gladder] No trigger_gladder_area found, indexing world bounds: mins(%.1f, %.1f, %.1f) maxs(%.1f, %.1f, %.1f)\n",
+		       mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z );
 		IndexArea( mins, maxs, 0 );
 	}
 
-	m_bLoaded = true;
-	return !m_cells.empty();
+	m_bLoaded = !m_cells.empty();
+	return m_bLoaded;
 }
 
 bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float zBottom, int32_t areaId, GladderGridCell &outCell )
 {
+	// 1. Descend from zTop if initial coordinate penetrates solid ceiling architecture
 	Vector vecStart = Vector( x, y, zTop - 1.0f );
-	Vector vecEnd   = Vector( x, y, zBottom - 32.0f );
+	while ( vecStart.z > zBottom + 36.0f && POINT_CONTENTS( vecStart ) == CONTENTS_SOLID )
+	{
+		vecStart.z -= 16.0f;
+	}
+
+	if ( vecStart.z <= zBottom + 36.0f || POINT_CONTENTS( vecStart ) == CONTENTS_SOLID )
+		return false; // Entire vertical column is solid architecture (pillar/wall)
+
+	Vector vecEnd = Vector( x, y, zBottom - 32.0f );
 
 	// Downward raycast to find walkable solid surface
 	TraceResult tr;
@@ -299,11 +319,13 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 		return false;
 
 	// Standing hull obstruction sweep (GoldSrc human_hull: 32x32x72)
+	// In GoldSrc, human_hull origin is centered at entity waist: mins(-16,-16,-36), maxs(16,16,36).
+	// To position feet resting on the walkable surface, the hull origin must be at vecSurface.z + 37.0f.
+	Vector vecHullPos = vecSurface + Vector( 0.0f, 0.0f, 37.0f );
 	TraceResult trHull;
-	TRACE_HULL( vecSurface + Vector( 0.0f, 0.0f, 1.0f ), vecSurface + Vector( 0.0f, 0.0f, 36.0f ),
-	            TRUE, human_hull, NULL, &trHull );
+	TRACE_HULL( vecHullPos, vecHullPos, TRUE, human_hull, NULL, &trHull );
 
-	if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction == 0.0f )
+	if ( trHull.fStartSolid || trHull.fAllSolid )
 		return false;
 
 	// Populate valid candidate cell
