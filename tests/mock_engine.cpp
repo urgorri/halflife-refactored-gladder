@@ -730,6 +730,88 @@ void CBaseToggle::PlaySentence( const char *pszSentence, float duration, float v
 void CBaseToggle::PlayScriptedSentence( const char *pszSentence, float duration, float volume, float attenuation, int bConcurrent, CBaseEntity *pListener ) {}
 void CBaseToggle::SentenceStop( void ) {}
 
+#include "systems/doors.h"
+
+float CBaseToggle::AxisDelta( int flags, const Vector &angle1, const Vector &angle2 )
+{
+	if ( FBitSet( flags, SF_DOOR_ROTATE_Z ) )
+		return angle1.z - angle2.z;
+
+	if ( FBitSet( flags, SF_DOOR_ROTATE_X ) )
+		return angle1.x - angle2.x;
+
+	return angle1.y - angle2.y;
+}
+
+void CBaseToggle::AxisDir( entvars_t *pev )
+{
+	if ( !pev )
+		return;
+
+	if ( FBitSet( pev->spawnflags, SF_DOOR_ROTATE_Z ) )
+		pev->movedir = Vector( 0, 0, 1 );
+	else if ( FBitSet( pev->spawnflags, SF_DOOR_ROTATE_X ) )
+		pev->movedir = Vector( 1, 0, 0 );
+	else
+		pev->movedir = Vector( 0, 1, 0 );
+}
+
+void CBaseToggle::LinearMove( Vector vecDest, float flSpeed ) {}
+void CBaseToggle::AngularMove( Vector vecDestAngle, float flSpeed ) {}
+
+int UTIL_IsMasterTriggered( string_t iszMaster, CBaseEntity *pActivator ) { return 1; }
+void SetMovedir( entvars_t *pev ) {}
+void PlayLockSounds( entvars_t *pev, locksound_t *pls, int flocked, int fbutton ) {}
+
+void CBaseEntity::SUB_UseTargets( CBaseEntity *pActivator, USE_TYPE useType, float value ) {}
+void CBaseDelay::SUB_UseTargets( CBaseEntity *pActivator, USE_TYPE useType, float value ) {}
+
+edict_t *EHANDLE::Get( void )
+{
+	if ( m_pent )
+	{
+		if ( m_pent->serialnumber == m_serialnumber )
+			return m_pent;
+		else
+			return NULL;
+	}
+	return NULL;
+}
+
+edict_t *EHANDLE::Set( edict_t *pent )
+{
+	m_pent = pent;
+	if ( pent )
+		m_serialnumber = m_pent->serialnumber;
+	return pent;
+}
+
+EHANDLE::operator CBaseEntity *()
+{
+	return (CBaseEntity *)GET_PRIVATE( Get() );
+}
+
+EHANDLE::operator int()
+{
+	return Get() != NULL;
+}
+
+CBaseEntity *EHANDLE::operator=( CBaseEntity *pEntity )
+{
+	if ( pEntity )
+	{
+		m_pent = ENT( pEntity->pev );
+		if ( m_pent )
+			m_serialnumber = m_pent->serialnumber;
+	}
+	else
+	{
+		m_pent         = NULL;
+		m_serialnumber = 0;
+	}
+	return pEntity;
+}
+
 void CBaseEntity::SUB_DoNothing( void ) {}
 
 void EMIT_SOUND_DYN( edict_t *entity, int channel, const char *sample, float volume, float attenuation, int flags, int pitch ) {}
@@ -879,5 +961,62 @@ TYPEDESCRIPTION CBaseMonster::m_SaveData[] = {
 	DEFINE_FIELD( CBaseMonster, m_movementGoal, FIELD_INTEGER ),
 	DEFINE_FIELD( CBaseMonster, m_iTaskStatus, FIELD_INTEGER ),
 };
+
+void ExplosionCreate( const Vector &center, const Vector &angles, edict_t *pOwner, int magnitude, BOOL doDamage ) {}
+void SpawnBlood( Vector vecSpot, int bloodColor, float flDamage ) {}
+cvar_t sv_pushable_fixed_tick_fudge = { "sv_pushable_fixed_tick_fudge", "15" };
+
+int DispatchSpawn( edict_t *pent )
+{
+	if ( !pent )
+		return -1;
+
+	CBaseEntity *pEntity = (CBaseEntity *)GET_PRIVATE( pent );
+	if ( pEntity )
+	{
+		pEntity->pev->absmin = pEntity->pev->origin - Vector( 1, 1, 1 );
+		pEntity->pev->absmax = pEntity->pev->origin + Vector( 1, 1, 1 );
+
+		pEntity->Spawn();
+
+		pEntity = (CBaseEntity *)GET_PRIVATE( pent );
+		if ( pEntity )
+		{
+			if ( g_pGameRules && !g_pGameRules->IsAllowedToSpawn( pEntity ) )
+				return -1;
+			if ( pEntity->pev->flags & FL_KILLME )
+				return -1;
+		}
+
+		if ( pEntity && g_pGameRules )
+			g_pGameRules->OnEntitySpawned( pEntity );
+	}
+
+	return 0;
+}
+
+void UTIL_ForEachEntity( void ( *pfnCallback )( CBaseEntity *pEntity, void *pUserData ), void *pUserData )
+{
+	if ( !pfnCallback || !gpGlobals )
+		return;
+
+	for ( int i = 1; i < gpGlobals->maxEntities; i++ )
+	{
+		edict_t *pEdict = INDEXENT( i );
+		if ( !pEdict || pEdict->free )
+			continue;
+		CBaseEntity *pEntity = CBaseEntity::Instance( pEdict );
+		if ( !pEntity )
+			continue;
+		pfnCallback( pEntity, pUserData );
+	}
+}
+
+Vector g_vecAttackDir( 0, 0, 0 );
+void UTIL_MakeVectors( const Vector &vecAngles ) {}
+void UTIL_Ricochet( const Vector &position, float pvol ) {}
+int UTIL_EntitiesInBox( CBaseEntity **pList, int listMax, const Vector &mins, const Vector &maxs, int flagMask ) { return 0; }
+
+
 
 

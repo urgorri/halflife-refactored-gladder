@@ -59,7 +59,14 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/test_triggers.o \
 	$(TESTS_OBJ_DIR)/test_player_customization.o \
 	$(TESTS_OBJ_DIR)/test_ai_navigation.o \
+	$(TESTS_OBJ_DIR)/test_bodygroup_bounds.o \
+	$(TESTS_OBJ_DIR)/test_buttons.o \
+	$(TESTS_OBJ_DIR)/test_breakable_lifecycle.o \
+	$(TESTS_OBJ_DIR)/test_entity_iteration.o \
 	$(TESTS_OBJ_DIR)/client_customization.o \
+	$(TESTS_OBJ_DIR)/animation.o \
+	$(TESTS_OBJ_DIR)/buttons.o \
+	$(TESTS_OBJ_DIR)/func_break.o \
 	$(TESTS_OBJ_DIR)/chargers.o \
 	$(TESTS_OBJ_DIR)/effects_beams.o \
 	$(TESTS_OBJ_DIR)/triggers_audio.o \
@@ -147,6 +154,15 @@ $(TESTS_OBJ_DIR)/client_customization.o: $(HLCORE_SRC_DIR)/client_customization.
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/entity_visual_registry.o: $(SOURCE_DIR)/cl_dll/entities/entity_visual_registry.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/animation.o: $(HLCORE_SRC_DIR)/animation.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/buttons.o: $(HLDLL_SRC_DIR)/systems/buttons.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/func_break.o: $(HLDLL_SRC_DIR)/systems/func_break.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/chargers.o: $(HLDLL_SRC_DIR)/systems/chargers.cpp | dirs
