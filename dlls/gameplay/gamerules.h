@@ -143,7 +143,12 @@ class CGameRules
 	virtual float FlHEVChargerRechargeTime( void ) { return 0; } // how long until a depleted HealthCharger recharges itself?
 	virtual float FlHealthChargerCapacity( void ) { return gSkillData.healthchargerCapacity; }
 	virtual float FlHEVChargerCapacity( void ) { return gSkillData.suitchargerCapacity; }
+	// Save / Restore control
 	virtual BOOL FAllowAutoSave( void ) { return !IsDeathmatch(); }
+	virtual BOOL FAllowSave( void ) { return !IsDeathmatch(); }
+	virtual BOOL FAllowRestore( void ) { return TRUE; }
+	virtual void OnSaveDenied( void ) {}
+	virtual void OnRestoreDenied( void ) {}
 
 	// What happens to a dead player's weapons
 	virtual int DeadPlayerWeapons( CBasePlayer *pPlayer ) = 0; // what do I do with a player's weapons when he's killed?

@@ -420,12 +420,24 @@ void CGlobalState::ClearStates( void )
 
 void SaveGlobalState( SAVERESTOREDATA *pSaveData )
 {
+	if ( g_pGameRules && !g_pGameRules->FAllowSave() )
+	{
+		g_pGameRules->OnSaveDenied();
+		return;
+	}
+
 	CSave saveHelper( pSaveData );
 	gGlobalState.Save( saveHelper );
 }
 
 void RestoreGlobalState( SAVERESTOREDATA *pSaveData )
 {
+	if ( g_pGameRules && !g_pGameRules->FAllowRestore() )
+	{
+		g_pGameRules->OnRestoreDenied();
+		return;
+	}
+
 	CRestore restoreHelper( pSaveData );
 	gGlobalState.Restore( restoreHelper );
 }

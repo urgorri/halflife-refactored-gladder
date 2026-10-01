@@ -481,6 +481,8 @@ void ResetMockEngine()
 	g_mockLastSaveFields = nullptr;
 	g_mockLastRestoreChunk.clear();
 	g_mockRestoreAvailableChunk.clear();
+	g_mockSaveCalled = false;
+	g_mockRestoreCalled = false;
 	gpGlobals = &s_mockGlobals;
 }
 
@@ -638,6 +640,8 @@ int g_mockLastSaveFieldCount = 0;
 TYPEDESCRIPTION *g_mockLastSaveFields = nullptr;
 std::string g_mockLastRestoreChunk;
 std::string g_mockRestoreAvailableChunk;
+bool g_mockSaveCalled = false;
+bool g_mockRestoreCalled = false;
 
 int CBaseEntity::Save( CSave &save ) { return 1; }
 int CBaseEntity::Restore( CRestore &restore ) { return 1; }
@@ -966,6 +970,7 @@ void ExplosionCreate( const Vector &center, const Vector &angles, edict_t *pOwne
 void SpawnBlood( Vector vecSpot, int bloodColor, float flDamage ) {}
 cvar_t sv_pushable_fixed_tick_fudge = { "sv_pushable_fixed_tick_fudge", "15" };
 
+
 int DispatchSpawn( edict_t *pent )
 {
 	if ( !pent )
@@ -1017,4 +1022,64 @@ void UTIL_MakeVectors( const Vector &vecAngles ) {}
 void UTIL_Ricochet( const Vector &position, float pvol ) {}
 int UTIL_EntitiesInBox( CBaseEntity **pList, int listMax, const Vector &mins, const Vector &maxs, int flagMask ) { return 0; }
 
+void DispatchSave( edict_t *pent, SAVERESTOREDATA *pSaveData )
+{
+	if ( g_pGameRules && !g_pGameRules->FAllowSave() )
+		return;
+
+	g_mockSaveCalled = true;
+	CBaseEntity *pEntity = (CBaseEntity *)GET_PRIVATE( pent );
+	if ( pEntity && pSaveData )
+	{
+		CSave saveHelper( pSaveData );
+		pEntity->Save( saveHelper );
+	}
+}
+
+int DispatchRestore( edict_t *pent, SAVERESTOREDATA *pSaveData, int globalEntity )
+{
+	if ( g_pGameRules && !g_pGameRules->FAllowRestore() )
+		return 0;
+
+	g_mockRestoreCalled = true;
+	CBaseEntity *pEntity = (CBaseEntity *)GET_PRIVATE( pent );
+	if ( pEntity && pSaveData )
+	{
+		CRestore restoreHelper( pSaveData );
+		return pEntity->Restore( restoreHelper );
+	}
+	return 0;
+}
+
+void SaveGlobalState( SAVERESTOREDATA *pSaveData )
+{
+	if ( g_pGameRules && !g_pGameRules->FAllowSave() )
+	{
+		g_pGameRules->OnSaveDenied();
+		return;
+	}
+
+	g_mockSaveCalled = true;
+}
+
+void RestoreGlobalState( SAVERESTOREDATA *pSaveData )
+{
+	if ( g_pGameRules && !g_pGameRules->FAllowRestore() )
+	{
+		g_pGameRules->OnRestoreDenied();
+		return;
+	}
+
+	g_mockRestoreCalled = true;
+}
+
+#ifdef _DEBUG
+edict_t *DBG_EntOfVars( const entvars_t *pev )
+{
+	if ( !pev )
+		return nullptr;
+	return pev->pContainingEntity;
+}
 void DBG_AssertFunction( BOOL fExpr, const char *szExpr, const char *szFile, int szLine, const char *szMessage ) {}
+#endif
+
