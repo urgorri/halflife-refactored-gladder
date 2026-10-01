@@ -1051,6 +1051,28 @@ int DispatchRestore( edict_t *pent, SAVERESTOREDATA *pSaveData, int globalEntity
 	return 0;
 }
 
+void SaveGlobalState( SAVERESTOREDATA *pSaveData )
+{
+	if ( g_pGameRules && !g_pGameRules->FAllowSave() )
+	{
+		g_pGameRules->OnSaveDenied();
+		return;
+	}
+
+	g_mockSaveCalled = true;
+}
+
+void RestoreGlobalState( SAVERESTOREDATA *pSaveData )
+{
+	if ( g_pGameRules && !g_pGameRules->FAllowRestore() )
+	{
+		g_pGameRules->OnRestoreDenied();
+		return;
+	}
+
+	g_mockRestoreCalled = true;
+}
+
 #ifdef _DEBUG
 edict_t *DBG_EntOfVars( const entvars_t *pev )
 {

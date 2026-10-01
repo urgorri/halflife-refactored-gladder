@@ -89,6 +89,18 @@ class CTestHookRules : public CGameRules
 
 	bool m_bCustomSave = true;
 	bool m_bCustomRestore = true;
+	int m_iSaveDeniedCount = 0;
+	int m_iRestoreDeniedCount = 0;
+
+	void OnSaveDenied( void ) override
+	{
+		m_iSaveDeniedCount++;
+	}
+
+	void OnRestoreDenied( void ) override
+	{
+		m_iRestoreDeniedCount++;
+	}
 
 	std::vector<CBaseEntity *> m_spawnedEntities;
 	void OnEntitySpawned( CBaseEntity *pEntity ) override
@@ -437,6 +449,77 @@ TEST_CASE( "GameplayHooks: Save and restore pipeline respects FAllowSave and FAl
 		customRules.m_bCustomRestore = true;
 		res = DispatchRestore( &edict, &saveData, 0 );
 		CHECK( g_mockRestoreCalled );
+	}
+
+	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GameplayHooks: OnSaveDenied and OnRestoreDenied callbacks invoked on veto (#169)", "[gameplay][gamerules][hooks][saverestore]" )
+{
+	ResetMockEngine();
+	CTestHookRules customRules;
+	g_pGameRules = &customRules;
+
+	SAVERESTOREDATA saveData;
+	std::memset( &saveData, 0, sizeof( saveData ) );
+
+	SECTION( "SaveGlobalState triggers OnSaveDenied when FAllowSave is FALSE" )
+	{
+		customRules.m_bCustomSave = false;
+		customRules.m_iSaveDeniedCount = 0;
+		g_mockSaveCalled = false;
+
+		SaveGlobalState( &saveData );
+
+		CHECK( customRules.m_iSaveDeniedCount == 1 );
+		CHECK_FALSE( g_mockSaveCalled );
+
+		// When allowed, OnSaveDenied is not called
+		customRules.m_bCustomSave = true;
+		customRules.m_iSaveDeniedCount = 0;
+		g_mockSaveCalled = false;
+
+		SaveGlobalState( &saveData );
+
+		CHECK( customRules.m_iSaveDeniedCount == 0 );
+		CHECK( g_mockSaveCalled );
+	}
+
+	SECTION( "RestoreGlobalState triggers OnRestoreDenied when FAllowRestore is FALSE" )
+	{
+		customRules.m_bCustomRestore = false;
+		customRules.m_iRestoreDeniedCount = 0;
+		g_mockRestoreCalled = false;
+
+		RestoreGlobalState( &saveData );
+
+		CHECK( customRules.m_iRestoreDeniedCount == 1 );
+		CHECK_FALSE( g_mockRestoreCalled );
+
+		// When allowed, OnRestoreDenied is not called
+		customRules.m_bCustomRestore = true;
+		customRules.m_iRestoreDeniedCount = 0;
+		g_mockRestoreCalled = false;
+
+		RestoreGlobalState( &saveData );
+
+		CHECK( customRules.m_iRestoreDeniedCount == 0 );
+		CHECK( g_mockRestoreCalled );
+	}
+
+	SECTION( "Vanilla default CGameRules no-op callbacks do not crash" )
+	{
+		g_pGameRules = nullptr;
+		GameRulesFactory::Reset();
+		gpGlobals->deathmatch = 0.0f;
+		CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+		REQUIRE( pVanillaRules != nullptr );
+
+		// Calling default implementations directly should be safe no-ops
+		pVanillaRules->OnSaveDenied();
+		pVanillaRules->OnRestoreDenied();
+
+		delete pVanillaRules;
 	}
 
 	g_pGameRules = nullptr;

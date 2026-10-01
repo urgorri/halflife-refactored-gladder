@@ -147,6 +147,8 @@ class CGameRules
 	virtual BOOL FAllowAutoSave( void ) { return !IsDeathmatch(); }
 	virtual BOOL FAllowSave( void ) { return !IsDeathmatch(); }
 	virtual BOOL FAllowRestore( void ) { return TRUE; }
+	virtual void OnSaveDenied( void ) {}
+	virtual void OnRestoreDenied( void ) {}
 
 	// What happens to a dead player's weapons
 	virtual int DeadPlayerWeapons( CBasePlayer *pPlayer ) = 0; // what do I do with a player's weapons when he's killed?
