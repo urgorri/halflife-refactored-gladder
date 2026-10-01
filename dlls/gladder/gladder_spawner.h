@@ -99,6 +99,10 @@ class GladderSpawner
 
 	// Query spawned entities
 	size_t GetTrackedEntityCount() const { return m_spawnedEntities.size(); }
+	CBaseEntity *GetTrackedEntity( size_t index )
+	{
+		return ( index < m_spawnedEntities.size() ) ? (CBaseEntity *)m_spawnedEntities[index] : nullptr;
+	}
 	int GetLastSpawnedMonsterCount() const { return m_iLastMonsterCount; }
 	int GetLastSpawnedPickupCount() const { return m_iLastPickupCount; }
 	int GetLastSpawnedChampionCount() const { return m_iLastChampionCount; }

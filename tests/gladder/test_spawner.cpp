@@ -421,3 +421,79 @@ TEST_CASE( "Gladder Spawner: Large monster species safely degrades to human-hull
 	ClearMockEntityFactories();
 }
 
+TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clearance (Issue #34)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
+
+	const char *pickupsToRegister[] = {
+		"weapon_crowbar", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357",
+		"ammo_9mmclip", "ammo_buckshot", "ammo_357",
+		"item_healthkit", "item_battery"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+
+	GladderGridIndexer indexer;
+	// Create a 6x6 grid of 32-unit spaced cells
+	for ( int x = 0; x < 6; ++x )
+	{
+		for ( int y = 0; y < 6; ++y )
+		{
+			GladderGridCell c;
+			c.origin   = Vector( x * 32.0f, y * 32.0f, 0.0f );
+			c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+			c.areaId   = 1;
+			c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+			c.ceilingZ = 120.0f;
+			indexer.AddCell( c );
+		}
+	}
+
+	GladderMapConfig config;
+	config.monsterWhitelist.push_back( "monster_zombie" );
+	config.baseMonsters    = 2;
+	config.monstersPerWave = 0.0f;
+	config.basePickups     = 2;
+	config.pickupsPerWave  = 0.0f;
+
+	GladderSpawner spawner;
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+	CHECK( totalSpawned >= 4 );
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 2 );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 2 );
+
+	std::vector<Vector> monsterPositions;
+	std::vector<Vector> itemPositions;
+	for ( size_t i = 0; i < spawner.GetTrackedEntityCount(); ++i )
+	{
+		CBaseEntity *pEnt = spawner.GetTrackedEntity( i );
+		if ( !pEnt || !pEnt->pev ) continue;
+		const char *szClass = STRING( pEnt->pev->classname );
+		if ( strncmp( szClass, "monster_", 8 ) == 0 )
+			monsterPositions.push_back( pEnt->pev->origin );
+		else if ( strncmp( szClass, "item_", 5 ) == 0 || strncmp( szClass, "weapon_", 7 ) == 0 || strncmp( szClass, "ammo_", 5 ) == 0 )
+		{
+			if ( strcmp( szClass, "item_gladder_lambda" ) != 0 )
+				itemPositions.push_back( pEnt->pev->origin );
+		}
+	}
+
+	CHECK( monsterPositions.size() == 2 );
+	CHECK( itemPositions.size() == 2 );
+
+	// Verify all spawned pickups maintain at least 48 units distance from all spawned monsters
+	for ( const auto &itemPos : itemPositions )
+	{
+		for ( const auto &monsterPos : monsterPositions )
+		{
+			float dist2D = ( itemPos - monsterPos ).Length2D();
+			CHECK( dist2D >= 48.0f );
+		}
+	}
+
+	ClearMockEntityFactories();
+}
+
