@@ -8,6 +8,10 @@
 #include "external/catch2/catch_amalgamated.hpp"
 #include <cstring>
 #include <vector>
+#ifndef _WIN32
+#include <dirent.h>
+#include <unistd.h>
+#endif
 
 #include "extdll.h"
 #include "util.h"
@@ -148,6 +152,21 @@ class CGladderRulesTestRules : public CGameRules
 	BOOL FAllowAutoSave( void ) override { return FALSE; }
 	BOOL FAllowSave( void ) override { return FALSE; }
 	BOOL FAllowRestore( void ) override { return FALSE; }
+	void OnSaveDenied( void ) override
+	{
+		m_bSaveDeniedCalled = true;
+		m_bPendingSavePurge = true;
+	}
+	void OnRestoreDenied( void ) override
+	{
+		m_bRestoreDeniedCalled = true;
+		m_bRestoreAttempted = true;
+		SERVER_COMMAND( "disconnect\n" );
+	}
+	bool m_bSaveDeniedCalled = false;
+	bool m_bRestoreDeniedCalled = false;
+	bool m_bRestoreAttempted = false;
+	bool m_bPendingSavePurge = false;
 	BOOL FPlayerCanRespawn( CBasePlayer *pPlayer ) override { return FALSE; }
 	void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override {}
 	void Think( void ) override {}
@@ -204,8 +223,55 @@ static void Gladder_InstallClientSaveAliases( edict_t *pPlayerEdict )
 	CLIENT_COMMAND( pPlayerEdict, "alias reload \"echo [Gladder] Reload is disabled in Half-Life: Gladder.\"\n" );
 }
 
-TEST_CASE( "Gladder Phase 1: Save & Respawn Prevention Logic (#31)", "[gladder][rules][saverestore]" )
+static void Gladder_PurgeSaveFiles( void )
+{
+#ifdef _WIN32
+	const char *searchPatterns[] = { "SAVE\\*.sav", "save\\*.sav" };
+	for ( size_t i = 0; i < sizeof( searchPatterns ) / sizeof( searchPatterns[0] ); ++i )
+	{
+		WIN32_FIND_DATAA fd;
+		HANDLE hFind = FindFirstFileA( searchPatterns[i], &fd );
+		if ( hFind != INVALID_HANDLE_VALUE )
+		{
+			do
+			{
+				if ( !( fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ) )
+				{
+					char szPath[MAX_PATH];
+					const char *dir = ( i == 0 ) ? "SAVE" : "save";
+					snprintf( szPath, sizeof( szPath ), "%s\\%s", dir, fd.cFileName );
+					DeleteFileA( szPath );
+				}
+			} while ( FindNextFileA( hFind, &fd ) );
+			FindClose( hFind );
+		}
+	}
+#else
+	const char *dirs[] = { "SAVE", "save" };
+	for ( size_t i = 0; i < sizeof( dirs ) / sizeof( dirs[0] ); ++i )
+	{
+		DIR *dir = opendir( dirs[i] );
+		if ( dir )
+		{
+			struct dirent *entry;
+			while ( ( entry = readdir( dir ) ) != NULL )
+			{
+				const char *name = entry->d_name;
+				size_t len = strlen( name );
+				if ( len > 4 && strcmp( name + len - 4, ".sav" ) == 0 )
+				{
+					char szPath[512];
+					snprintf( szPath, sizeof( szPath ), "%s/%s", dirs[i], name );
+					unlink( szPath );
+				}
+			}
+			closedir( dir );
+		}
+	}
+#endif
+}
 
+TEST_CASE( "Gladder Phase 1: Save & Respawn Prevention Logic (#31)", "[gladder][rules][saverestore]" )
 {
 	SECTION( "Gladder GameRules must forbid saving and restoring mid-game" )
 	{
@@ -235,7 +301,42 @@ TEST_CASE( "Gladder Phase 1: Save & Respawn Prevention Logic (#31)", "[gladder][
 		CHECK( res == 0 );
 		CHECK_FALSE( g_mockRestoreCalled );
 
+		// SaveGlobalState triggers OnSaveDenied callback and sets pending purge flag
+		SaveGlobalState( &saveData );
+		CHECK( rules.m_bSaveDeniedCalled );
+		CHECK( rules.m_bPendingSavePurge );
+		CHECK_FALSE( g_mockSaveCalled );
+
+		// RestoreGlobalState triggers OnRestoreDenied callback and issues disconnect command
+		RestoreGlobalState( &saveData );
+		CHECK( rules.m_bRestoreDeniedCalled );
+		CHECK( rules.m_bRestoreAttempted );
+		CHECK_FALSE( g_mockRestoreCalled );
+		REQUIRE_FALSE( g_mockServerCommands.empty() );
+		CHECK( g_mockServerCommands.back() == "disconnect\n" );
+
 		g_pGameRules = nullptr;
+	}
+
+	SECTION( "Gladder savefile purge removes .sav files from disk" )
+	{
+#ifdef _WIN32
+		CreateDirectoryA( "SAVE", NULL );
+		FILE *fp = fopen( "SAVE\\test_gladder_dummy.sav", "wb" );
+		if ( fp )
+		{
+			fputs( "dummy", fp );
+			fclose( fp );
+		}
+		FILE *checkFp = fopen( "SAVE\\test_gladder_dummy.sav", "rb" );
+		REQUIRE( checkFp != nullptr );
+		fclose( checkFp );
+
+		Gladder_PurgeSaveFiles();
+
+		FILE *afterFp = fopen( "SAVE\\test_gladder_dummy.sav", "rb" );
+		CHECK( afterFp == nullptr );
+#endif
 	}
 
 	SECTION( "Gladder client alias installer must neutralize all 6 save/load/reload commands" )

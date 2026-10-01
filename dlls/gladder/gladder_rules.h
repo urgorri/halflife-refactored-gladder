@@ -19,6 +19,10 @@
 #include "gladder_wave_manager.h"
 #include "gladder_grid_indexer.h"
 #include "gladder_spawner.h"
+#ifndef _WIN32
+#include <dirent.h>
+#include <unistd.h>
+#endif
 
 class CGladderRules : public CHalfLifeRules
 {
@@ -39,6 +43,8 @@ class CGladderRules : public CHalfLifeRules
 	BOOL FAllowAutoSave( void ) override { return FALSE; }
 	BOOL FAllowSave( void ) override { return FALSE; }
 	BOOL FAllowRestore( void ) override { return FALSE; }
+	void OnSaveDenied( void ) override;
+	void OnRestoreDenied( void ) override;
 	BOOL FPlayerCanRespawn( CBasePlayer *pPlayer ) override { return FALSE; }
 	void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override;
 	BOOL ClientCommand( CBasePlayer *pPlayer, const char *pcmd ) override;
@@ -74,6 +80,8 @@ class CGladderRules : public CHalfLifeRules
 	int GetTotalFrags( void ) const { return m_iTotalFrags; }
 	int GetCollectiblesCount( void ) const { return m_iCollectiblesCount; }
 	void IncrementCollectibles( void ) { m_iCollectiblesCount++; }
+	bool IsRestoreAttempted( void ) const { return m_bRestoreAttempted; }
+	bool IsPendingSavePurge( void ) const { return m_bPendingSavePurge; }
 
   private:
 	CGladderWaveManager m_waveManager;
@@ -81,10 +89,61 @@ class CGladderRules : public CHalfLifeRules
 	GladderSpawner m_spawner;
 	GladderMapConfig m_mapConfig;
 	bool m_bInitialSpawnDone;
+	bool m_bRestoreAttempted;
+	bool m_bPendingSavePurge;
 	int m_iTotalFrags;
 	int m_iCollectiblesCount;
 	float m_flLastTelemetryBroadcast;
 };
+
+// Purges any emitted .sav files from disk to maintain clean state
+inline void Gladder_PurgeSaveFiles( void )
+{
+#ifdef _WIN32
+	const char *searchPatterns[] = { "SAVE\\*.sav", "save\\*.sav" };
+	for ( size_t i = 0; i < sizeof( searchPatterns ) / sizeof( searchPatterns[0] ); ++i )
+	{
+		WIN32_FIND_DATAA fd;
+		HANDLE hFind = FindFirstFileA( searchPatterns[i], &fd );
+		if ( hFind != INVALID_HANDLE_VALUE )
+		{
+			do
+			{
+				if ( !( fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ) )
+				{
+					char szPath[MAX_PATH];
+					const char *dir = ( i == 0 ) ? "SAVE" : "save";
+					snprintf( szPath, sizeof( szPath ), "%s\\%s", dir, fd.cFileName );
+					DeleteFileA( szPath );
+				}
+			} while ( FindNextFileA( hFind, &fd ) );
+			FindClose( hFind );
+		}
+	}
+#else
+	const char *dirs[] = { "SAVE", "save" };
+	for ( size_t i = 0; i < sizeof( dirs ) / sizeof( dirs[0] ); ++i )
+	{
+		DIR *dir = opendir( dirs[i] );
+		if ( dir )
+		{
+			struct dirent *entry;
+			while ( ( entry = readdir( dir ) ) != NULL )
+			{
+				const char *name = entry->d_name;
+				size_t len = strlen( name );
+				if ( len > 4 && strcmp( name + len - 4, ".sav" ) == 0 )
+				{
+					char szPath[512];
+					snprintf( szPath, sizeof( szPath ), "%s/%s", dirs[i], name );
+					unlink( szPath );
+				}
+			}
+			closedir( dir );
+		}
+	}
+#endif
+}
 
 // Factory instantiation and condition
 CGameRules *CreateGladderRules( void );

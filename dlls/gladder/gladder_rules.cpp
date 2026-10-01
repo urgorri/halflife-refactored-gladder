@@ -37,10 +37,15 @@ static void Gladder_RegisterCvars( void )
 
 CGladderRules::CGladderRules()
     : m_bInitialSpawnDone( false ),
+      m_bRestoreAttempted( false ),
+      m_bPendingSavePurge( false ),
       m_iTotalFrags( 0 ),
       m_iCollectiblesCount( 0 ),
       m_flLastTelemetryBroadcast( 0.0f )
 {
+	// Scrub any residual save files on disk to prevent loading stale or unauthorized runs
+	Gladder_PurgeSaveFiles();
+
 	// Ensure cvars are registered with the engine (idempotent if already done by ConditionGladder)
 	Gladder_RegisterCvars();
 
@@ -91,6 +96,12 @@ CGladderRules::~CGladderRules()
 
 void CGladderRules::Think( void )
 {
+	if ( m_bPendingSavePurge )
+	{
+		m_bPendingSavePurge = false;
+		Gladder_PurgeSaveFiles();
+	}
+
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.Tick( flTime );
 
@@ -117,6 +128,13 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 {
 	if ( !pPlayer )
 		return;
+
+	// Strictly reject player spawning if a savegame restore was attempted (SPEC §10.3)
+	if ( m_bRestoreAttempted )
+	{
+		SERVER_COMMAND( "disconnect\n" );
+		return;
+	}
 
 	// Initial loadout at Point A: guaranteed HEV suit and Crowbar
 	if ( !m_bInitialSpawnDone )
@@ -177,6 +195,19 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 	}
 
 	return FALSE;
+}
+
+void CGladderRules::OnSaveDenied( void )
+{
+	ALERT( at_warning, "[Gladder] Save denied: saving is disabled in Half-Life: Gladder (SPEC §10.3).\n" );
+	m_bPendingSavePurge = true;
+}
+
+void CGladderRules::OnRestoreDenied( void )
+{
+	ALERT( at_error, "[Gladder] RESTORE DENIED: Loading savegames is strictly forbidden in Half-Life: Gladder (SPEC §10.3).\n" );
+	m_bRestoreAttempted = true;
+	SERVER_COMMAND( "disconnect\n" );
 }
 
 void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
