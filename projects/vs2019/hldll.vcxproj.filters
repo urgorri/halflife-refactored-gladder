@@ -783,6 +783,18 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_spawner.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_combo_tracker.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_scoring.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_modifiers.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_monster_modifiers.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\dlls\gladder\gladder_rules.h">
@@ -804,6 +816,18 @@
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_spawner.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_combo_tracker.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_scoring.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_modifiers.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_monster_modifiers.h">
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\core\user_message_registry.h">

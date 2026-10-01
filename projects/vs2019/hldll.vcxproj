@@ -293,6 +293,10 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\gladder\gladder_breakable.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_grid_indexer.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_spawner.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_combo_tracker.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_scoring.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_modifiers.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_monster_modifiers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\dlls\gladder\gladder_rules.h" />
@@ -302,6 +306,10 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClInclude Include="..\..\dlls\gladder\gladder_breakable.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_grid_indexer.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_spawner.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_combo_tracker.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_scoring.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_modifiers.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_monster_modifiers.h" />
     <ClInclude Include="..\..\dlls\weapons\ammo_base.h" />
     <ClInclude Include="..\..\dlls\weapons\weapon_box.h" />
     <ClInclude Include="..\..\dlls\ai\activity.h" />

@@ -19,6 +19,10 @@
 #include "gladder_wave_manager.h"
 #include "gladder_grid_indexer.h"
 #include "gladder_spawner.h"
+#include "gladder_combo_tracker.h"
+#include "gladder_scoring.h"
+#include "gladder_modifiers.h"
+#include "gladder_monster_modifiers.h"
 #ifndef _WIN32
 #include <dirent.h>
 #include <unistd.h>
@@ -51,8 +55,12 @@ class CGladderRules : public CHalfLifeRules
 
 	// Player lifecycle & initial loadout (Point A)
 	void PlayerSpawn( CBasePlayer *pPlayer ) override;
+	void PlayerThink( CBasePlayer *pPlayer ) override;
 	void PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override;
 	void MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override;
+
+	// Modernized monster turning speed hook (Issue #26)
+	float FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed ) override;
 
 	// Wall chargers capacity degradation & recharge
 	float FlHealthChargerCapacity( void ) override;
@@ -68,6 +76,9 @@ class CGladderRules : public CHalfLifeRules
 	void RechargeWallStations( void );
 	void ResetBreakableEntities( void );
 
+	// Scoring & match conclusion (Issue #9)
+	void CalculateFinalScore( bool bSurvived );
+
 	// Network telemetry broadcast
 	void BroadcastWaveUpdate( CBasePlayer *pPlayer = nullptr );
 	void BroadcastTelemetryUpdate( CBasePlayer *pPlayer = nullptr );
@@ -77,6 +88,10 @@ class CGladderRules : public CHalfLifeRules
 	GladderGridIndexer &GetGridIndexer( void ) { return m_gridIndexer; }
 	GladderSpawner &GetSpawner( void ) { return m_spawner; }
 	GladderMapConfig &GetMapConfig( void ) { return m_mapConfig; }
+	GladderComboTracker &GetComboTracker( void ) { return m_comboTracker; }
+	GladderModifiers &GetModifiers( void ) { return m_modifiers; }
+	const GladderScoreBreakdown &GetLastScoreBreakdown( void ) const { return m_lastScoreBreakdown; }
+	float GetTotalDamageTaken( void ) const { return m_flTotalDamageTaken; }
 	int GetTotalFrags( void ) const { return m_iTotalFrags; }
 	int GetCollectiblesCount( void ) const { return m_iCollectiblesCount; }
 	void IncrementCollectibles( void ) { m_iCollectiblesCount++; }
@@ -88,11 +103,17 @@ class CGladderRules : public CHalfLifeRules
 	GladderGridIndexer m_gridIndexer;
 	GladderSpawner m_spawner;
 	GladderMapConfig m_mapConfig;
+	GladderComboTracker m_comboTracker;
+	GladderModifiers m_modifiers;
+	GladderScoreBreakdown m_lastScoreBreakdown;
 	bool m_bInitialSpawnDone;
 	bool m_bRestoreAttempted;
 	bool m_bPendingSavePurge;
 	int m_iTotalFrags;
 	int m_iCollectiblesCount;
+	float m_flTotalDamageTaken;
+	float m_flLastPlayerHealth;
+	float m_flLastPlayerArmor;
 	float m_flLastTelemetryBroadcast;
 };
 

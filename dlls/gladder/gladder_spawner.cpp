@@ -7,6 +7,7 @@
  ****/
 
 #include "gladder_spawner.h"
+#include "gladder_modifiers.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -240,6 +241,7 @@ bool GladderMapConfig::IsWeaponAllowed( const char *szClassname ) const
 GladderSpawner::GladderSpawner()
     : m_iLastMonsterCount( 0 ),
       m_iLastPickupCount( 0 ),
+      m_iLastChampionCount( 0 ),
       m_bLambdaSpawned( false )
 {
 }
@@ -512,7 +514,7 @@ void GladderSpawner::SpawnLambdaCollectible( const GladderGridIndexer &indexer, 
 	}
 }
 
-void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells )
+void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells, const std::string &szSwarmSpecies )
 {
 	m_iLastMonsterCount = 0;
 
@@ -547,7 +549,15 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 
 		bool isFlying = false;
 		bool isBarnacle = false;
-		const char *szSpecies = RollMonsterSpecies( iWaveNumber, config, isFlying, isBarnacle );
+		const char *szSpecies = nullptr;
+		if ( !szSwarmSpecies.empty() )
+		{
+			szSpecies = szSwarmSpecies.c_str();
+		}
+		else
+		{
+			szSpecies = RollMonsterSpecies( iWaveNumber, config, isFlying, isBarnacle );
+		}
 		bool isLarge = IsLargeMonster( szSpecies );
 		int hullNum = isLarge ? large_hull : human_hull;
 
@@ -709,6 +719,13 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			if ( pMonster )
 			{
 				m_iLastMonsterCount++;
+
+				if ( pMonster->MyMonsterPointer() && GladderModifiers::ShouldSpawnAsChampion( iWaveNumber ) )
+				{
+					GladderModifiers::MakeEliteChampion( pMonster->MyMonsterPointer() );
+					m_iLastChampionCount++;
+				}
+
 				( *pOccupiedCells )[chosenIdx] = true;
 
 				SpawnedMonsterRecord rec;
@@ -782,8 +799,10 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 	}
 }
 
-int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config )
+int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies )
 {
+	m_iLastChampionCount = 0;
+
 	if ( indexer.GetCellCount() == 0 )
 	{
 		ALERT( at_console, "[Gladder] Cannot spawn wave %d: Spatial grid indexer has 0 cells.\n", iWaveNumber );
@@ -804,13 +823,13 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 	SpawnLambdaCollectible( indexer, &occupiedCells );
 
 	// 3. Procedurally generate monsters across spatial grid cells
-	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells );
+	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells, szSwarmSpecies );
 
 	// 4. Procedurally generate randomized pickups & weapons
 	SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells );
 
-	ALERT( at_console, "[Gladder] Wave %d spawned: %d monsters, %d supplies, lambda=%s (Tracked total: %u entities)\n",
-	       iWaveNumber, m_iLastMonsterCount, m_iLastPickupCount, m_bLambdaSpawned ? "yes" : "no",
+	ALERT( at_console, "[Gladder] Wave %d spawned: %d monsters (%d champions), %d supplies, lambda=%s (Tracked total: %u entities)\n",
+	       iWaveNumber, m_iLastMonsterCount, m_iLastChampionCount, m_iLastPickupCount, m_bLambdaSpawned ? "yes" : "no",
 	       static_cast<unsigned int>( m_spawnedEntities.size() ) );
 
 	return m_iLastMonsterCount + m_iLastPickupCount + ( m_bLambdaSpawned ? 1 : 0 );

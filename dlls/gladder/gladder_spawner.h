@@ -84,7 +84,7 @@ class GladderSpawner
 	void Precache( void );
 
 	// Spawn full procedural wave across indexed spatial grid cells (SPEC §2, §3, §7.3)
-	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config );
+	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies = "" );
 
 	// Comprehensive GoldSrc edict garbage collection (SPEC §2, §11)
 	void PurgeWaveEntities();
@@ -101,6 +101,7 @@ class GladderSpawner
 	size_t GetTrackedEntityCount() const { return m_spawnedEntities.size(); }
 	int GetLastSpawnedMonsterCount() const { return m_iLastMonsterCount; }
 	int GetLastSpawnedPickupCount() const { return m_iLastPickupCount; }
+	int GetLastSpawnedChampionCount() const { return m_iLastChampionCount; }
 	bool WasLambdaSpawned() const { return m_bLambdaSpawned; }
 
 	// Manual entity creation helper that respects edict budget and registers with spawner
@@ -113,10 +114,11 @@ class GladderSpawner
 	std::vector<EHANDLE> m_spawnedEntities;
 	int m_iLastMonsterCount;
 	int m_iLastPickupCount;
+	int m_iLastChampionCount;
 	bool m_bLambdaSpawned;
 
 	// Internal procedural generation routines (with cell occupancy tracking)
-	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
+	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );
 	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
 	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
 
