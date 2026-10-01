@@ -428,19 +428,19 @@ TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clea
 	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
 
 	const char *pickupsToRegister[] = {
-		"weapon_crowbar", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357",
-		"ammo_9mmclip", "ammo_buckshot", "ammo_357",
-		"item_healthkit", "item_battery"
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_rpgclip",
+		"weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_crossbow", "weapon_rpg", "weapon_gauss", "weapon_egon"
 	};
 	for ( const char *szP : pickupsToRegister )
 		RegisterMockEntityFactory( szP, FactoryTestItem );
 	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
 
 	GladderGridIndexer indexer;
-	// Create a 6x6 grid of 32-unit spaced cells
-	for ( int x = 0; x < 6; ++x )
+	// Create an 8x8 grid of 32-unit spaced cells (64 total cells)
+	for ( int x = 0; x < 8; ++x )
 	{
-		for ( int y = 0; y < 6; ++y )
+		for ( int y = 0; y < 8; ++y )
 		{
 			GladderGridCell c;
 			c.origin   = Vector( x * 32.0f, y * 32.0f, 0.0f );
