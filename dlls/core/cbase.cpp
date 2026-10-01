@@ -257,6 +257,9 @@ void DispatchBlocked( edict_t *pentBlocked, edict_t *pentOther )
 
 void DispatchSave( edict_t *pent, SAVERESTOREDATA *pSaveData )
 {
+	if ( g_pGameRules && !g_pGameRules->FAllowSave() )
+		return;
+
 	CBaseEntity *pEntity = (CBaseEntity *)GET_PRIVATE( pent );
 
 	if ( pEntity && pSaveData )
@@ -307,6 +310,9 @@ CBaseEntity *FindGlobalEntity( string_t classname, string_t globalname )
 
 int DispatchRestore( edict_t *pent, SAVERESTOREDATA *pSaveData, int globalEntity )
 {
+	if ( g_pGameRules && !g_pGameRules->FAllowRestore() )
+		return 0;
+
 	CBaseEntity *pEntity = (CBaseEntity *)GET_PRIVATE( pent );
 
 	if ( pEntity && pSaveData )

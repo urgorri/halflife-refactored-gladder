@@ -43,6 +43,8 @@ extern int g_mockLastSaveFieldCount;
 extern TYPEDESCRIPTION *g_mockLastSaveFields;
 extern std::string g_mockLastRestoreChunk;
 extern std::string g_mockRestoreAvailableChunk;
+extern bool g_mockSaveCalled;
+extern bool g_mockRestoreCalled;
 
 extern std::vector<std::string> g_mockAlertMessages;
 extern std::vector<std::string> g_mockClientCommands;
