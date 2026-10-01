@@ -62,7 +62,8 @@
 
 @SolidClass base(Targetname) = trigger_gladder_area : "Gladder: Spatial Area Volume / Indexer"
 [
-	areaname(string) : "Area Name" : "" : "Unique identifier for this spatial section (e.g., staging, corridor_a, arena, boss_chamber)."
+	netname(string) : "Area Name" : "" : "Unique sector label or identifier for this spatial section (e.g., Sector 1 - Pasillo Central)."
+	areaname(string) : "Area Name (Legacy)" : "" : "Alternative identifier for this spatial section."
 	areaid(integer) : "Area ID" : 0 : "Numeric index for spatial entity indexing and procedural monster spawn budgets."
 ]
 
@@ -107,4 +108,14 @@
 		3 : "Opaque + Embedded fix"
 	]
 	light_origin(string) : "Light Origin Target"
+]
+
+//=============================================================================
+//
+// Gladder Collectibles & Pickups
+//
+//=============================================================================
+
+@PointClass base(Targetname) color(255 180 0) = item_gladder_lambda : "Gladder: Collectible Lambda Insignia"
+[
 ]

@@ -1017,6 +1017,4 @@ void UTIL_MakeVectors( const Vector &vecAngles ) {}
 void UTIL_Ricochet( const Vector &position, float pvol ) {}
 int UTIL_EntitiesInBox( CBaseEntity **pList, int listMax, const Vector &mins, const Vector &maxs, int flagMask ) { return 0; }
 
-
-
-
+void DBG_AssertFunction( BOOL fExpr, const char *szExpr, const char *szFile, int szLine, const char *szMessage ) {}

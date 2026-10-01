@@ -136,39 +136,6 @@ void CTriggerGladderFinish::DoFinish( CBaseEntity *pActivator )
 //
 LINK_ENTITY_TO_CLASS( trigger_gladder_area, CTriggerGladderArea );
 
-void CTriggerGladderArea::Spawn( void )
-{
-	pev->solid      = SOLID_NOT;
-	pev->movetype   = MOVETYPE_NONE;
-	pev->effects   |= EF_NODRAW;
-
-	if ( pev->model )
-	{
-		SET_MODEL( ENT( pev ), STRING( pev->model ) );
-		pev->model      = NULL;
-		pev->modelindex = 0;
-	}
-}
-
-void CTriggerGladderArea::KeyValue( KeyValueData *pkvd )
-{
-	if ( FStrEq( pkvd->szKeyName, "areaname" ) )
-	{
-		strncpy( m_szAreaName, pkvd->szValue, sizeof( m_szAreaName ) - 1 );
-		m_szAreaName[sizeof( m_szAreaName ) - 1] = '\0';
-		pkvd->fHandled = TRUE;
-	}
-	else if ( FStrEq( pkvd->szKeyName, "areaid" ) )
-	{
-		m_iAreaId      = atoi( pkvd->szValue );
-		pkvd->fHandled = TRUE;
-	}
-	else
-	{
-		CPointEntity::KeyValue( pkvd );
-	}
-}
-
 //
 // gladder_wave_relay
 //
@@ -212,4 +179,46 @@ void Gladder_FireWaveRelays( int iEvent, CBaseEntity *pActivator )
 			pRelay->FireWaveEvent( iEvent, pActivator );
 		}
 	}
+}
+
+//
+// item_gladder_lambda
+//
+LINK_ENTITY_TO_CLASS( item_gladder_lambda, CItemGladderLambda );
+
+void CItemGladderLambda::Spawn( void )
+{
+	Precache();
+	SET_MODEL( ENT( pev ), "models/w_battery.mdl" );
+	UTIL_SetSize( pev, Vector( -16.0f, -16.0f, -16.0f ), Vector( 16.0f, 16.0f, 16.0f ) );
+
+	pev->movetype = MOVETYPE_FLY;
+	pev->solid    = SOLID_TRIGGER;
+	pev->effects |= EF_BRIGHTLIGHT;
+
+	SetTouch( &CItemGladderLambda::ItemTouch );
+}
+
+void CItemGladderLambda::Precache( void )
+{
+	PRECACHE_MODEL( "models/w_battery.mdl" );
+	PRECACHE_SOUND( "buttons/bell1.wav" );
+}
+
+void CItemGladderLambda::ItemTouch( CBaseEntity *pOther )
+{
+	if ( !pOther || !pOther->IsPlayer() )
+		return;
+
+	if ( g_pGameRules )
+	{
+		CGladderRules *pRules = dynamic_cast<CGladderRules *>( g_pGameRules );
+		if ( pRules )
+		{
+			pRules->IncrementCollectibles();
+		}
+	}
+
+	EMIT_SOUND( ENT( pev ), CHAN_ITEM, "buttons/bell1.wav", 1.0f, ATTN_NORM );
+	UTIL_Remove( this );
 }

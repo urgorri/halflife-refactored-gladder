@@ -47,19 +47,74 @@ class CTriggerGladderFinish : public CBaseTrigger
 
 //
 // trigger_gladder_area
-// Bounding volume entity specifying 3D bounds for spatial indexing.
-// KeyValues: areaname (string), areaid (int)
+// Bounding volume brush entity specifying 3D bounds for spatial indexing.
+// KeyValues: netname / areaname (string), areaid (int)
 //
-class CTriggerGladderArea : public CPointEntity
+class CTriggerGladderArea : public CBaseEntity
 {
   public:
-	void Spawn( void );
-	void KeyValue( KeyValueData *pkvd );
+	void Spawn( void )
+	{
+		pev->solid    = SOLID_TRIGGER;
+		pev->movetype = MOVETYPE_NONE;
+
+		if ( pev->model )
+		{
+			SET_MODEL( ENT( pev ), STRING( pev->model ) );
+		}
+		else
+		{
+			UTIL_SetSize( pev, pev->mins, pev->maxs );
+		}
+
+		SetBits( pev->effects, EF_NODRAW );
+		SetObjectCollisionBox();
+
+		// Fallback to pev->netname if areaname was not set via custom KeyValue
+		if ( m_szAreaName[0] == '\0' && !FStringNull( pev->netname ) )
+		{
+			strncpy( m_szAreaName, STRING( pev->netname ), sizeof( m_szAreaName ) - 1 );
+			m_szAreaName[sizeof( m_szAreaName ) - 1] = '\0';
+		}
+	}
+
+	void KeyValue( KeyValueData *pkvd )
+	{
+		if ( FStrEq( pkvd->szKeyName, "areaname" ) || FStrEq( pkvd->szKeyName, "netname" ) )
+		{
+			strncpy( m_szAreaName, pkvd->szValue, sizeof( m_szAreaName ) - 1 );
+			m_szAreaName[sizeof( m_szAreaName ) - 1] = '\0';
+			pkvd->fHandled = TRUE;
+		}
+		else if ( FStrEq( pkvd->szKeyName, "areaid" ) )
+		{
+			m_iAreaId      = atoi( pkvd->szValue );
+			pkvd->fHandled = TRUE;
+		}
+		else
+		{
+			CBaseEntity::KeyValue( pkvd );
+		}
+	}
 
 	const char *GetAreaName( void ) const { return m_szAreaName; }
 	int GetAreaId( void ) const { return m_iAreaId; }
-	const Vector &GetMins( void ) const { return pev->absmin; }
-	const Vector &GetMaxs( void ) const { return pev->absmax; }
+	Vector GetMins( void ) const
+	{
+		if ( pev->absmin.x < pev->absmax.x )
+			return pev->absmin;
+		if ( pev->mins.x < pev->maxs.x )
+			return pev->origin + pev->mins;
+		return pev->origin;
+	}
+	Vector GetMaxs( void ) const
+	{
+		if ( pev->absmin.x < pev->absmax.x )
+			return pev->absmax;
+		if ( pev->mins.x < pev->maxs.x )
+			return pev->origin + pev->maxs;
+		return pev->origin;
+	}
 
   private:
 	char m_szAreaName[64];
@@ -86,6 +141,18 @@ class CGladderWaveRelay : public CBaseDelay
 
   private:
 	int m_iWaveEvent;
+};
+
+//
+// item_gladder_lambda
+// Floating collectible insignia awarded for exploration (SPEC §7.3, §9.1)
+//
+class CItemGladderLambda : public CBaseEntity
+{
+  public:
+	void Spawn( void );
+	void Precache( void );
+	void EXPORT ItemTouch( CBaseEntity *pOther );
 };
 
 void Gladder_FireWaveRelays( int iEvent, CBaseEntity *pActivator );

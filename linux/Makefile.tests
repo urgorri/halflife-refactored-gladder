@@ -75,8 +75,12 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/gladder_wave_manager.o \
 	$(TESTS_OBJ_DIR)/gladder_usermsg.o \
 	$(TESTS_OBJ_DIR)/gladder_breakable.o \
+	$(TESTS_OBJ_DIR)/gladder_grid_indexer.o \
+	$(TESTS_OBJ_DIR)/gladder_spawner.o \
 	$(TESTS_OBJ_DIR)/test_gladder_phase1.o \
-	$(TESTS_OBJ_DIR)/test_gladder_breakable.o
+	$(TESTS_OBJ_DIR)/test_gladder_breakable.o \
+	$(TESTS_OBJ_DIR)/test_grid_indexer.o \
+	$(TESTS_OBJ_DIR)/test_spawner.o
 
 
 PM_OBJS = \
@@ -191,7 +195,19 @@ $(TESTS_OBJ_DIR)/gladder_usermsg.o: $(HLDLL_SRC_DIR)/gladder/gladder_usermsg.cpp
 $(TESTS_OBJ_DIR)/gladder_breakable.o: $(HLDLL_SRC_DIR)/gladder/gladder_breakable.cpp | dirs
 	$(DO_TESTS_CXX)
 
+$(TESTS_OBJ_DIR)/gladder_grid_indexer.o: $(HLDLL_SRC_DIR)/gladder/gladder_grid_indexer.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_spawner.o: $(HLDLL_SRC_DIR)/gladder/gladder_spawner.cpp | dirs
+	$(DO_TESTS_CXX)
+
 $(TESTS_OBJ_DIR)/test_gladder_breakable.o: $(TESTS_SRC_DIR)/gladder/test_gladder_breakable.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_grid_indexer.o: $(TESTS_SRC_DIR)/gladder/test_grid_indexer.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_spawner.o: $(TESTS_SRC_DIR)/gladder/test_spawner.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs

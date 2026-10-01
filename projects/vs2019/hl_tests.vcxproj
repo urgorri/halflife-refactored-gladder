@@ -163,8 +163,12 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_wave_manager.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_usermsg.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_breakable.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_grid_indexer.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_spawner.cpp" />
     <ClCompile Include="..\..\tests\test_gladder_phase1.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_gladder_breakable.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_grid_indexer.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_spawner.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

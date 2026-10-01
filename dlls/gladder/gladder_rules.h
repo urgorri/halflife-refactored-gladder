@@ -17,6 +17,8 @@
 #include "gameplay/gamerules.h"
 #include "gameplay/gamerules_factory.h"
 #include "gladder_wave_manager.h"
+#include "gladder_grid_indexer.h"
+#include "gladder_spawner.h"
 
 class CGladderRules : public CHalfLifeRules
 {
@@ -64,12 +66,18 @@ class CGladderRules : public CHalfLifeRules
 
 	// Accessors
 	CGladderWaveManager &GetWaveManager( void ) { return m_waveManager; }
+	GladderGridIndexer &GetGridIndexer( void ) { return m_gridIndexer; }
+	GladderSpawner &GetSpawner( void ) { return m_spawner; }
+	GladderMapConfig &GetMapConfig( void ) { return m_mapConfig; }
 	int GetTotalFrags( void ) const { return m_iTotalFrags; }
 	int GetCollectiblesCount( void ) const { return m_iCollectiblesCount; }
 	void IncrementCollectibles( void ) { m_iCollectiblesCount++; }
 
   private:
 	CGladderWaveManager m_waveManager;
+	GladderGridIndexer m_gridIndexer;
+	GladderSpawner m_spawner;
+	GladderMapConfig m_mapConfig;
 	bool m_bInitialSpawnDone;
 	int m_iTotalFrags;
 	int m_iCollectiblesCount;
