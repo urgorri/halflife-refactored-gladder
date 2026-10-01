@@ -260,6 +260,41 @@ TEST_CASE( "Gladder Spawner: Comprehensive wave garbage collection (SPEC §11)",
 	ClearMockEntityFactories();
 }
 
+TEST_CASE( "Gladder Spawner: Wave GC does not purge weapons collected by player (SPEC §11, Issue #34)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "weapon_shotgun", FactoryTestItem );
+	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
+
+	GladderSpawner spawner;
+
+	// Spawn a wave weapon
+	CBaseEntity *pWeapon = spawner.CreateWaveEntity( "weapon_shotgun", Vector( 10, 10, 0 ) );
+	REQUIRE( pWeapon != nullptr );
+	REQUIRE( spawner.GetTrackedEntityCount() == 1 );
+
+	// Setup a mock player entity
+	CBaseEntity player;
+	edict_t edPlayer;
+	std::memset( &edPlayer, 0, sizeof( edPlayer ) );
+	edPlayer.v.pContainingEntity = &edPlayer;
+	edPlayer.v.flags            |= FL_CLIENT;
+	edPlayer.pvPrivateData       = &player;
+	player.pev                   = &edPlayer.v;
+
+	// Weapon is now picked up and owned by the player
+	pWeapon->pev->owner = &edPlayer;
+
+	// Execute wave entity purge
+	spawner.PurgeWaveEntities();
+
+	// Weapon MUST NOT have FL_KILLME set! It must be preserved in player's inventory across waves!
+	CHECK( !( pWeapon->pev->flags & FL_KILLME ) );
+
+	ClearMockEntityFactories();
+}
+
 TEST_CASE( "Gladder Spawner: Precache registers all roster monsters and pickups", "[gladder][spawner]" )
 {
 	ResetMockEngine();

@@ -8,6 +8,7 @@
 
 #include "gladder_spawner.h"
 #include "gladder_modifiers.h"
+#include "weapons/weapon_base.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -891,12 +892,28 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 
 void GladderSpawner::PurgeWaveEntities()
 {
-	// 1. Remove all wave-spawned entities tracked in registration list
+	// 1. Remove all wave-spawned entities tracked in registration list (uncollected items, active monsters)
 	for ( auto &hEnt : m_spawnedEntities )
 	{
 		CBaseEntity *pEnt = (CBaseEntity *)hEnt;
 		if ( pEnt && pEnt->pev )
 		{
+			// Never remove weapons or items currently collected/carried by a player!
+			if ( pEnt->pev->owner != nullptr )
+			{
+				CBaseEntity *pOwner = CBaseEntity::Instance( pEnt->pev->owner );
+				if ( pOwner && pOwner->IsPlayer() )
+				{
+					continue;
+				}
+			}
+
+			CBasePlayerItem *pPlayerItem = dynamic_cast<CBasePlayerItem *>( pEnt );
+			if ( pPlayerItem && pPlayerItem->m_pPlayer != nullptr )
+			{
+				continue;
+			}
+
 			UTIL_Remove( pEnt );
 		}
 	}
