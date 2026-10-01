@@ -592,11 +592,19 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			if ( isBarnacle )
 			{
 				isBarnacle = false;
-				reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				szSpecies  = "monster_headcrab";
+				reqFlags   = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				hullNum    = human_hull;
+				isLarge    = false;
 			}
 			else if ( isLarge )
 			{
-				reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				// Degrade monster species to a standard human-sized threat (zombie)
+				// instead of forcing a 64x64 large hull into a narrow 32x32 space that would embed into walls
+				szSpecies = "monster_zombie";
+				reqFlags  = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				hullNum   = human_hull;
+				isLarge   = false;
 			}
 
 			for ( size_t cIdx = 0; cIdx < indexer.GetCellCount(); ++cIdx )
@@ -708,9 +716,22 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 
 			TraceResult trHull;
 			UTIL_TraceHull( vecHullCheck, vecHullCheck, dont_ignore_monsters, hullNum, NULL, &trHull );
-			if ( trHull.fStartSolid || trHull.fAllSolid )
+			if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction < 1.0f )
 			{
 				continue;
+			}
+
+			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls
+			if ( !isBarnacle && !isFlying )
+			{
+				float flRadius = isLarge ? 32.0f : 16.0f;
+				if ( POINT_CONTENTS( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
+				     POINT_CONTENTS( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
+				     POINT_CONTENTS( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) == CONTENTS_SOLID ||
+				     POINT_CONTENTS( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) == CONTENTS_SOLID )
+				{
+					continue;
+				}
 			}
 
 			// 3. Valid candidate confirmed: instantiate monster entity

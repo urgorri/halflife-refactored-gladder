@@ -383,3 +383,41 @@ TEST_CASE( "Gladder Spawner: Throttling when grid cells are exhausted", "[gladde
 	ClearMockEntityFactories();
 }
 
+TEST_CASE( "Gladder Spawner: Large monster species safely degrades to human-hull threat when large cells exhausted (Issue #34)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
+	RegisterMockEntityFactory( "monster_alien_grunt", FactoryTestMonster );
+	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+
+	// Create grid with cells that have clearance for human_hull but NOT GLADDER_CELL_LARGE_CLEARANCE
+	GladderGridIndexer indexer;
+	for ( int i = 0; i < 4; ++i )
+	{
+		GladderGridCell c;
+		c.origin   = Vector( i * 64.0f, 0.0f, 0.0f );
+		c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+		c.areaId   = 1;
+		c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK; // No GLADDER_CELL_LARGE_CLEARANCE!
+		c.ceilingZ = 120.0f;
+		indexer.AddCell( c );
+	}
+
+	GladderMapConfig config;
+	config.monsterWhitelist.push_back( "monster_alien_grunt" ); // Only large monsters requested
+	config.baseMonsters    = 2;
+	config.monstersPerWave = 0.0f;
+	config.basePickups     = 0;
+	config.pickupsPerWave  = 0.0f;
+
+	GladderSpawner spawner;
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+
+	// Spawner should safely fall back and spawn regular monsters (zombie) rather than forcing large monsters into walls!
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 2 );
+	CHECK( totalSpawned >= 2 );
+
+	ClearMockEntityFactories();
+}
+

@@ -122,8 +122,9 @@ void CGladderRules::Think( void )
 		}
 	}
 
-	// Broadcast periodic telemetry (e.g. every 0.25 seconds) to keep client HUD synchronized
-	if ( flTime - m_flLastTelemetryBroadcast >= 0.25f )
+	// Broadcast periodic telemetry (e.g. every 0.25 seconds) to keep client HUD synchronized.
+	// Only broadcast once a player is active in the game to avoid sending network messages before client handshake (Issue #34)
+	if ( m_bInitialSpawnDone && ( flTime - m_flLastTelemetryBroadcast >= 0.25f ) )
 	{
 		m_flLastTelemetryBroadcast = flTime;
 		BroadcastWaveUpdate();
@@ -260,7 +261,6 @@ void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, en
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_comboTracker.OnMonsterKilled( pVictim, pKiller, pInflictor, flTime );
 	m_iTotalFrags = m_comboTracker.GetTotalFrags();
-	BroadcastTelemetryUpdate();
 }
 
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
