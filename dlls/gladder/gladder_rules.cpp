@@ -35,12 +35,6 @@ static void Gladder_RegisterCvars( void )
 	s_bGladderCvarsRegistered = true;
 }
 
-// Block server console commands for saving and loading
-static void Gladder_BlockSaveCmd( void )
-{
-	ALERT( at_console, "Saving and loading are disabled in Half-Life: Gladder.\n" );
-}
-
 CGladderRules::CGladderRules()
     : m_bInitialSpawnDone( false ),
       m_iTotalFrags( 0 ),
@@ -50,16 +44,12 @@ CGladderRules::CGladderRules()
 	// Ensure cvars are registered with the engine (idempotent if already done by ConditionGladder)
 	Gladder_RegisterCvars();
 
-	// Intercept and disable host save/load console commands
+	// Register Gladder-specific server console commands
 	if ( g_engfuncs.pfnAddServerCommand )
 	{
-		g_engfuncs.pfnAddServerCommand( (char *)"save", Gladder_BlockSaveCmd );
-		g_engfuncs.pfnAddServerCommand( (char *)"load", Gladder_BlockSaveCmd );
-		g_engfuncs.pfnAddServerCommand( (char *)"quicksave", Gladder_BlockSaveCmd );
-		g_engfuncs.pfnAddServerCommand( (char *)"quickload", Gladder_BlockSaveCmd );
-		g_engfuncs.pfnAddServerCommand( (char *)"autosave", Gladder_BlockSaveCmd );
 		g_engfuncs.pfnAddServerCommand( (char *)"gladder_reindex_grid", Gladder_ReindexGrid_Cmd );
 	}
+
 
 	float flLimit = gladder_timelimit.value;
 	if ( flLimit <= 0.0f )
@@ -152,9 +142,16 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 		m_waveManager.InitializeMatch( flTime );
 	}
 
+	// Neutralize client save/load commands & quicksave/quickload keybinds via client-side aliases
+	if ( pPlayer->edict() )
+	{
+		Gladder_InstallClientSaveAliases( pPlayer->edict() );
+	}
+
 	BroadcastWaveUpdate( pPlayer );
 	BroadcastTelemetryUpdate( pPlayer );
 }
+
 
 void CGladderRules::PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse )
 {

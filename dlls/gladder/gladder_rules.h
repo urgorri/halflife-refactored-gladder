@@ -37,6 +37,8 @@ class CGladderRules : public CHalfLifeRules
 
 	// Save/Load elimination & death flow
 	BOOL FAllowAutoSave( void ) override { return FALSE; }
+	BOOL FAllowSave( void ) override { return FALSE; }
+	BOOL FAllowRestore( void ) override { return FALSE; }
 	BOOL FPlayerCanRespawn( CBasePlayer *pPlayer ) override { return FALSE; }
 	void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override;
 	BOOL ClientCommand( CBasePlayer *pPlayer, const char *pcmd ) override;
@@ -88,4 +90,20 @@ class CGladderRules : public CHalfLifeRules
 CGameRules *CreateGladderRules( void );
 bool ConditionGladder( void );
 
+// Neutralizes client console save/load commands and keybinds via client-side aliases
+inline void Gladder_InstallClientSaveAliases( edict_t *pPlayerEdict )
+{
+	if ( !pPlayerEdict )
+		return;
+
+	CLIENT_COMMAND( pPlayerEdict, "alias save \"echo [Gladder] Saving is disabled in Half-Life: Gladder.\"\n" );
+	CLIENT_COMMAND( pPlayerEdict, "alias load \"echo [Gladder] Loading is disabled in Half-Life: Gladder.\"\n" );
+	CLIENT_COMMAND( pPlayerEdict, "alias quicksave \"echo [Gladder] QuickSave is disabled in Half-Life: Gladder.\"\n" );
+	CLIENT_COMMAND( pPlayerEdict, "alias quickload \"echo [Gladder] QuickLoad is disabled in Half-Life: Gladder.\"\n" );
+	CLIENT_COMMAND( pPlayerEdict, "alias autosave \"echo [Gladder] AutoSave is disabled in Half-Life: Gladder.\"\n" );
+	CLIENT_COMMAND( pPlayerEdict, "alias reload \"echo [Gladder] Reload is disabled in Half-Life: Gladder.\"\n" );
+}
+
 #endif // GLADDER_RULES_H
+
+
