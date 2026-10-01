@@ -112,6 +112,7 @@ class GladderSpawner
 
   private:
 	std::vector<EHANDLE> m_spawnedEntities;
+	std::vector<Vector> m_spawnedMonsterPositions;
 	int m_iLastMonsterCount;
 	int m_iLastPickupCount;
 	int m_iLastChampionCount;

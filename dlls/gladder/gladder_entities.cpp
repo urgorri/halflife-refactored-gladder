@@ -35,11 +35,14 @@ void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 		CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
 		if ( pGladderRules )
 		{
+			// Only trigger if waiting for wave start
+			if ( pGladderRules->GetWaveManager().GetState() != GLADDER_STATE_WAITING_FOR_START )
+				return;
+
 			pGladderRules->OnWaveTriggerStart( pOther );
+			SUB_UseTargets( pOther, USE_TOGGLE, 0 );
 		}
 	}
-
-	SUB_UseTargets( pOther, USE_TOGGLE, 0 );
 }
 
 void CTriggerGladderStart::StartUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
@@ -90,10 +93,11 @@ void CTriggerGladderFinish::DoFinish( CBaseEntity *pActivator )
 		if ( pGladderRules )
 		{
 			// Only process if wave was active
-			if ( pGladderRules->GetWaveManager().IsWaveActive() )
+			if ( !pGladderRules->GetWaveManager().IsWaveActive() )
 			{
-				pGladderRules->OnWaveTriggerFinish( pActivator );
+				return;
 			}
+			pGladderRules->OnWaveTriggerFinish( pActivator );
 		}
 	}
 
@@ -114,6 +118,36 @@ void CTriggerGladderFinish::DoFinish( CBaseEntity *pActivator )
 				vecDest.z -= pevToucher->mins.z;
 			}
 			vecDest.z += 1.0f;
+
+			// Validate clearance at destination so player does not spawn embedded in closed doors or geometry
+			TraceResult trDest;
+			UTIL_TraceHull( vecDest, vecDest, dont_ignore_monsters, human_hull, pActivator->edict(), &trDest );
+			if ( trDest.fStartSolid || trDest.fAllSolid )
+			{
+				if ( trDest.pHit && !FNullEnt( trDest.pHit ) )
+				{
+					CBaseEntity *pHitEnt = CBaseEntity::Instance( trDest.pHit );
+					if ( pHitEnt && FClassnameIs( pHitEnt->pev, "func_door" ) )
+					{
+						pHitEnt->Use( pActivator, pActivator, USE_ON, 0 );
+					}
+				}
+
+				Vector forward, right, up;
+				UTIL_MakeVectorsPrivate( VARS( pentTarget )->angles, forward, right, up );
+
+				const float testDistances[] = { 32.0f, 64.0f, -32.0f, 16.0f, -16.0f };
+				for ( float dist : testDistances )
+				{
+					Vector candidate = vecDest + forward * dist;
+					UTIL_TraceHull( candidate, candidate, dont_ignore_monsters, human_hull, pActivator->edict(), &trDest );
+					if ( !trDest.fStartSolid && !trDest.fAllSolid )
+					{
+						vecDest = candidate;
+						break;
+					}
+				}
+			}
 
 			pevToucher->flags &= ~FL_ONGROUND;
 			UTIL_SetOrigin( pevToucher, vecDest );

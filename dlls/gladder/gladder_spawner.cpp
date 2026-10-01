@@ -749,12 +749,27 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 
 				( *pOccupiedCells )[chosenIdx] = true;
 
+				// Mark surrounding cells within separation radius as occupied so pickups and monsters cannot overlap
+				float flExclusionDist = isLarge ? 64.0f : 48.0f;
+				for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
+				{
+					if ( !( *pOccupiedCells )[k] )
+					{
+						const auto &otherCell = indexer.GetCell( k );
+						if ( ( otherCell.origin - vecSpawnPos ).Length2D() < flExclusionDist )
+						{
+							( *pOccupiedCells )[k] = true;
+						}
+					}
+				}
+
 				SpawnedMonsterRecord rec;
 				rec.pos = vecSpawnPos;
 				rec.isLarge = isLarge;
 				rec.isBarnacle = isBarnacle;
 				rec.isFlying = isFlying;
 				spawned.push_back( rec );
+				m_spawnedMonsterPositions.push_back( vecSpawnPos );
 
 				bSpawnSuccess = true;
 				break;
@@ -802,6 +817,23 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 		Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
 		Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
 
+		// Ensure candidate cell does not overlap any spawned monster position
+		bool bMonsterNearby = false;
+		for ( const auto &mPos : m_spawnedMonsterPositions )
+		{
+			if ( ( vecSpawnPos - mPos ).Length2D() < 48.0f )
+			{
+				bMonsterNearby = true;
+				break;
+			}
+		}
+
+		if ( bMonsterNearby )
+		{
+			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+			continue;
+		}
+
 		// Live hull check for pickup (point_hull or head_hull)
 		TraceResult trHull;
 		UTIL_TraceHull( vecSpawnPos + Vector( 0, 0, 16 ), vecSpawnPos + Vector( 0, 0, 16 ), dont_ignore_monsters, head_hull, NULL, &trHull );
@@ -823,6 +855,7 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies )
 {
 	m_iLastChampionCount = 0;
+	m_spawnedMonsterPositions.clear();
 
 	if ( indexer.GetCellCount() == 0 )
 	{
@@ -868,6 +901,7 @@ void GladderSpawner::PurgeWaveEntities()
 		}
 	}
 	m_spawnedEntities.clear();
+	m_spawnedMonsterPositions.clear();
 	m_bLambdaSpawned = false;
 
 	// 2. Comprehensive edict sweep to catch combat debris, dropped items, projectiles & corpses (SPEC §11)
