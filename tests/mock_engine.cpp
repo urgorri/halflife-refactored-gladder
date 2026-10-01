@@ -900,7 +900,78 @@ Vector VecBModelOrigin( entvars_t *pev ) { return pev ? pev->origin : g_vecZero;
 void CTestHull::Spawn( entvars_t *pevMasterNode ) {}
 
 BOOL CBaseMonster::ShouldFadeOnDeath( void ) { return FALSE; }
-float CBaseMonster::ChangeYaw( int speed ) { return 0.0f; }
+
+float UTIL_AngleMod( float a )
+{
+	if ( a < 0 )
+	{
+		a = a + 360 * ( (int)( a / 360 ) + 1 );
+	}
+	else if ( a >= 360 )
+	{
+		a = a - 360 * ( (int)( a / 360 ) );
+	}
+	return a;
+}
+
+float CBaseMonster::ChangeYaw( int yawSpeed )
+{
+	float ideal, current, move, speed;
+
+	current = UTIL_AngleMod( pev->angles.y );
+	ideal   = pev->ideal_yaw;
+	if ( current != ideal )
+	{
+		if ( m_flLastYawTime == 0.f )
+		{
+			m_flLastYawTime = gpGlobals->time - gpGlobals->frametime;
+		}
+
+		float delta     = gpGlobals->time - m_flLastYawTime;
+		m_flLastYawTime = gpGlobals->time;
+
+		// Clamp delta like the engine does with frametime
+		if ( delta > 0.25f )
+			delta = 0.25f;
+
+		float flSpeed = (float)yawSpeed;
+		if ( g_pGameRules )
+		{
+			flSpeed = g_pGameRules->FlMonsterYawSpeed( this, flSpeed );
+		}
+
+		speed = flSpeed * delta * 2;
+		move  = ideal - current;
+
+		if ( ideal > current )
+		{
+			if ( move >= 180 )
+				move = move - 360;
+		}
+		else
+		{
+			if ( move <= -180 )
+				move = move + 360;
+		}
+
+		if ( move > 0 )
+		{ // turning to the monster's left
+			if ( move > speed )
+				move = speed;
+		}
+		else
+		{ // turning to the monster's right
+			if ( move < -speed )
+				move = -speed;
+		}
+
+		pev->angles.y = UTIL_AngleMod( current + move );
+	}
+	else
+		move = 0;
+
+	return move;
+}
 void CBaseMonster::Look( int iDistance ) {}
 void CBaseMonster::RunAI( void ) {}
 void CBaseMonster::MonsterThink( void ) {}
@@ -1082,4 +1153,5 @@ edict_t *DBG_EntOfVars( const entvars_t *pev )
 }
 void DBG_AssertFunction( BOOL fExpr, const char *szExpr, const char *szFile, int szLine, const char *szMessage ) {}
 #endif
+
 
