@@ -57,6 +57,21 @@ TEST_CASE( "GladderVisuals: ClassifyPickupModel categorization (SPEC §7.2)", "[
 		CHECK( ClassifyPickupModel( "models/w_saw.mdl" ) == GLADDER_PICKUP_WEAPON );
 	}
 
+	SECTION( "Active Ordnance and Thrown Projectiles Excluded (SPEC §7.2, Issue #40)" )
+	{
+		CHECK( ClassifyPickupModel( "models/w_grenade.mdl" ) == GLADDER_PICKUP_NONE );
+		CHECK( ClassifyPickupModel( "models/w_satchel.mdl" ) == GLADDER_PICKUP_NONE );
+		CHECK( ClassifyPickupModel( "models/w_squeak.mdl" ) == GLADDER_PICKUP_NONE );
+		CHECK( ClassifyPickupModel( "models/w_tripmine.mdl" ) == GLADDER_PICKUP_NONE );
+		CHECK( ClassifyPickupModel( "models/W_GRENADE.MDL" ) == GLADDER_PICKUP_NONE );
+		CHECK( ClassifyPickupModel( "models/W_SATCHEL.MDL" ) == GLADDER_PICKUP_NONE );
+		CHECK( ClassifyPickupModel( "models/W_SQUEAK.MDL" ) == GLADDER_PICKUP_NONE );
+		CHECK( ClassifyPickupModel( "models/W_TRIPMINE.MDL" ) == GLADDER_PICKUP_NONE );
+
+		// Verify AR grenade ammo box remains ammo
+		CHECK( ClassifyPickupModel( "models/w_argrenade.mdl" ) == GLADDER_PICKUP_AMMO );
+	}
+
 	SECTION( "Non-Pickup Entities" )
 	{
 		CHECK( ClassifyPickupModel( "models/player.mdl" ) == GLADDER_PICKUP_NONE );

@@ -339,13 +339,14 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	if ( tr.vecPlaneNormal.z < WALKABLE_NORMAL_Z )
 		return false;
 
-	// Reject if hit entity is a breakable, pushable, or monster/client (do not spawn on top of breakables!)
+	// Reject if hit entity is a breakable, pushable, monsterclip, or monster/client (SPEC §4.3, Issue #37)
 	if ( tr.pHit )
 	{
 		const char *pszHitClass = STRING( tr.pHit->v.classname );
 		if ( pszHitClass && ( strcmp( pszHitClass, "func_breakable" ) == 0 ||
 		                      strcmp( pszHitClass, "gladder_breakable" ) == 0 ||
 		                      strcmp( pszHitClass, "func_pushable" ) == 0 ||
+		                      strcmp( pszHitClass, "func_monsterclip" ) == 0 ||
 		                      ( tr.pHit->v.flags & ( FL_MONSTER | FL_CLIENT ) ) ) )
 		{
 			return false;
@@ -380,14 +381,41 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction < 1.0f )
 		return false;
 
-	// Lateral wall clearance verification at waist level (ensure entity hull doesn't penetrate adjacent walls)
-	Vector vecWaist = vecSurface + Vector( 0.0f, 0.0f, 36.0f );
-	if ( POINT_CONTENTS( vecWaist + Vector( 16.0f, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
-	     POINT_CONTENTS( vecWaist - Vector( 16.0f, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
-	     POINT_CONTENTS( vecWaist + Vector( 0.0f, 16.0f, 0.0f ) ) == CONTENTS_SOLID ||
-	     POINT_CONTENTS( vecWaist - Vector( 0.0f, 16.0f, 0.0f ) ) == CONTENTS_SOLID )
+	if ( trHull.pHit && trHull.pHit != INDEXENT( 0 ) )
 	{
-		return false;
+		if ( trHull.pHit->v.solid == SOLID_BSP || trHull.pHit->v.solid == SOLID_BBOX )
+			return false;
+	}
+
+	// Lateral wall clearance verification at waist level (ensure entity hull doesn't penetrate adjacent walls or solid brush entities)
+	Vector vecWaist = vecSurface + Vector( 0.0f, 0.0f, 36.0f );
+	static const Vector s_lateralOffsets[4] = {
+		Vector( 16.0f, 0.0f, 0.0f ),
+		Vector( -16.0f, 0.0f, 0.0f ),
+		Vector( 0.0f, 16.0f, 0.0f ),
+		Vector( 0.0f, -16.0f, 0.0f )
+	};
+
+	for ( int i = 0; i < 4; ++i )
+	{
+		Vector vecTarget = vecWaist + s_lateralOffsets[i];
+		if ( POINT_CONTENTS( vecTarget ) == CONTENTS_SOLID )
+			return false;
+
+		TraceResult trLateral;
+		TRACE_LINE( vecWaist, vecTarget, FALSE, NULL, &trLateral );
+		if ( trLateral.fStartSolid || trLateral.fAllSolid || trLateral.flFraction < 1.0f )
+		{
+			if ( !trLateral.pHit || trLateral.pHit == INDEXENT( 0 ) ||
+			     trLateral.pHit->v.solid == SOLID_BSP || trLateral.pHit->v.solid == SOLID_BBOX )
+			{
+				return false;
+			}
+		}
+		if ( trLateral.pHit && ( trLateral.pHit->v.solid == SOLID_BSP || trLateral.pHit->v.solid == SOLID_BBOX ) )
+		{
+			return false;
+		}
 	}
 
 	// Populate valid candidate cell
@@ -402,12 +430,45 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	// Also test large hull (64x64x72) clearance for large monsters (Bullsquid, Alien Grunt)
 	TraceResult trLargeHull;
 	TRACE_HULL( vecHullPos, vecHullPos, FALSE, large_hull, NULL, &trLargeHull );
-	if ( !trLargeHull.fStartSolid && !trLargeHull.fAllSolid && trLargeHull.flFraction >= 1.0f )
+	if ( !trLargeHull.fStartSolid && !trLargeHull.fAllSolid && trLargeHull.flFraction >= 1.0f &&
+	     ( !trLargeHull.pHit || ( trLargeHull.pHit->v.solid != SOLID_BSP && trLargeHull.pHit->v.solid != SOLID_BBOX ) ) )
 	{
-		if ( POINT_CONTENTS( vecWaist + Vector( 32.0f, 0.0f, 0.0f ) ) != CONTENTS_SOLID &&
-		     POINT_CONTENTS( vecWaist - Vector( 32.0f, 0.0f, 0.0f ) ) != CONTENTS_SOLID &&
-		     POINT_CONTENTS( vecWaist + Vector( 0.0f, 32.0f, 0.0f ) ) != CONTENTS_SOLID &&
-		     POINT_CONTENTS( vecWaist - Vector( 0.0f, 32.0f, 0.0f ) ) != CONTENTS_SOLID )
+		static const Vector s_largeOffsets[4] = {
+			Vector( 32.0f, 0.0f, 0.0f ),
+			Vector( -32.0f, 0.0f, 0.0f ),
+			Vector( 0.0f, 32.0f, 0.0f ),
+			Vector( 0.0f, -32.0f, 0.0f )
+		};
+
+		bool bLargeClear = true;
+		for ( int i = 0; i < 4; ++i )
+		{
+			Vector vecLargeTarget = vecWaist + s_largeOffsets[i];
+			if ( POINT_CONTENTS( vecLargeTarget ) == CONTENTS_SOLID )
+			{
+				bLargeClear = false;
+				break;
+			}
+
+			TraceResult trLargeLateral;
+			TRACE_LINE( vecWaist, vecLargeTarget, FALSE, NULL, &trLargeLateral );
+			if ( trLargeLateral.fStartSolid || trLargeLateral.fAllSolid || trLargeLateral.flFraction < 1.0f )
+			{
+				if ( !trLargeLateral.pHit || trLargeLateral.pHit == INDEXENT( 0 ) ||
+				     trLargeLateral.pHit->v.solid == SOLID_BSP || trLargeLateral.pHit->v.solid == SOLID_BBOX )
+				{
+					bLargeClear = false;
+					break;
+				}
+			}
+			if ( trLargeLateral.pHit && ( trLargeLateral.pHit->v.solid == SOLID_BSP || trLargeLateral.pHit->v.solid == SOLID_BBOX ) )
+			{
+				bLargeClear = false;
+				break;
+			}
+		}
+
+		if ( bLargeClear )
 		{
 			outCell.flags |= GLADDER_CELL_LARGE_CLEARANCE;
 		}

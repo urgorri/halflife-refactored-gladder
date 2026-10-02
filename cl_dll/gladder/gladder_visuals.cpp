@@ -76,6 +76,16 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
 		return GLADDER_PICKUP_AMMO;
 	}
 
+	// Combat ordnance and deployed projectiles: strictly excluded from pickup visuals (SPEC §7.2, Issue #40)
+	// Hand grenades, satchel charges, snarks, and tripmines in tactical use must never float, bob, or glow.
+	if ( strstr( szLower, "w_grenade" ) ||
+	     strstr( szLower, "w_satchel" ) ||
+	     strstr( szLower, "w_squeak" ) ||
+	     strstr( szLower, "w_tripmine" ) )
+	{
+		return GLADDER_PICKUP_NONE;
+	}
+
 	// Weapons — general catch for weapon models
 	if ( strstr( szLower, "models/w_" ) ||
 	     strstr( szLower, "/w_" ) ||
@@ -98,6 +108,14 @@ void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char 
 {
 	if ( !ent || !modelname )
 		return;
+
+	// In-flight or moving entity guard: don't modify active projectiles (SPEC §7.2, Issue #40)
+	if ( ent->curstate.movetype == MOVETYPE_BOUNCE ||
+	     ent->curstate.movetype == MOVETYPE_TOSS ||
+	     ent->curstate.movetype == MOVETYPE_FLY )
+	{
+		return;
+	}
 
 	EGladderPickupCategory cat = ClassifyPickupModel( modelname );
 	if ( cat == GLADDER_PICKUP_NONE )

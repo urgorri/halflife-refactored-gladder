@@ -83,7 +83,7 @@ void GladderModifiers::MakeEliteChampion( CBaseMonster *pMonster )
 	// Glowing red shell visual cue
 	pMonster->pev->renderfx    = kRenderFxGlowShell;
 	pMonster->pev->rendercolor = Vector( 255, 32, 32 );
-	pMonster->pev->renderamt   = 150;
+	pMonster->pev->renderamt   = CHAMPION_GLOW_RENDERAMT;
 
 	// Enhanced health pool
 	pMonster->pev->health     *= CHAMPION_HEALTH_MULTIPLIER;

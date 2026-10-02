@@ -78,6 +78,7 @@ TEST_CASE( "GladderModifiers: Elite Champion monster tagging and stat scaling", 
 	CHECK( monster.pev->renderfx == kRenderFxGlowShell );
 	CHECK( monster.pev->rendercolor.x >= 200.0f ); // Vibrant red
 	CHECK( monster.pev->rendercolor.y <= 64.0f );
+	CHECK( monster.pev->renderamt == Catch::Approx( 16.0f ) );
 	CHECK( monster.pev->health == Catch::Approx( 120.0f * 2.5f ) ); // 300 HP
 	CHECK( monster.pev->max_health == Catch::Approx( 300.0f ) );
 	CHECK( monster.pev->framerate == Catch::Approx( 1.25f ) );

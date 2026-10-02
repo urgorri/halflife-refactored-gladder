@@ -45,8 +45,14 @@ Instead of progressing linearly through a series of maps, players run through a 
   * **In-Game Combo Meter**: During active combat, rapid consecutive kills within a decaying window build a streak multiplier (`x2`, `x3`, `x4`, etc.). The game logs every combo event, streak count, and the peak maximum combo attained for the final score calculation.
 * **Elite Monster Variants (Champions)**:
   * Enemies have a procedurally rolled chance to spawn as **Elite Champions**, with the spawn probability increasing as wave numbers climb.
-  * **Visual Identification**: Rendered using GoldSrc's engine glow shell (`kRenderFxGlowShell` with red RGB color).
+  * **Visual Identification**: Rendered using GoldSrc's engine glow shell (`kRenderFxGlowShell` with red RGB color `RGB(255, 32, 32)`). The shell aura thickness (`renderamt`) must be kept compact and contouring closely to the monster's body (matching the subtle outline thickness used on weapon pickups, e.g. `renderamt = 16`), preventing oversized, blinding, or detached shell visual artifacts while preserving clear champion identification.
   * **Attributes**: Enhanced durability, heightened aggression, and elevated point payouts upon defeat.
+* **Dynamic Supply Balance & Ammunition Scarcity**:
+  * Weapons are persistent, durable assets retained by the player across all wave laps. Once a player collects a weapon, spawning duplicate weapons provides diminishing utility while cluttering the arena.
+  * Procedural pickup generation must strictly prioritize consumable survival resources over weapons:
+    * **Ammunition**: Must represent the majority of procedural supply spawns, ensuring players are rewarded for exploration and forced to manage reserves across escalating combat encounters.
+    * **Health & Armor**: Balanced secondary consumable drops to recover from attrition.
+    * **Weapons**: Assigned substantially lower procedural probability weights compared to ammunition, serving as rare, high-impact tactical upgrades rather than common drops.
 * **Special Waves & Random Mutators**:
   * Every few waves (at configurable intervals, e.g. every 5th wave), the mod rolls a random gameplay mutator:
     * **Blackout**: Level lights are extinguished into pitch darkness; navigation relies heavily on the HEV flashlight.
@@ -89,7 +95,16 @@ Mirroring the native GoldSrc convention for node navigation graphs (`maps/graphs
   * **Surface Top Placement**: By recording the exact impact height (Z), any entity spawned at that grid coordinate is placed resting cleanly on top of the detected surface (e.g., directly on top of the crate) rather than inside the obstacle or below it.
   * **Clearance Verification & Structural Obstacle Avoidance**:
     * An upward check or clearance hull trace verifies that the space between the detected surface and any overhead ceiling/obstruction provides adequate vertical clearance for entities.
-    * **Static Architecture Collision Check**: To prevent monsters or items from spawning embedded inside structural map elements (such as architectural columns, pillars, or support beams situated within a Gladder area boundary), grid indexing performs a lightweight bounding hull/box collision trace against solid world brushes (`contents == CONTENTS_SOLID`). Grid points overlapping structural geometry or lacking standard entity clearance hull bounds are automatically flagged as invalid and excluded from the active spawn pool.
+    * **Static Architecture & Solid Brush Entity Collision Check**:
+      * To prevent monsters or items from spawning embedded inside structural elements or stuck against solid surfaces, both spatial grid indexing and runtime procedural spawning must perform collision clearance sweeps not only against world brush geometry (`contents == CONTENTS_SOLID`), but comprehensively against all solid brush entities (`SOLID_BSP` and `SOLID_BBOX`).
+      * **Covered Brush Entities**:
+        * `func_wall` and `func_wall_toggle`: Structural columns, decorative walls, barriers, and dividers.
+        * `func_monsterclip`: Invisible clip brushes specifically placed to prevent monster movement.
+        * `func_door`, `func_door_rotating`, `momentary_door`: Dynamic or static door assemblies.
+        * `func_plat`, `func_platrot`, `func_train`, `func_tracktrain`: Moving platforms and machinery.
+        * `func_conveyor`, `func_vehicle`, `func_friction`: Conveyor belts and interactive vehicles.
+        * `func_breakable`, `gladder_breakable`: Destructible world props.
+      * **Clearance Margins**: Both spatial indexing and runtime spawn clearance sweeps (`UTIL_TraceHull` and lateral margin checks) must verify that candidate spawn positions have full lateral and vertical clearance against these solid brush entities. Cells overlapping or immediately flush against solid brush entities without standard monster hull clearance are strictly excluded to avoid monsters spawning stuck inside walls or triggering pathfinding navigation errors.
 * Cells identified with valid supporting surfaces, zero architectural collision overlap, and adequate vertical clearance are recorded into the grid database, ready to receive randomized entity spawns during waves.
 
 ### 4.4 Special Entity Spawning Behaviors
@@ -147,6 +162,10 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
   * **Armor & HEV Batteries**: Cyan / Bright Blue glow and lighting.
   * **Ammunition**: Amber / Golden-Orange glow and lighting.
   * **Weapons & Ordnance**: Magenta / Violet or fiery Red glow and lighting (tiered by weapon potency).
+* **Exclusion of Active Combat Ordnance & Thrown Projectiles**:
+  * The arcade visual modifier (levitation, sine bobbing, yaw rotation, glow shell, and dynamic point light) applies strictly to idle, uncollected pickup items sitting in the map awaiting collection.
+  * Active combat projectiles, deployed explosives, and thrown ordnance—specifically hand grenades (`models/w_grenade.mdl` / `monster_handgrenade`), active satchel charges (`models/w_satchel.mdl` / `monster_satchel`), released live snarks (`models/w_squeak.mdl` / `monster_snark`), and planted tripmines (`monster_tripmine`)—must **never** receive the pickup visual modifier. Because they are being actively utilized in combat rather than acting as collectible items, they must retain their normal physics, flight trajectory, and original visual presentation without floating, bobbing, rotating, or glowing like pickups.
+
 ### 7.3 Iconic Lambda Collectible Item
 * **Unique Per-Wave Spawn**: In each wave, exactly **one single collectible item** spawns procedurally at a randomly selected valid grid location in the map.
 * **Custom Model & Presentation**: Features a custom 3D model of the classic Half-Life Lambda (`λ`) insignia. It follows the same arcade visual language: floating suspended in mid-air, rotating on its vertical axis, gently bobbing up and down, and emitting a vibrant golden-orange glow and light.
@@ -155,6 +174,11 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
   * Increments the player's total match collectible counter.
 * **Acoustic Feedback**: Immediately triggers a dedicated, distinct pickup sound cue upon collection.
 * **Wave Lifecycle**: If missed or left behind when Point B is reached, the collectible is wiped during wave garbage collection, and a single new Lambda collectible spawns at a newly randomized grid coordinate for the next wave.
+
+### 7.4 Universal Weapon Reticle & Crosshair Delivery
+* In standard Half-Life, melee weapons (`weapon_crowbar`, `weapon_pipewrench`, `weapon_knife`) and throwable ordnance (`weapon_handgrenade`, `weapon_satchel`, `weapon_snark`) lack an on-screen crosshair, leaving the player with an empty reticle.
+* In Half-Life: Gladder, **all weapons must have a visible crosshair** on the client HUD.
+* The default fallback crosshair for weapons that traditionally lack a reticle (melee weapons, grenades, satchels, snarks) must use the standard centered crosshair used by the 9mm handgun / Glock (`crosshair.spr`), rather than an empty/null crosshair. This guarantees consistent, immediate visual targeting alignment during high-speed gauntlet runs.
 
 ---
 
@@ -256,3 +280,26 @@ To maintain consistent level interactivity and route geometry without entity deg
   * Breakable environmental objects (such as wooden crates, glass panes, or barricades) are retained across waves and regenerated at the start of each wave reset.
   * **Non-Destructive Break Simulation**: When a `func_breakable` takes lethal damage during an active wave, it triggers its standard breaking visual/audio effects, debris particles, and collision removal, but the underlying server entity is preserved in memory rather than permanently deleted (`UTIL_Remove`).
   * **State Hiding & Reset**: Upon destruction, the object enters a hidden/disabled state (`EF_NODRAW`, solid state set to `SOLID_NOT`). During wave reset garbage collection, all broken `func_breakable` entities are restored to their original visual appearance, collision bounds, and hit points, cleanly resetting the environment for the incoming wave.
+
+---
+
+## 12. Wave Transition UI Feedback & Dynamic Screen Notifications
+
+To provide immediate, unmissable feedback upon entering and completing a wave, centered on-screen overlays notify the player of match progression:
+
+### 12.1 Wave Start Overlay
+* **Trigger Event**: Fired immediately when the player crosses the wave start trigger (`trigger_gladder_start`) leaving Point A.
+* **Wave Title / Number**: The active wave number and name are displayed prominently, centered in the player's viewport (e.g. `WAVE 5 STARTED` or custom designated wave title).
+* **Special Wave Mutator Subtitle**:
+  * If the active wave features a special mutator (e.g. `Low Gravity`, `Blackout`, `Swarm: Headcrabs`, `Elite Champion Surge`), the modifier name and tactical alert are rendered centered **immediately beneath** the wave title.
+  * Ensures the player is alerted to altered physics or hostile conditions before engaging enemies.
+
+### 12.2 Wave Completion Overlay
+* **Trigger Event**: Fired the instant the player enters the extraction zone at Point B (`trigger_gladder_end`).
+* **Wave Completion Text**: Renders `WAVE <N> COMPLETED` centered on screen directly before screen fade and Point A teleportation.
+
+### 12.3 Overlay Presentation & Timing
+* **Screen Placement**: Centered horizontally (`ScreenWidth() / 2`) and placed in the upper-middle third of the screen (`ScreenHeight() / 3`) to ensure high visibility without obstructing the player's primary weapon reticle.
+* **Display Duration**: 1.5 seconds solid hold, followed by a smooth 0.5-second alpha fade-out (total 2.0 seconds).
+* **Aesthetic Consistency**: Rendered using classic Half-Life green/amber HUD typography, perfectly synchronized with the corresponding audio stings (Section 8).
+
