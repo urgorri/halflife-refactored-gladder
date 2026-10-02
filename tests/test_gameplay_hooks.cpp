@@ -22,6 +22,7 @@
 #include "util.h"
 #include "cbase.h"
 #include "core/player.h"
+#include "ai/monsters.h"
 
 #include "tests/mock_engine.h"
 #include "gameplay/gamerules.h"
@@ -114,6 +115,32 @@ class CTestHookRules : public CGameRules
 		m_pLastVictim = pVictim;
 		m_pLastKiller = pKiller;
 		m_pLastInflictor = pInflictor;
+	}
+
+	bool m_bMonsterYawSpeedCalled = false;
+	CBaseMonster *m_pLastYawMonster = nullptr;
+	float m_flLastDefaultYawSpeed = 0.0f;
+	float m_flCustomYawMultiplier = 1.0f;
+
+	float FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed ) override
+	{
+		m_bMonsterYawSpeedCalled = true;
+		m_pLastYawMonster = pMonster;
+		m_flLastDefaultYawSpeed = flDefaultYawSpeed;
+		return flDefaultYawSpeed * m_flCustomYawMultiplier;
+	}
+};
+
+class CTestMonster : public CBaseMonster
+{
+  public:
+	entvars_t m_pevData;
+
+	CTestMonster()
+	{
+		std::memset( &m_pevData, 0, sizeof( m_pevData ) );
+		pev = &m_pevData;
+		m_flLastYawTime = 0.0f;
 	}
 };
 
@@ -520,6 +547,117 @@ TEST_CASE( "GameplayHooks: OnSaveDenied and OnRestoreDenied callbacks invoked on
 		pVanillaRules->OnRestoreDenied();
 
 		delete pVanillaRules;
+	}
+
+	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GameplayHooks: FlMonsterYawSpeed delegates and scales monster turn rate (#171)", "[gameplay][gamerules][hooks][ai][monster]" )
+{
+	ResetMockEngine();
+
+	SECTION( "Vanilla default CGameRules returns unmodified flDefaultYawSpeed" )
+	{
+		g_pGameRules = nullptr;
+		GameRulesFactory::Reset();
+		gpGlobals->deathmatch = 0.0f;
+		CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+		REQUIRE( pVanillaRules != nullptr );
+
+		CTestMonster monster;
+		CHECK( pVanillaRules->FlMonsterYawSpeed( &monster, 45.0f ) == 45.0f );
+		CHECK( pVanillaRules->FlMonsterYawSpeed( &monster, 120.0f ) == 120.0f );
+		CHECK( pVanillaRules->FlMonsterYawSpeed( nullptr, 60.0f ) == 60.0f );
+
+		delete pVanillaRules;
+	}
+
+	SECTION( "CBaseMonster::ChangeYaw delegates to g_pGameRules->FlMonsterYawSpeed" )
+	{
+		CTestHookRules customRules;
+		g_pGameRules = &customRules;
+
+		customRules.m_flCustomYawMultiplier = 2.0f;
+		customRules.m_bMonsterYawSpeedCalled = false;
+		customRules.m_pLastYawMonster = nullptr;
+		customRules.m_flLastDefaultYawSpeed = 0.0f;
+
+		CTestMonster monster;
+		monster.pev->angles.y = 0.0f;
+		monster.pev->ideal_yaw = 90.0f;
+		gpGlobals->time = 1.0f;
+		gpGlobals->frametime = 0.1f;
+		monster.m_flLastYawTime = 0.9f; // delta = 0.1s
+
+		// Default speed = 30 * 0.1 * 2 = 6.0
+		// With 2x multiplier: speed = 60 * 0.1 * 2 = 12.0
+		float move = monster.ChangeYaw( 30 );
+
+		CHECK( customRules.m_bMonsterYawSpeedCalled );
+		CHECK( customRules.m_pLastYawMonster == &monster );
+		CHECK( customRules.m_flLastDefaultYawSpeed == 30.0f );
+		CHECK( move == Catch::Approx( 12.0f ) );
+		CHECK( monster.pev->angles.y == Catch::Approx( 12.0f ) );
+
+		g_pGameRules = nullptr;
+	}
+
+	SECTION( "CBaseMonster::ChangeYaw behavior with vanilla rules vs custom scaling" )
+	{
+		GameRulesFactory::Reset();
+		gpGlobals->deathmatch = 0.0f;
+		CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+		REQUIRE( pVanillaRules != nullptr );
+		g_pGameRules = pVanillaRules;
+
+		CTestMonster vanillaMonster;
+		vanillaMonster.pev->angles.y = 0.0f;
+		vanillaMonster.pev->ideal_yaw = 90.0f;
+		gpGlobals->time = 2.0f;
+		gpGlobals->frametime = 0.05f;
+		vanillaMonster.m_flLastYawTime = 1.95f; // delta = 0.05s
+
+		// speed = 40 * 0.05 * 2 = 4.0
+		float vanillaMove = vanillaMonster.ChangeYaw( 40 );
+		CHECK( vanillaMove == Catch::Approx( 4.0f ) );
+		CHECK( vanillaMonster.pev->angles.y == Catch::Approx( 4.0f ) );
+
+		delete pVanillaRules;
+
+		// Now test with 0.5x scaling
+		CTestHookRules halfSpeedRules;
+		halfSpeedRules.m_flCustomYawMultiplier = 0.5f;
+		g_pGameRules = &halfSpeedRules;
+
+		CTestMonster scaledMonster;
+		scaledMonster.pev->angles.y = 0.0f;
+		scaledMonster.pev->ideal_yaw = 90.0f;
+		gpGlobals->time = 2.0f;
+		gpGlobals->frametime = 0.05f;
+		scaledMonster.m_flLastYawTime = 1.95f; // delta = 0.05s
+
+		float scaledMove = scaledMonster.ChangeYaw( 40 );
+		CHECK( scaledMove == Catch::Approx( 2.0f ) );
+		CHECK( scaledMonster.pev->angles.y == Catch::Approx( 2.0f ) );
+
+		g_pGameRules = nullptr;
+	}
+
+	SECTION( "ChangeYaw operates safely when g_pGameRules is null" )
+	{
+		g_pGameRules = nullptr;
+
+		CTestMonster monster;
+		monster.pev->angles.y = 0.0f;
+		monster.pev->ideal_yaw = 45.0f;
+		gpGlobals->time = 3.0f;
+		gpGlobals->frametime = 0.1f;
+		monster.m_flLastYawTime = 2.9f;
+
+		// speed = 50 * 0.1 * 2 = 10.0
+		float move = monster.ChangeYaw( 50 );
+		CHECK( move == Catch::Approx( 10.0f ) );
+		CHECK( monster.pev->angles.y == Catch::Approx( 10.0f ) );
 	}
 
 	g_pGameRules = nullptr;

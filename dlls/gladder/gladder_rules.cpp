@@ -41,8 +41,14 @@ CGladderRules::CGladderRules()
       m_bPendingSavePurge( false ),
       m_iTotalFrags( 0 ),
       m_iCollectiblesCount( 0 ),
+      m_flTotalDamageTaken( 0.0f ),
+      m_flLastPlayerHealth( 100.0f ),
+      m_flLastPlayerArmor( 0.0f ),
       m_flLastTelemetryBroadcast( 0.0f )
 {
+	m_comboTracker.Reset();
+	m_modifiers.Reset();
+
 	// Scrub any residual save files on disk to prevent loading stale or unauthorized runs
 	Gladder_PurgeSaveFiles();
 
@@ -104,6 +110,7 @@ void CGladderRules::Think( void )
 
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.Tick( flTime );
+	m_comboTracker.Update( flTime );
 
 	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active
 	if ( !m_gridIndexer.IsLoaded() && gpGlobals && gpGlobals->mapname )
@@ -115,8 +122,9 @@ void CGladderRules::Think( void )
 		}
 	}
 
-	// Broadcast periodic telemetry (e.g. every 0.25 seconds) to keep client HUD synchronized
-	if ( flTime - m_flLastTelemetryBroadcast >= 0.25f )
+	// Broadcast periodic telemetry (e.g. every 0.25 seconds) to keep client HUD synchronized.
+	// Only broadcast once a player is active in the game to avoid sending network messages before client handshake (Issue #34)
+	if ( m_bInitialSpawnDone && ( flTime - m_flLastTelemetryBroadcast >= 0.25f ) )
 	{
 		m_flLastTelemetryBroadcast = flTime;
 		BroadcastWaveUpdate();
@@ -157,7 +165,8 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 		if ( flLimit <= 0.0f )
 			flLimit = 600.0f;
 		m_waveManager.SetSessionTimeLimit( flLimit );
-		m_waveManager.InitializeMatch( flTime );
+		m_flLastPlayerHealth = pPlayer->pev->health;
+		m_flLastPlayerArmor  = pPlayer->pev->armorvalue;
 	}
 
 	// Neutralize client save/load commands & quicksave/quickload keybinds via client-side aliases
@@ -166,10 +175,33 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 		Gladder_InstallClientSaveAliases( pPlayer->edict() );
 	}
 
+	m_flLastPlayerHealth = pPlayer->pev->health;
+	m_flLastPlayerArmor  = pPlayer->pev->armorvalue;
+
 	BroadcastWaveUpdate( pPlayer );
 	BroadcastTelemetryUpdate( pPlayer );
 }
 
+void CGladderRules::PlayerThink( CBasePlayer *pPlayer )
+{
+	if ( !pPlayer || !pPlayer->pev )
+		return;
+
+	float curHealth = pPlayer->pev->health;
+	float curArmor  = pPlayer->pev->armorvalue;
+
+	if ( curHealth < m_flLastPlayerHealth )
+	{
+		m_flTotalDamageTaken += ( m_flLastPlayerHealth - curHealth );
+	}
+	if ( curArmor < m_flLastPlayerArmor )
+	{
+		m_flTotalDamageTaken += ( m_flLastPlayerArmor - curArmor );
+	}
+
+	m_flLastPlayerHealth = curHealth;
+	m_flLastPlayerArmor  = curArmor;
+}
 
 void CGladderRules::PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse )
 {
@@ -214,6 +246,8 @@ void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entv
 {
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.EndMatch( flTime, false );
+	m_modifiers.RevertMutators();
+	CalculateFinalScore( false );
 
 	// Trigger Defeat Relays (event = 3)
 	Gladder_FireWaveRelays( 3, pVictim );
@@ -224,29 +258,24 @@ void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entv
 
 void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
 {
-	m_iTotalFrags++;
-	BroadcastTelemetryUpdate();
+	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+	m_comboTracker.OnMonsterKilled( pVictim, pKiller, pInflictor, flTime );
+	m_iTotalFrags = m_comboTracker.GetTotalFrags();
+}
+
+float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
+{
+	return GladderMonsterModifiers::GetModernYawSpeed( pMonster, flDefaultYawSpeed );
 }
 
 float CGladderRules::FlHealthChargerCapacity( void )
 {
-	// Diminishing capacity per wave: degrades by 10 points per wave down to a minimum of 20
-	int iWave = m_waveManager.GetWaveNumber();
-	float baseCapacity = gSkillData.healthchargerCapacity; // default 50
-	float degraded = baseCapacity - static_cast<float>( ( iWave - 1 ) * 10 );
-	if ( degraded < 20.0f )
-		degraded = 20.0f;
-	return degraded;
+	return GladderModifiers::CalculateHealthChargerCapacity( m_waveManager.GetWaveNumber(), gSkillData.healthchargerCapacity );
 }
 
 float CGladderRules::FlHEVChargerCapacity( void )
 {
-	int iWave = m_waveManager.GetWaveNumber();
-	float baseCapacity = gSkillData.suitchargerCapacity; // default 75
-	float degraded = baseCapacity - static_cast<float>( ( iWave - 1 ) * 15 );
-	if ( degraded < 25.0f )
-		degraded = 25.0f;
-	return degraded;
+	return GladderModifiers::CalculateHEVChargerCapacity( m_waveManager.GetWaveNumber(), gSkillData.suitchargerCapacity );
 }
 
 void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
@@ -272,8 +301,11 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 			}
 		}
 
+		// Roll and activate wave mutators (Blackout, Low Gravity, Swarm)
+		m_modifiers.RollAndApplyWaveMutator( m_waveManager.GetWaveNumber() );
+
 		// Procedurally spawn wave threats, weapons & supplies across indexed spatial grid
-		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig );
+		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies() );
 
 		// Acoustic cue for wave start
 		if ( pActivator && pActivator->edict() )
@@ -303,27 +335,19 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	// Fire wave completion relays (event = 1)
 	Gladder_FireWaveRelays( 1, pActivator );
 
+	// Revert active mutators back to default
+	m_modifiers.RevertMutators();
+
 	// Reset wave environment: GC entities, recharge wall stations, restore breakables
 	ResetWave();
 
 	// Advance engine skill tier based on wave milestones
-	// Wave 1-4: Easy (skill 1), Wave 5-9: Medium (skill 2), Wave 10+: Hard (skill 3)
-	int iWave = m_waveManager.GetWaveNumber();
-	int newSkill = SKILL_EASY;
-	if ( iWave >= 10 )
-		newSkill = SKILL_HARD;
-	else if ( iWave >= 5 )
-		newSkill = SKILL_MEDIUM;
-
-	if ( SkillManager::GetSkillLevel() != newSkill )
-	{
-		SkillManager::SetSkillLevel( newSkill );
-		CGameRules::RefreshSkillData();
-	}
+	GladderModifiers::ApplySkillProgression( m_waveManager.GetWaveNumber() );
 
 	// If match completed due to time limit
 	if ( m_waveManager.IsMatchOver() )
 	{
+		CalculateFinalScore( true );
 		Gladder_FireWaveRelays( 2, pActivator );
 	}
 
@@ -359,19 +383,43 @@ void CGladderRules::ResetBreakableEntities( void )
 
 void CGladderRules::RechargeWallStations( void )
 {
-	// Re-energize all wall chargers with current wave's diminishing capacity
-	// Wall chargers reset their visual state when frame is set to 0.
-	CBaseEntity *pCharger = nullptr;
-	while ( ( pCharger = UTIL_FindEntityByClassname( pCharger, "func_healthcharger" ) ) != nullptr )
-	{
-		pCharger->pev->frame = 0;
-	}
+	GladderModifiers::RechargeWallStations();
+}
 
-	pCharger = nullptr;
-	while ( ( pCharger = UTIL_FindEntityByClassname( pCharger, "func_recharge" ) ) != nullptr )
-	{
-		pCharger->pev->frame = 0;
-	}
+void CGladderRules::CalculateFinalScore( bool bSurvived )
+{
+	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+	float flElapsed = (std::max)( 0.0f, m_waveManager.GetSessionTimeLimit() - m_waveManager.GetSessionTimeRemaining( flTime ) );
+	m_lastScoreBreakdown = GladderScoring::CalculateScore(
+		m_comboTracker.GetStats(),
+		m_waveManager.GetCompletedWavesCount(),
+		m_iCollectiblesCount,
+		flElapsed,
+		m_waveManager.GetAverageLapTime(),
+		m_waveManager.GetFastestLapTime(),
+		m_waveManager.GetSlowestLapTime(),
+		m_flTotalDamageTaken,
+		bSurvived
+	);
+
+	ALERT( at_console, "[Gladder] === MATCH SUMMARY ===\n" );
+	ALERT( at_console, "[Gladder] Status: %s\n", bSurvived ? "SURVIVED - TIME EXPIRED" : "KIA - FALLEN IN COMBAT" );
+	ALERT( at_console, "[Gladder] Final Grade: %c (%s)\n", m_lastScoreBreakdown.rankGrade, m_lastScoreBreakdown.rankTitle.c_str() );
+	ALERT( at_console, "[Gladder] Composite Score: %d (Combat: %d, Combos: %d, Waves: %d, Lambdas: %d, Survival: %d, DmgPenalty: -%d)\n",
+	       m_lastScoreBreakdown.finalCompositeScore,
+	       m_lastScoreBreakdown.baseCombatPoints,
+	       m_lastScoreBreakdown.comboBonusPoints,
+	       m_lastScoreBreakdown.waveBonusPoints,
+	       m_lastScoreBreakdown.lambdaBonusPoints,
+	       m_lastScoreBreakdown.survivalBonusPoints,
+	       m_lastScoreBreakdown.damagePenaltyPoints );
+	ALERT( at_console, "[Gladder] Waves Cleared: %d, Frags: %d, Max Combo: x%d, Lambdas: %d, Dmg Taken: %.1f\n",
+	       m_lastScoreBreakdown.wavesCompleted,
+	       m_lastScoreBreakdown.totalFrags,
+	       m_lastScoreBreakdown.maxComboStreak,
+	       m_lastScoreBreakdown.collectiblesCount,
+	       m_lastScoreBreakdown.totalDamageTaken );
+	ALERT( at_console, "[Gladder] ======================\n" );
 }
 
 void CGladderRules::BroadcastWaveUpdate( CBasePlayer *pPlayer )

@@ -84,7 +84,7 @@ class GladderSpawner
 	void Precache( void );
 
 	// Spawn full procedural wave across indexed spatial grid cells (SPEC §2, §3, §7.3)
-	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config );
+	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies = "" );
 
 	// Comprehensive GoldSrc edict garbage collection (SPEC §2, §11)
 	void PurgeWaveEntities();
@@ -99,8 +99,13 @@ class GladderSpawner
 
 	// Query spawned entities
 	size_t GetTrackedEntityCount() const { return m_spawnedEntities.size(); }
+	CBaseEntity *GetTrackedEntity( size_t index )
+	{
+		return ( index < m_spawnedEntities.size() ) ? (CBaseEntity *)m_spawnedEntities[index] : nullptr;
+	}
 	int GetLastSpawnedMonsterCount() const { return m_iLastMonsterCount; }
 	int GetLastSpawnedPickupCount() const { return m_iLastPickupCount; }
+	int GetLastSpawnedChampionCount() const { return m_iLastChampionCount; }
 	bool WasLambdaSpawned() const { return m_bLambdaSpawned; }
 
 	// Manual entity creation helper that respects edict budget and registers with spawner
@@ -111,12 +116,14 @@ class GladderSpawner
 
   private:
 	std::vector<EHANDLE> m_spawnedEntities;
+	std::vector<Vector> m_spawnedMonsterPositions;
 	int m_iLastMonsterCount;
 	int m_iLastPickupCount;
+	int m_iLastChampionCount;
 	bool m_bLambdaSpawned;
 
 	// Internal procedural generation routines (with cell occupancy tracking)
-	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
+	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );
 	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
 	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
 

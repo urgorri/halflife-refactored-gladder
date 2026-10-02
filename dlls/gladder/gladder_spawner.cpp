@@ -7,6 +7,7 @@
  ****/
 
 #include "gladder_spawner.h"
+#include "gladder_modifiers.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -240,6 +241,7 @@ bool GladderMapConfig::IsWeaponAllowed( const char *szClassname ) const
 GladderSpawner::GladderSpawner()
     : m_iLastMonsterCount( 0 ),
       m_iLastPickupCount( 0 ),
+      m_iLastChampionCount( 0 ),
       m_bLambdaSpawned( false )
 {
 }
@@ -512,7 +514,7 @@ void GladderSpawner::SpawnLambdaCollectible( const GladderGridIndexer &indexer, 
 	}
 }
 
-void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells )
+void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells, const std::string &szSwarmSpecies )
 {
 	m_iLastMonsterCount = 0;
 
@@ -547,7 +549,15 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 
 		bool isFlying = false;
 		bool isBarnacle = false;
-		const char *szSpecies = RollMonsterSpecies( iWaveNumber, config, isFlying, isBarnacle );
+		const char *szSpecies = nullptr;
+		if ( !szSwarmSpecies.empty() )
+		{
+			szSpecies = szSwarmSpecies.c_str();
+		}
+		else
+		{
+			szSpecies = RollMonsterSpecies( iWaveNumber, config, isFlying, isBarnacle );
+		}
 		bool isLarge = IsLargeMonster( szSpecies );
 		int hullNum = isLarge ? large_hull : human_hull;
 
@@ -582,11 +592,19 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			if ( isBarnacle )
 			{
 				isBarnacle = false;
-				reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				szSpecies  = "monster_headcrab";
+				reqFlags   = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				hullNum    = human_hull;
+				isLarge    = false;
 			}
 			else if ( isLarge )
 			{
-				reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				// Degrade monster species to a standard human-sized threat (zombie)
+				// instead of forcing a 64x64 large hull into a narrow 32x32 space that would embed into walls
+				szSpecies = "monster_zombie";
+				reqFlags  = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+				hullNum   = human_hull;
+				isLarge   = false;
 			}
 
 			for ( size_t cIdx = 0; cIdx < indexer.GetCellCount(); ++cIdx )
@@ -698,9 +716,22 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 
 			TraceResult trHull;
 			UTIL_TraceHull( vecHullCheck, vecHullCheck, dont_ignore_monsters, hullNum, NULL, &trHull );
-			if ( trHull.fStartSolid || trHull.fAllSolid )
+			if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction < 1.0f )
 			{
 				continue;
+			}
+
+			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls
+			if ( !isBarnacle && !isFlying )
+			{
+				float flRadius = isLarge ? 32.0f : 16.0f;
+				if ( POINT_CONTENTS( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
+				     POINT_CONTENTS( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
+				     POINT_CONTENTS( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) == CONTENTS_SOLID ||
+				     POINT_CONTENTS( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) == CONTENTS_SOLID )
+				{
+					continue;
+				}
 			}
 
 			// 3. Valid candidate confirmed: instantiate monster entity
@@ -709,7 +740,28 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			if ( pMonster )
 			{
 				m_iLastMonsterCount++;
+
+				if ( pMonster->MyMonsterPointer() && GladderModifiers::ShouldSpawnAsChampion( iWaveNumber ) )
+				{
+					GladderModifiers::MakeEliteChampion( pMonster->MyMonsterPointer() );
+					m_iLastChampionCount++;
+				}
+
 				( *pOccupiedCells )[chosenIdx] = true;
+
+				// Mark surrounding cells within separation radius as occupied so pickups and monsters cannot overlap
+				float flExclusionDist = isLarge ? 64.0f : 48.0f;
+				for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
+				{
+					if ( !( *pOccupiedCells )[k] )
+					{
+						const auto &otherCell = indexer.GetCell( k );
+						if ( ( otherCell.origin - vecSpawnPos ).Length2D() < flExclusionDist )
+						{
+							( *pOccupiedCells )[k] = true;
+						}
+					}
+				}
 
 				SpawnedMonsterRecord rec;
 				rec.pos = vecSpawnPos;
@@ -717,6 +769,7 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 				rec.isBarnacle = isBarnacle;
 				rec.isFlying = isFlying;
 				spawned.push_back( rec );
+				m_spawnedMonsterPositions.push_back( vecSpawnPos );
 
 				bSpawnSuccess = true;
 				break;
@@ -764,6 +817,23 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 		Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
 		Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
 
+		// Ensure candidate cell does not overlap any spawned monster position
+		bool bMonsterNearby = false;
+		for ( const auto &mPos : m_spawnedMonsterPositions )
+		{
+			if ( ( vecSpawnPos - mPos ).Length2D() < 48.0f )
+			{
+				bMonsterNearby = true;
+				break;
+			}
+		}
+
+		if ( bMonsterNearby )
+		{
+			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+			continue;
+		}
+
 		// Live hull check for pickup (point_hull or head_hull)
 		TraceResult trHull;
 		UTIL_TraceHull( vecSpawnPos + Vector( 0, 0, 16 ), vecSpawnPos + Vector( 0, 0, 16 ), dont_ignore_monsters, head_hull, NULL, &trHull );
@@ -782,8 +852,11 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 	}
 }
 
-int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config )
+int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies )
 {
+	m_iLastChampionCount = 0;
+	m_spawnedMonsterPositions.clear();
+
 	if ( indexer.GetCellCount() == 0 )
 	{
 		ALERT( at_console, "[Gladder] Cannot spawn wave %d: Spatial grid indexer has 0 cells.\n", iWaveNumber );
@@ -804,13 +877,13 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 	SpawnLambdaCollectible( indexer, &occupiedCells );
 
 	// 3. Procedurally generate monsters across spatial grid cells
-	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells );
+	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells, szSwarmSpecies );
 
 	// 4. Procedurally generate randomized pickups & weapons
 	SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells );
 
-	ALERT( at_console, "[Gladder] Wave %d spawned: %d monsters, %d supplies, lambda=%s (Tracked total: %u entities)\n",
-	       iWaveNumber, m_iLastMonsterCount, m_iLastPickupCount, m_bLambdaSpawned ? "yes" : "no",
+	ALERT( at_console, "[Gladder] Wave %d spawned: %d monsters (%d champions), %d supplies, lambda=%s (Tracked total: %u entities)\n",
+	       iWaveNumber, m_iLastMonsterCount, m_iLastChampionCount, m_iLastPickupCount, m_bLambdaSpawned ? "yes" : "no",
 	       static_cast<unsigned int>( m_spawnedEntities.size() ) );
 
 	return m_iLastMonsterCount + m_iLastPickupCount + ( m_bLambdaSpawned ? 1 : 0 );
@@ -818,16 +891,27 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 
 void GladderSpawner::PurgeWaveEntities()
 {
-	// 1. Remove all wave-spawned entities tracked in registration list
+	// 1. Remove all wave-spawned entities tracked in registration list (uncollected items, active monsters)
 	for ( auto &hEnt : m_spawnedEntities )
 	{
 		CBaseEntity *pEnt = (CBaseEntity *)hEnt;
 		if ( pEnt && pEnt->pev )
 		{
+			// Never remove weapons or items currently collected/carried by a player!
+			if ( pEnt->pev->owner != nullptr )
+			{
+				CBaseEntity *pOwner = CBaseEntity::Instance( pEnt->pev->owner );
+				if ( pOwner && pOwner->IsPlayer() )
+				{
+					continue;
+				}
+			}
+
 			UTIL_Remove( pEnt );
 		}
 	}
 	m_spawnedEntities.clear();
+	m_spawnedMonsterPositions.clear();
 	m_bLambdaSpawned = false;
 
 	// 2. Comprehensive edict sweep to catch combat debris, dropped items, projectiles & corpses (SPEC §11)

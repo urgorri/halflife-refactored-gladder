@@ -742,7 +742,13 @@ float CBaseMonster::ChangeYaw( int yawSpeed )
 		if ( delta > 0.25f )
 			delta = 0.25f;
 
-		speed = (float)yawSpeed * delta * 2;
+		float flSpeed = (float)yawSpeed;
+		if ( g_pGameRules )
+		{
+			flSpeed = g_pGameRules->FlMonsterYawSpeed( this, flSpeed );
+		}
+
+		speed = flSpeed * delta * 2;
 		move  = ideal - current;
 
 		if ( ideal > current )

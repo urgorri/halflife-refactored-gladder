@@ -483,6 +483,23 @@ TEST_CASE( "Gladder Grid Indexer: TraceCellCandidate rejects breakable crates as
 	g_engfuncs.pfnTraceHull = originalTraceHull;
 }
 
+TEST_CASE( "Gladder Entities: CTriggerGladderArea spawns with SOLID_NOT (Issue #34)", "[gladder][entities]" )
+{
+	ResetMockEngine();
+	CTriggerGladderArea area;
+	area.pev = new entvars_t();
+	std::memset( area.pev, 0, sizeof( entvars_t ) );
+
+	area.Spawn();
+
+	CHECK( area.pev->solid == SOLID_NOT );
+	CHECK( area.pev->movetype == MOVETYPE_NONE );
+	CHECK( ( area.pev->effects & EF_NODRAW ) != 0 );
+
+	delete area.pev;
+	area.pev = nullptr;
+}
+
 // Test mock stubs for hl_tests linkage
 void UTIL_TraceHull( const Vector &vecStart, const Vector &vecEnd, IGNORE_MONSTERS igmon, int hullNumber, edict_t *pentIgnore, TraceResult *ptr )
 {

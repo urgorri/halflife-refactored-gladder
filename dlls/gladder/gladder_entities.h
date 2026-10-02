@@ -55,7 +55,7 @@ class CTriggerGladderArea : public CBaseEntity
   public:
 	void Spawn( void )
 	{
-		pev->solid    = SOLID_TRIGGER;
+		pev->solid    = SOLID_NOT;
 		pev->movetype = MOVETYPE_NONE;
 
 		if ( pev->model )

@@ -35,11 +35,14 @@ void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 		CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
 		if ( pGladderRules )
 		{
+			// Only trigger if waiting for wave start
+			if ( pGladderRules->GetWaveManager().GetState() != GLADDER_STATE_WAITING_FOR_START )
+				return;
+
 			pGladderRules->OnWaveTriggerStart( pOther );
+			SUB_UseTargets( pOther, USE_TOGGLE, 0 );
 		}
 	}
-
-	SUB_UseTargets( pOther, USE_TOGGLE, 0 );
 }
 
 void CTriggerGladderStart::StartUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
@@ -90,10 +93,11 @@ void CTriggerGladderFinish::DoFinish( CBaseEntity *pActivator )
 		if ( pGladderRules )
 		{
 			// Only process if wave was active
-			if ( pGladderRules->GetWaveManager().IsWaveActive() )
+			if ( !pGladderRules->GetWaveManager().IsWaveActive() )
 			{
-				pGladderRules->OnWaveTriggerFinish( pActivator );
+				return;
 			}
+			pGladderRules->OnWaveTriggerFinish( pActivator );
 		}
 	}
 

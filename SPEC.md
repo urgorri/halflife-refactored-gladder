@@ -14,7 +14,7 @@ Instead of progressing linearly through a series of maps, players run through a 
 2. **On-Demand Wave Activation**: The wave does not force immediate combat upon arrival. The player triggers wave activation on demand (e.g., crossing a start boundary or cycling airlock doors), initiating procedural spawns and starting the active wave stopwatch.
 3. **Traversal & Combat**: The player navigates through the map toward Point B while battling procedurally spawned enemies and scavenging randomized supplies.
 4. **Reaching Point B (Finish)**: Entering the designated extraction / completion zone (Point B) immediately completes the current wave.
-5. **Teleport & Reset**: The player is instantly teleported back to Point A.
+5. **Screen Fade & Teleportation**: The engine automatically initiates an immediate screen fade-out to black at the moment Point B is touched. The viewport remains completely black during the exact instant the player is teleported back to Point A, followed by a smooth screen fade-in to soften and polish the transition.
 6. **Wave Increment & Respawn**: The wave counter increases (Wave 1 → Wave 2 → ...), a comprehensive garbage collection clears leftover monsters and entities, and a fresh wave of threats and supplies is generated across the map.
 7. **Player State Persistence**: The player preserves all collected weapons, remaining ammunition, and current health/armor across waves, making continuous resource preservation critical.
 8. **Persistence**: The loop repeats continuously without map reloads or level transitions until match completion.
@@ -116,7 +116,7 @@ Each map supports its own configuration profile to dictate thematic and gameplay
 
 The mod provides mapper-friendly entities to simplify setting up any custom or existing map:
 * **Wave Start Staging Zone (Point A)**: Defines the player's initial spawn point and return destination. Level designers configure Point A as a secure staging area free of monster spawn grids, with manual initiation mechanisms (e.g., airlock doors, start line triggers) that fire wave commencement on demand.
-* **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, and coordinates the teleportation back to Point A.
+* **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, initiates an automatic screen fade-out to black, teleports the player back to Point A while the screen is completely obscured, and fades the screen back in to ensure a smooth, seamless transition.
 * **Wave State Relays**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
 * **End-Game Backdrop Camera**: Support for associating an in-map static camera entity (such as a designated `trigger_camera`) that provides the scenic background view during the post-game summary.
 * **Area Definition Volumes**: Bounding box entities with designer parameters for indexing scope and zoning.

@@ -171,6 +171,8 @@ class CGameRules
 
 	// Monsters
 	virtual BOOL FAllowMonsters( void ) = 0; // are monsters allowed
+	// Allows gamemodes to scale or override monster turning speed (yawspeed)
+	virtual float FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed ) { return flDefaultYawSpeed; }
 
 	// Immediately end a multiplayer game
 	virtual void EndMultiplayerGame( void ) {}

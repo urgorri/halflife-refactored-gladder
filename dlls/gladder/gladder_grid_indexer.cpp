@@ -377,8 +377,18 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	TraceResult trHull;
 	TRACE_HULL( vecHullPos, vecHullPos, FALSE, human_hull, NULL, &trHull );
 
-	if ( trHull.fStartSolid || trHull.fAllSolid )
+	if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction < 1.0f )
 		return false;
+
+	// Lateral wall clearance verification at waist level (ensure entity hull doesn't penetrate adjacent walls)
+	Vector vecWaist = vecSurface + Vector( 0.0f, 0.0f, 36.0f );
+	if ( POINT_CONTENTS( vecWaist + Vector( 16.0f, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
+	     POINT_CONTENTS( vecWaist - Vector( 16.0f, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
+	     POINT_CONTENTS( vecWaist + Vector( 0.0f, 16.0f, 0.0f ) ) == CONTENTS_SOLID ||
+	     POINT_CONTENTS( vecWaist - Vector( 0.0f, 16.0f, 0.0f ) ) == CONTENTS_SOLID )
+	{
+		return false;
+	}
 
 	// Populate valid candidate cell
 	outCell.origin   = vecSurface + Vector( 0.0f, 0.0f, 1.0f );
@@ -392,9 +402,15 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	// Also test large hull (64x64x72) clearance for large monsters (Bullsquid, Alien Grunt)
 	TraceResult trLargeHull;
 	TRACE_HULL( vecHullPos, vecHullPos, FALSE, large_hull, NULL, &trLargeHull );
-	if ( !trLargeHull.fStartSolid && !trLargeHull.fAllSolid )
+	if ( !trLargeHull.fStartSolid && !trLargeHull.fAllSolid && trLargeHull.flFraction >= 1.0f )
 	{
-		outCell.flags |= GLADDER_CELL_LARGE_CLEARANCE;
+		if ( POINT_CONTENTS( vecWaist + Vector( 32.0f, 0.0f, 0.0f ) ) != CONTENTS_SOLID &&
+		     POINT_CONTENTS( vecWaist - Vector( 32.0f, 0.0f, 0.0f ) ) != CONTENTS_SOLID &&
+		     POINT_CONTENTS( vecWaist + Vector( 0.0f, 32.0f, 0.0f ) ) != CONTENTS_SOLID &&
+		     POINT_CONTENTS( vecWaist - Vector( 0.0f, 32.0f, 0.0f ) ) != CONTENTS_SOLID )
+		{
+			outCell.flags |= GLADDER_CELL_LARGE_CLEARANCE;
+		}
 	}
 
 	return true;

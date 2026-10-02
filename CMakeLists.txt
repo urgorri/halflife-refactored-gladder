@@ -357,10 +357,18 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_breakable.cpp
         dlls/gladder/gladder_grid_indexer.cpp
         dlls/gladder/gladder_spawner.cpp
+        dlls/gladder/gladder_combo_tracker.cpp
+        dlls/gladder/gladder_scoring.cpp
+        dlls/gladder/gladder_modifiers.cpp
+        dlls/gladder/gladder_monster_modifiers.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
         tests/gladder/test_grid_indexer.cpp
         tests/gladder/test_spawner.cpp
+        tests/gladder/test_combo_tracker.cpp
+        tests/gladder/test_scoring.cpp
+        tests/gladder/test_modifiers.cpp
+        tests/gladder/test_monster_modifiers.cpp
         ${PM_SHARED_SOURCES}
     )
 

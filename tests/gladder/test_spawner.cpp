@@ -260,6 +260,41 @@ TEST_CASE( "Gladder Spawner: Comprehensive wave garbage collection (SPEC §11)",
 	ClearMockEntityFactories();
 }
 
+TEST_CASE( "Gladder Spawner: Wave GC does not purge weapons collected by player (SPEC §11, Issue #34)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "weapon_shotgun", FactoryTestItem );
+	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
+
+	GladderSpawner spawner;
+
+	// Spawn a wave weapon
+	CBaseEntity *pWeapon = spawner.CreateWaveEntity( "weapon_shotgun", Vector( 10, 10, 0 ) );
+	REQUIRE( pWeapon != nullptr );
+	REQUIRE( spawner.GetTrackedEntityCount() == 1 );
+
+	// Setup a mock player entity
+	CBaseEntity player;
+	edict_t edPlayer;
+	std::memset( &edPlayer, 0, sizeof( edPlayer ) );
+	edPlayer.v.pContainingEntity = &edPlayer;
+	edPlayer.v.flags            |= FL_CLIENT;
+	edPlayer.pvPrivateData       = &player;
+	player.pev                   = &edPlayer.v;
+
+	// Weapon is now picked up and owned by the player
+	pWeapon->pev->owner = &edPlayer;
+
+	// Execute wave entity purge
+	spawner.PurgeWaveEntities();
+
+	// Weapon MUST NOT have FL_KILLME set! It must be preserved in player's inventory across waves!
+	CHECK( !( pWeapon->pev->flags & FL_KILLME ) );
+
+	ClearMockEntityFactories();
+}
+
 TEST_CASE( "Gladder Spawner: Precache registers all roster monsters and pickups", "[gladder][spawner]" )
 {
 	ResetMockEngine();
@@ -379,6 +414,120 @@ TEST_CASE( "Gladder Spawner: Throttling when grid cells are exhausted", "[gladde
 	CHECK( spawner.GetLastSpawnedMonsterCount() == 1 );
 	CHECK( spawner.GetLastSpawnedPickupCount() == 0 );
 	CHECK( totalSpawned == 2 ); // Exactly 2 entities spawned, exactly matching cell capacity!
+
+	ClearMockEntityFactories();
+}
+
+TEST_CASE( "Gladder Spawner: Large monster species safely degrades to human-hull threat when large cells exhausted (Issue #34)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
+	RegisterMockEntityFactory( "monster_alien_grunt", FactoryTestMonster );
+	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+
+	// Create grid with cells that have clearance for human_hull but NOT GLADDER_CELL_LARGE_CLEARANCE
+	GladderGridIndexer indexer;
+	for ( int i = 0; i < 4; ++i )
+	{
+		GladderGridCell c;
+		c.origin   = Vector( i * 64.0f, 0.0f, 0.0f );
+		c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+		c.areaId   = 1;
+		c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK; // No GLADDER_CELL_LARGE_CLEARANCE!
+		c.ceilingZ = 120.0f;
+		indexer.AddCell( c );
+	}
+
+	GladderMapConfig config;
+	config.monsterWhitelist.push_back( "monster_alien_grunt" ); // Only large monsters requested
+	config.baseMonsters    = 2;
+	config.monstersPerWave = 0.0f;
+	config.basePickups     = 0;
+	config.pickupsPerWave  = 0.0f;
+
+	GladderSpawner spawner;
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+
+	// Spawner should safely fall back and spawn regular monsters (zombie) rather than forcing large monsters into walls!
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 2 );
+	CHECK( totalSpawned >= 2 );
+
+	ClearMockEntityFactories();
+}
+
+TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clearance (Issue #34)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
+
+	const char *pickupsToRegister[] = {
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_rpgclip",
+		"weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_crossbow", "weapon_rpg", "weapon_gauss", "weapon_egon"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+
+	GladderGridIndexer indexer;
+	// Create an 8x8 grid of 32-unit spaced cells (64 total cells)
+	for ( int x = 0; x < 8; ++x )
+	{
+		for ( int y = 0; y < 8; ++y )
+		{
+			GladderGridCell c;
+			c.origin   = Vector( x * 32.0f, y * 32.0f, 0.0f );
+			c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+			c.areaId   = 1;
+			c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+			c.ceilingZ = 120.0f;
+			indexer.AddCell( c );
+		}
+	}
+
+	GladderMapConfig config;
+	config.monsterWhitelist.push_back( "monster_zombie" );
+	config.baseMonsters    = 2;
+	config.monstersPerWave = 0.0f;
+	config.basePickups     = 2;
+	config.pickupsPerWave  = 0.0f;
+
+	GladderSpawner spawner;
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+	CHECK( totalSpawned >= 4 );
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 2 );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 2 );
+
+	std::vector<Vector> monsterPositions;
+	std::vector<Vector> itemPositions;
+	for ( size_t i = 0; i < spawner.GetTrackedEntityCount(); ++i )
+	{
+		CBaseEntity *pEnt = spawner.GetTrackedEntity( i );
+		if ( !pEnt || !pEnt->pev ) continue;
+		const char *szClass = STRING( pEnt->pev->classname );
+		if ( strncmp( szClass, "monster_", 8 ) == 0 )
+			monsterPositions.push_back( pEnt->pev->origin );
+		else if ( strncmp( szClass, "item_", 5 ) == 0 || strncmp( szClass, "weapon_", 7 ) == 0 || strncmp( szClass, "ammo_", 5 ) == 0 )
+		{
+			if ( strcmp( szClass, "item_gladder_lambda" ) != 0 )
+				itemPositions.push_back( pEnt->pev->origin );
+		}
+	}
+
+	CHECK( monsterPositions.size() == 2 );
+	CHECK( itemPositions.size() == 2 );
+
+	// Verify all spawned pickups maintain at least 48 units distance from all spawned monsters
+	for ( const auto &itemPos : itemPositions )
+	{
+		for ( const auto &monsterPos : monsterPositions )
+		{
+			float dist2D = ( itemPos - monsterPos ).Length2D();
+			CHECK( dist2D >= 48.0f );
+		}
+	}
 
 	ClearMockEntityFactories();
 }
