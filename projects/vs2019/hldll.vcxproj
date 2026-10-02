@@ -297,6 +297,13 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\gladder\gladder_scoring.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_modifiers.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_monster_modifiers.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_audio.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_items.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_knife.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_pipewrench.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_eagle.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_sniper.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_m249.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\dlls\gladder\gladder_rules.h" />
@@ -310,6 +317,14 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClInclude Include="..\..\dlls\gladder\gladder_scoring.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_modifiers.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_monster_modifiers.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_audio.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_items.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_knife.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_pipewrench.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_eagle.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_sniper.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_m249.h" />
     <ClInclude Include="..\..\dlls\weapons\ammo_base.h" />
     <ClInclude Include="..\..\dlls\weapons\weapon_box.h" />
     <ClInclude Include="..\..\dlls\ai\activity.h" />

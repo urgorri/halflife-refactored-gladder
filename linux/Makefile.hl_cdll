@@ -102,6 +102,8 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/hud/voice_status.o \
 	$(HL1_OBJ_DIR)/hud/hud_servers.o \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_overlay.o \
+	$(HL1_OBJ_DIR)/gladder/gladder_visuals.o \
+	$(HL1_OBJ_DIR)/gladder/gladder_cl_weapons.o \
 
 
 DLL_OBJS = \
@@ -119,6 +121,11 @@ DLL_OBJS = \
 	$(HL1_SERVER_OBJ_DIR)/weapons/weapon_snark.o \
 	$(HL1_SERVER_OBJ_DIR)/weapons/weapon_glock.o \
 	$(HL1_SERVER_OBJ_DIR)/weapons/weapon_tripmine.o \
+	$(HL1_SERVER_OBJ_DIR)/gladder/weapons/weapon_knife.o \
+	$(HL1_SERVER_OBJ_DIR)/gladder/weapons/weapon_pipewrench.o \
+	$(HL1_SERVER_OBJ_DIR)/gladder/weapons/weapon_eagle.o \
+	$(HL1_SERVER_OBJ_DIR)/gladder/weapons/weapon_sniper.o \
+	$(HL1_SERVER_OBJ_DIR)/gladder/weapons/weapon_m249.o \
 
 
 PUBLIC_OBJS = \
@@ -181,6 +188,7 @@ $(HL1_SERVER_OBJ_DIR):
 	mkdir -p $(HL1_SERVER_OBJ_DIR)
 	mkdir -p $(HL1_SERVER_OBJ_DIR)/wpn_shared
 	mkdir -p $(HL1_SERVER_OBJ_DIR)/weapons
+	mkdir -p $(HL1_SERVER_OBJ_DIR)/gladder/weapons
 
 $(HL1_SERVER_OBJ_DIR)/weapons:
 	mkdir -p $(HL1_SERVER_OBJ_DIR)/weapons
@@ -209,6 +217,12 @@ $(HL1_OBJ_DIR)/hud/%.o: $(HL_SRC_DIR)/hud/%.cpp $(filter-out $(wildcard  $(HL1_O
 	$(DO_CC)
 
 $(HL1_OBJ_DIR)/%.o: $(HL_SRC_DIR)/%.cpp $(filter-out $(wildcard  $(HL1_OBJ_DIR)),  $(HL1_OBJ_DIR))
+	$(DO_CC)
+
+$(HL1_SERVER_OBJ_DIR)/gladder/weapons/%.o: $(HL_SERVER_SRC_DIR)/gladder/weapons/%.cpp $(filter-out $(wildcard $(HL1_SERVER_OBJ_DIR)/gladder/weapons), $(HL1_SERVER_OBJ_DIR)/gladder/weapons)
+	$(DO_CC)
+
+$(HL1_SERVER_OBJ_DIR)/%.o: $(HL_SERVER_SRC_DIR)/%.cpp $(filter-out $(wildcard  $(HL1_SERVER_OBJ_DIR)),  $(HL1_SERVER_OBJ_DIR))
 	$(DO_CC)
 
 $(HL1_SERVER_OBJ_DIR)/%.o: $(HL_SERVER_SRC_DIR)/%.cpp $(filter-out $(wildcard  $(HL1_SERVER_OBJ_DIR)),  $(HL1_SERVER_OBJ_DIR))

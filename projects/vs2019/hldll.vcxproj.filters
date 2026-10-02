@@ -795,6 +795,27 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_monster_modifiers.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_audio.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_items.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_knife.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_pipewrench.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_eagle.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_sniper.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_m249.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\dlls\gladder\gladder_rules.h">
@@ -828,6 +849,30 @@
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_monster_modifiers.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_audio.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_items.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_knife.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_pipewrench.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_eagle.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_sniper.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_m249.h">
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\core\user_message_registry.h">
