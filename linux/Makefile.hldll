@@ -109,6 +109,13 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_scoring.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_modifiers.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_monster_modifiers.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_audio.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_items.o \
+	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_knife.o \
+	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_pipewrench.o \
+	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_eagle.o \
+	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_sniper.o \
+	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_m249.o \
 	$(HLDLL_OBJ_DIR)/monsters/gargantua.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_gauss.o \
 	$(HLDLL_OBJ_DIR)/monsters/genericmonster.o \
@@ -247,6 +254,7 @@ dirs:
 	-mkdir -p $(GAME_SHARED_OBJ_DIR)
 	-mkdir -p $(HLDLL_OBJ_DIR)/world
 	-mkdir -p $(HLDLL_OBJ_DIR)/gladder
+	-mkdir -p $(HLDLL_OBJ_DIR)/gladder/weapons
 
 hl.$(SHLIBEXT): $(HLDLL_OBJS) $(HLWPN_OBJS) $(PM_OBJS) $(GAME_SHARED_OBJS)
 	$(CC) $(LDFLAGS) $(SHLIBLDFLAGS) -o $(BUILD_DIR)/$@ $(HLDLL_OBJS) $(HLWPN_OBJS) $(PM_OBJS) $(GAME_SHARED_OBJS)
@@ -281,6 +289,9 @@ $(HLDLL_OBJ_DIR)/monsters/%.o : $(HLDLL_SRC_DIR)/monsters/%.cpp
 	$(DO_HLDLL_CC)
 
 $(HLDLL_OBJ_DIR)/gameplay/%.o : $(HLDLL_SRC_DIR)/gameplay/%.cpp
+	$(DO_HLDLL_CC)
+
+$(HLDLL_OBJ_DIR)/gladder/weapons/%.o : $(HLDLL_SRC_DIR)/gladder/weapons/%.cpp
 	$(DO_HLDLL_CC)
 
 $(HLDLL_OBJ_DIR)/gladder/%.o : $(HLDLL_SRC_DIR)/gladder/%.cpp

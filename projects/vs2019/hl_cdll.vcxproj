@@ -212,9 +212,23 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\pm_shared\pm_hull.c" />
     <ClCompile Include="..\..\public\interface.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_weapons.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_knife.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_pipewrench.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_eagle.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_sniper.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\weapons\weapon_m249.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_overlay.h" />
+    <ClInclude Include="..\..\cl_dll\gladder\gladder_visuals.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_knife.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_pipewrench.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_eagle.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_sniper.h" />
+    <ClInclude Include="..\..\dlls\gladder\weapons\weapon_m249.h" />
     <ClInclude Include="..\..\cl_dll\hud\hud_ammo.h" />
     <ClInclude Include="..\..\cl_dll\core\camera.h" />
     <ClInclude Include="..\..\cl_dll\core\cl_dll.h" />

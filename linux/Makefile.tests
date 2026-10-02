@@ -88,7 +88,13 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/test_combo_tracker.o \
 	$(TESTS_OBJ_DIR)/test_scoring.o \
 	$(TESTS_OBJ_DIR)/test_modifiers.o \
-	$(TESTS_OBJ_DIR)/test_monster_modifiers.o
+	$(TESTS_OBJ_DIR)/test_monster_modifiers.o \
+	$(TESTS_OBJ_DIR)/gladder_audio.o \
+	$(TESTS_OBJ_DIR)/gladder_items.o \
+	$(TESTS_OBJ_DIR)/gladder_visuals.o \
+	$(TESTS_OBJ_DIR)/test_items.o \
+	$(TESTS_OBJ_DIR)/test_visuals.o \
+	$(TESTS_OBJ_DIR)/test_weapons.o
 
 
 PM_OBJS = \
@@ -240,6 +246,24 @@ $(TESTS_OBJ_DIR)/test_modifiers.o: $(TESTS_SRC_DIR)/gladder/test_modifiers.cpp |
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/test_monster_modifiers.o: $(TESTS_SRC_DIR)/gladder/test_monster_modifiers.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_audio.o: $(HLDLL_SRC_DIR)/gladder/gladder_audio.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_items.o: $(HLDLL_SRC_DIR)/gladder/gladder_items.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_visuals.o: $(SOURCE_DIR)/cl_dll/gladder/gladder_visuals.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_items.o: $(TESTS_SRC_DIR)/gladder/test_items.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_visuals.o: $(TESTS_SRC_DIR)/gladder/test_visuals.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_weapons.o: $(TESTS_SRC_DIR)/gladder/test_weapons.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs

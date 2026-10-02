@@ -188,6 +188,11 @@ if(BUILD_CLIENT)
         dlls/weapons/weapon_shotgun.cpp
         dlls/weapons/weapon_snark.cpp
         dlls/weapons/weapon_tripmine.cpp
+        dlls/gladder/weapons/weapon_knife.cpp
+        dlls/gladder/weapons/weapon_pipewrench.cpp
+        dlls/gladder/weapons/weapon_eagle.cpp
+        dlls/gladder/weapons/weapon_sniper.cpp
+        dlls/gladder/weapons/weapon_m249.cpp
     )
 
     # Shared common/vgui client sources
@@ -361,6 +366,9 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_scoring.cpp
         dlls/gladder/gladder_modifiers.cpp
         dlls/gladder/gladder_monster_modifiers.cpp
+        dlls/gladder/gladder_audio.cpp
+        dlls/gladder/gladder_items.cpp
+        cl_dll/gladder/gladder_visuals.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
         tests/gladder/test_grid_indexer.cpp
@@ -369,6 +377,9 @@ if(BUILD_TESTS)
         tests/gladder/test_scoring.cpp
         tests/gladder/test_modifiers.cpp
         tests/gladder/test_monster_modifiers.cpp
+        tests/gladder/test_items.cpp
+        tests/gladder/test_visuals.cpp
+        tests/gladder/test_weapons.cpp
         ${PM_SHARED_SOURCES}
     )
 

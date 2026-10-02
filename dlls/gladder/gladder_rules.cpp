@@ -9,6 +9,7 @@
 #include "gladder_entities.h"
 #include "gladder_breakable.h"
 #include "gladder_usermsg.h"
+#include "gladder_audio.h"
 #include "core/skill_manager.h"
 #include "items/item_base.h"
 #include "weapons/weapon_base.h"
@@ -71,8 +72,7 @@ CGladderRules::CGladderRules()
 	m_waveManager.InitializeMatch( flTime );
 
 	// Precache essential Gladder cues and spawner roster (monsters, weapons, pickups)
-	PRECACHE_SOUND( "debris/beamstart1.wav" );
-	PRECACHE_SOUND( "buttons/bell1.wav" );
+	GladderAudio::Precache();
 	m_spawner.Precache();
 
 	CGameRules::RefreshSkillData();
@@ -247,6 +247,7 @@ void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entv
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.EndMatch( flTime, false );
 	m_modifiers.RevertMutators();
+	GladderAudio::PlayCue( GLADDER_CUE_MATCH_END, pVictim );
 	CalculateFinalScore( false );
 
 	// Trigger Defeat Relays (event = 3)
@@ -307,10 +308,11 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		// Procedurally spawn wave threats, weapons & supplies across indexed spatial grid
 		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies() );
 
-		// Acoustic cue for wave start
-		if ( pActivator && pActivator->edict() )
+		// Acoustic cue for wave start & mutator alert
+		GladderAudio::PlayCue( GLADDER_CUE_WAVE_START, pActivator );
+		if ( m_modifiers.GetActiveMutator() != GLADDER_MUTATOR_NONE )
 		{
-			EMIT_SOUND( pActivator->edict(), CHAN_BODY, "debris/beamstart1.wav", 1.0f, ATTN_NORM );
+			GladderAudio::PlayCue( GLADDER_CUE_MUTATOR_WARNING, pActivator );
 		}
 
 		// Fire start relays (event = 0)
@@ -327,10 +329,7 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	m_waveManager.CompleteWave( flTime );
 
 	// Acoustic cue for triumphant wave completion
-	if ( pActivator && pActivator->edict() )
-	{
-		EMIT_SOUND( pActivator->edict(), CHAN_ITEM, "buttons/bell1.wav", 1.0f, ATTN_NORM );
-	}
+	GladderAudio::PlayCue( GLADDER_CUE_WAVE_COMPLETE, pActivator );
 
 	// Fire wave completion relays (event = 1)
 	Gladder_FireWaveRelays( 1, pActivator );
@@ -401,6 +400,11 @@ void CGladderRules::CalculateFinalScore( bool bSurvived )
 		m_flTotalDamageTaken,
 		bSurvived
 	);
+
+	if ( bSurvived )
+	{
+		GladderAudio::PlayCue( GLADDER_CUE_MATCH_END );
+	}
 
 	ALERT( at_console, "[Gladder] === MATCH SUMMARY ===\n" );
 	ALERT( at_console, "[Gladder] Status: %s\n", bSurvived ? "SURVIVED - TIME EXPIRED" : "KIA - FALLEN IN COMBAT" );

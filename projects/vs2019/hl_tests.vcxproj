@@ -177,6 +177,12 @@
     <ClCompile Include="..\..\tests\gladder\test_scoring.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_modifiers.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_monster_modifiers.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_audio.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_items.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_items.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_visuals.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_weapons.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

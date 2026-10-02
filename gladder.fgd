@@ -116,6 +116,25 @@
 //
 //=============================================================================
 
-@PointClass base(Targetname) color(255 180 0) = item_gladder_lambda : "Gladder: Collectible Lambda Insignia"
+@PointClass base(Targetname) studio("models/item_collectible.mdl") color(255 140 20) = item_gladder_lambda : "Gladder: Collectible Item (Lambda Insignia)"
 [
 ]
+
+@PointClass base(Targetname) studio("models/item_collectible.mdl") color(255 140 20) = item_gladder_collectible : "Gladder: Collectible Item (Alias)"
+[
+]
+
+//=============================================================================
+//
+// Opposing Force Extended Arsenal & Ammunition
+//
+//=============================================================================
+
+@PointClass base(Weapon, Targetx, RenderFields) studio("models/w_knife.mdl") = weapon_knife : "Combat Knife" []
+@PointClass base(Weapon, Targetx, RenderFields) studio("models/w_pipe_wrench.mdl") = weapon_pipewrench : "Pipe Wrench" []
+@PointClass base(Weapon, Targetx, RenderFields) studio("models/w_desert_eagle.mdl") = weapon_eagle : "Desert Eagle .357" []
+@PointClass base(Weapon, Targetx, RenderFields) studio("models/w_m40a1.mdl") = weapon_sniper : "M40A1 Sniper Rifle" []
+@PointClass base(Weapon, Targetx, RenderFields) studio("models/w_saw.mdl") = weapon_m249 : "M249 SAW" []
+
+@PointClass base(Targetx, RenderFields) studio("models/w_m40a1clip.mdl") = ammo_762 : "7.62mm Sniper Ammo Clip" []
+@PointClass base(Targetx, RenderFields) studio("models/w_saw_clip.mdl") = ammo_556 : "5.56mm SAW Ammo Box" []
