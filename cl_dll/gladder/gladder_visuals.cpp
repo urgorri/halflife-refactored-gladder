@@ -18,6 +18,11 @@
 #include "entity_types.h"
 #include "r_efx.h"
 #include "entities/entity_visual_registry.h"
+#else
+#include "common/mathlib.h"
+#include "common/const.h"
+#include "common/entity_state.h"
+#include "common/cl_entity.h"
 #endif
 
 EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
@@ -76,17 +81,13 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
 		return GLADDER_PICKUP_AMMO;
 	}
 
-	// Combat ordnance and deployed projectiles: strictly excluded from pickup visuals (SPEC §7.2, Issue #40)
-	// Hand grenades, satchel charges, snarks, and tripmines in tactical use must never float, bob, or glow.
-	if ( strstr( szLower, "w_grenade" ) ||
-	     strstr( szLower, "w_satchel" ) ||
-	     strstr( szLower, "w_squeak" ) ||
-	     strstr( szLower, "w_tripmine" ) )
+	// Live snarks running or jumping in combat: strictly excluded from pickup visuals (SPEC §7.2, Issue #40)
+	if ( strstr( szLower, "w_squeak" ) )
 	{
 		return GLADDER_PICKUP_NONE;
 	}
 
-	// Weapons — general catch for weapon models
+	// Weapons — general catch for weapon models, including dropped ordnance items
 	if ( strstr( szLower, "models/w_" ) ||
 	     strstr( szLower, "/w_" ) ||
 	     strstr( szLower, "w_crowbar" ) ||
@@ -95,12 +96,65 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
 	     strstr( szLower, "w_desert_eagle" ) ||
 	     strstr( szLower, "w_m40a1" ) ||
 	     strstr( szLower, "w_saw" ) ||
-	     strstr( szLower, "w_9mmar" ) )
+	     strstr( szLower, "w_9mmar" ) ||
+	     strstr( szLower, "w_grenade" ) ||
+	     strstr( szLower, "w_satchel" ) ||
+	     strstr( szLower, "w_sqknest" ) ||
+	     strstr( szLower, "tripmine" ) )
 	{
 		return GLADDER_PICKUP_WEAPON;
 	}
 
 	return GLADDER_PICKUP_NONE;
+}
+
+bool ShouldApplyPickupVisuals( const struct cl_entity_s *ent, const char *pszModelName )
+{
+	if ( !pszModelName || !*pszModelName )
+		return false;
+
+	EGladderPickupCategory cat = ClassifyPickupModel( pszModelName );
+	if ( cat == GLADDER_PICKUP_NONE )
+		return false;
+
+	if ( !ent )
+		return true;
+
+	// In-flight or active combat ordnance guard (SPEC §7.2, Issue #40):
+	// Thrown grenades, satchels, or jumping/running snarks have MOVETYPE_BOUNCE or MOVETYPE_STEP,
+	// planted tripmines or rockets have MOVETYPE_FLY, and active projectiles have owner > 0.
+	if ( ent->curstate.movetype == MOVETYPE_BOUNCE ||
+	     ent->curstate.movetype == MOVETYPE_FLY ||
+	     ent->curstate.movetype == MOVETYPE_STEP ||
+	     ent->curstate.owner > 0 )
+	{
+		return false;
+	}
+
+	// Dual-use models (grenades, satchels, tripmines) share assets between dropped collectible
+	// weapons and active/planted ordnance. In GoldSrc, dropped collectible items have
+	// solid == SOLID_TRIGGER, whereas deployed/thrown ordnance have SOLID_BBOX or SOLID_NOT.
+	char szLower[256];
+	size_t len = strlen( pszModelName );
+	if ( len >= sizeof( szLower ) )
+		len = sizeof( szLower ) - 1;
+	for ( size_t i = 0; i < len; ++i )
+	{
+		szLower[i] = (char)tolower( (unsigned char)pszModelName[i] );
+	}
+	szLower[len] = '\0';
+
+	if ( strstr( szLower, "w_grenade" ) ||
+	     strstr( szLower, "w_satchel" ) ||
+	     strstr( szLower, "tripmine" ) )
+	{
+		if ( ent->curstate.solid != SOLID_TRIGGER )
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 #ifdef CLIENT_DLL
@@ -109,13 +163,8 @@ void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char 
 	if ( !ent || !modelname )
 		return;
 
-	// In-flight or moving entity guard: don't modify active projectiles (SPEC §7.2, Issue #40)
-	if ( ent->curstate.movetype == MOVETYPE_BOUNCE ||
-	     ent->curstate.movetype == MOVETYPE_TOSS ||
-	     ent->curstate.movetype == MOVETYPE_FLY )
-	{
+	if ( !ShouldApplyPickupVisuals( ent, modelname ) )
 		return;
-	}
 
 	EGladderPickupCategory cat = ClassifyPickupModel( modelname );
 	if ( cat == GLADDER_PICKUP_NONE )

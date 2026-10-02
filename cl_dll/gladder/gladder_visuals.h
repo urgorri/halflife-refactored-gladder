@@ -24,7 +24,10 @@ enum EGladderPickupCategory
 // Returns the glow color category for a given model path, or GLADDER_PICKUP_NONE.
 EGladderPickupCategory ClassifyPickupModel( const char *pszModelName );
 
-struct cl_entity_s;
+// Checks whether an entity and model qualify for Gladder pickup visual effects (floating, bobbing, glow).
+// Excludes in-flight or active combat ordnance (thrown grenades, active satchels, planted tripmines,
+// and live snarks), while allowing collectible weapon pickups on the ground (SPEC §7.2, Issue #40).
+bool ShouldApplyPickupVisuals( const struct cl_entity_s *ent, const char *pszModelName );
 
 // Modifier function registered with EntityVisualRegistry
 void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char *modelname );
