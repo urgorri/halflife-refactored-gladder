@@ -8,7 +8,6 @@
 
 #include "gladder_spawner.h"
 #include "gladder_modifiers.h"
-#include "weapons/weapon_base.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -906,12 +905,6 @@ void GladderSpawner::PurgeWaveEntities()
 				{
 					continue;
 				}
-			}
-
-			CBasePlayerItem *pPlayerItem = dynamic_cast<CBasePlayerItem *>( pEnt );
-			if ( pPlayerItem && pPlayerItem->m_pPlayer != nullptr )
-			{
-				continue;
 			}
 
 			UTIL_Remove( pEnt );
