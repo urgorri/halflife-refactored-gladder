@@ -9,6 +9,7 @@
 #include "gladder_visuals.h"
 #include <cstring>
 #include <cmath>
+#include <cctype>
 
 #ifdef CLIENT_DLL
 #include "hud.h"
@@ -24,50 +25,67 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
 	if ( !pszModelName || !*pszModelName )
 		return GLADDER_PICKUP_NONE;
 
+	// Case-insensitive model name normalization
+	char szLower[256];
+	size_t len = strlen( pszModelName );
+	if ( len >= sizeof( szLower ) )
+		len = sizeof( szLower ) - 1;
+	for ( size_t i = 0; i < len; ++i )
+	{
+		szLower[i] = (char)tolower( (unsigned char)pszModelName[i] );
+	}
+	szLower[len] = '\0';
+
 	// Lambda / Collectible item
-	if ( strstr( pszModelName, "item_collectible" ) ||
-	     strstr( pszModelName, "gladder/lambda" ) ||
-	     strstr( pszModelName, "lambda.mdl" ) )
+	if ( strstr( szLower, "item_collectible" ) ||
+	     strstr( szLower, "gladder/lambda" ) ||
+	     strstr( szLower, "lambda.mdl" ) )
 	{
 		return GLADDER_PICKUP_LAMBDA;
 	}
 
 	// Health & Medical
-	if ( strstr( pszModelName, "w_medkit" ) ||
-	     strstr( pszModelName, "w_healthkit" ) )
+	if ( strstr( szLower, "w_medkit" ) ||
+	     strstr( szLower, "w_healthkit" ) )
 	{
 		return GLADDER_PICKUP_HEALTH;
 	}
 
 	// Armor / HEV Batteries
-	if ( strstr( pszModelName, "w_battery" ) )
+	if ( strstr( szLower, "w_battery" ) )
 	{
 		return GLADDER_PICKUP_HEV;
 	}
 
-	// Ammunition & magazines
-	if ( strstr( pszModelName, "w_9mmclip" ) ||
-	     strstr( pszModelName, "w_357ammo" ) ||
-	     strstr( pszModelName, "w_shotbox" ) ||
-	     strstr( pszModelName, "w_crossbow_clip" ) ||
-	     strstr( pszModelName, "w_rpgammo" ) ||
-	     strstr( pszModelName, "w_gaussammo" ) ||
-	     strstr( pszModelName, "w_saw_clip" ) ||
-	     strstr( pszModelName, "w_m40a1clip" ) ||
-	     strstr( pszModelName, "ammo_" ) )
+	// Ammunition & magazines (must be checked BEFORE weapons since models/w_9mmARclip starts with w_)
+	if ( strstr( szLower, "9mmarclip" ) ||
+	     strstr( szLower, "9mmclip" ) ||
+	     strstr( szLower, "9mmbox" ) ||
+	     strstr( szLower, "argrenade" ) ||
+	     strstr( szLower, "357ammo" ) ||
+	     strstr( szLower, "shotbox" ) ||
+	     strstr( szLower, "crossbow_clip" ) ||
+	     strstr( szLower, "rpgammo" ) ||
+	     strstr( szLower, "gaussammo" ) ||
+	     strstr( szLower, "saw_clip" ) ||
+	     strstr( szLower, "m40a1clip" ) ||
+	     strstr( szLower, "chainammo" ) ||
+	     strstr( szLower, "spore_ammo" ) ||
+	     strstr( szLower, "ammo_" ) )
 	{
 		return GLADDER_PICKUP_AMMO;
 	}
 
 	// Weapons — general catch for weapon models
-	if ( strstr( pszModelName, "models/w_" ) ||
-	     strstr( pszModelName, "/w_" ) ||
-	     strstr( pszModelName, "w_crowbar" ) ||
-	     strstr( pszModelName, "w_pipe_wrench" ) ||
-	     strstr( pszModelName, "w_knife" ) ||
-	     strstr( pszModelName, "w_desert_eagle" ) ||
-	     strstr( pszModelName, "w_m40a1" ) ||
-	     strstr( pszModelName, "w_saw" ) )
+	if ( strstr( szLower, "models/w_" ) ||
+	     strstr( szLower, "/w_" ) ||
+	     strstr( szLower, "w_crowbar" ) ||
+	     strstr( szLower, "w_pipe_wrench" ) ||
+	     strstr( szLower, "w_knife" ) ||
+	     strstr( szLower, "w_desert_eagle" ) ||
+	     strstr( szLower, "w_m40a1" ) ||
+	     strstr( szLower, "w_saw" ) ||
+	     strstr( szLower, "w_9mmar" ) )
 	{
 		return GLADDER_PICKUP_WEAPON;
 	}
@@ -87,12 +105,17 @@ void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char 
 
 	float clientTime = gEngfuncs.GetClientTime ? gEngfuncs.GetClientTime() : 0.0f;
 
-	// 1. Continuous vertical yaw rotation (90 deg/sec)
-	ent->angles[1] = fmodf( clientTime * 90.0f, 360.0f );
+	// 1. Continuous vertical yaw rotation (90 deg/sec) across all renderer representation fields
+	float flYaw = fmodf( clientTime * 90.0f, 360.0f );
+	ent->angles[1] = flYaw;
+	ent->curstate.angles[1] = flYaw;
+	ent->latched.prevangles[1] = flYaw;
 
-	// 2. Smooth vertical sine bobbing (~4 units amplitude)
-	float flSineOffset = sinf( clientTime * 3.0f ) * 4.0f;
+	// 2. Smooth vertical sine bobbing elevated by +16 units (SPEC §7.2, Issue #12)
+	// Base elevation of +16 units ensures items and weapons never clip or sink into the floor
+	float flSineOffset = 16.0f + sinf( clientTime * 3.0f ) * 4.0f;
 	ent->origin[2] += flSineOffset;
+	ent->curstate.origin[2] += flSineOffset;
 
 	// 3. Render glow shell color-coded by pickup category (SPEC §7.2)
 	unsigned char r = 255, g = 255, b = 255;

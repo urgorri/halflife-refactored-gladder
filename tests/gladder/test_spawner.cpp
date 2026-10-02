@@ -149,9 +149,9 @@ TEST_CASE( "Gladder Spawner: Wave generation across grid indexer & Lambda item (
 
 	const char *pickupsToRegister[] = {
 		"item_healthkit", "item_battery",
-		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_rpgclip",
-		"weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357",
-		"weapon_crossbow", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_762", "ammo_556", "ammo_rpgclip",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle",
+		"weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
 		"item_gladder_lambda"
 	};
 	for ( const char *szP : pickupsToRegister )
@@ -328,9 +328,9 @@ TEST_CASE( "Gladder Spawner: Cell occupancy and spatial clearance prevents dupli
 
 	const char *pickupsToRegister[] = {
 		"item_healthkit", "item_battery",
-		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_rpgclip",
-		"weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357",
-		"weapon_crossbow", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_762", "ammo_556", "ammo_rpgclip",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle",
+		"weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
 		"item_gladder_lambda"
 	};
 	for ( const char *szP : pickupsToRegister )
@@ -464,8 +464,8 @@ TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clea
 
 	const char *pickupsToRegister[] = {
 		"item_healthkit", "item_battery",
-		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_rpgclip",
-		"weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_crossbow", "weapon_rpg", "weapon_gauss", "weapon_egon"
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_762", "ammo_556", "ammo_rpgclip",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon"
 	};
 	for ( const char *szP : pickupsToRegister )
 		RegisterMockEntityFactory( szP, FactoryTestItem );

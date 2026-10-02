@@ -24,6 +24,10 @@ TEST_CASE( "GladderVisuals: ClassifyPickupModel categorization (SPEC §7.2)", "[
 	SECTION( "Ammunition & Magazines" )
 	{
 		CHECK( ClassifyPickupModel( "models/w_9mmclip.mdl" ) == GLADDER_PICKUP_AMMO );
+		CHECK( ClassifyPickupModel( "models/w_9mmARclip.mdl" ) == GLADDER_PICKUP_AMMO );
+		CHECK( ClassifyPickupModel( "models/w_9mmarclip.mdl" ) == GLADDER_PICKUP_AMMO );
+		CHECK( ClassifyPickupModel( "models/W_9MMARCLIP.MDL" ) == GLADDER_PICKUP_AMMO );
+		CHECK( ClassifyPickupModel( "models/w_argrenade.mdl" ) == GLADDER_PICKUP_AMMO );
 		CHECK( ClassifyPickupModel( "models/w_357ammo.mdl" ) == GLADDER_PICKUP_AMMO );
 		CHECK( ClassifyPickupModel( "models/w_shotbox.mdl" ) == GLADDER_PICKUP_AMMO );
 		CHECK( ClassifyPickupModel( "models/w_crossbow_clip.mdl" ) == GLADDER_PICKUP_AMMO );
@@ -44,6 +48,7 @@ TEST_CASE( "GladderVisuals: ClassifyPickupModel categorization (SPEC §7.2)", "[
 	SECTION( "Weapons Arsenal" )
 	{
 		CHECK( ClassifyPickupModel( "models/w_crowbar.mdl" ) == GLADDER_PICKUP_WEAPON );
+		CHECK( ClassifyPickupModel( "models/w_9mmAR.mdl" ) == GLADDER_PICKUP_WEAPON );
 		CHECK( ClassifyPickupModel( "models/w_shotgun.mdl" ) == GLADDER_PICKUP_WEAPON );
 		CHECK( ClassifyPickupModel( "models/w_knife.mdl" ) == GLADDER_PICKUP_WEAPON );
 		CHECK( ClassifyPickupModel( "models/w_pipe_wrench.mdl" ) == GLADDER_PICKUP_WEAPON );

@@ -30,8 +30,9 @@ void CGladderItemLambda::Spawn( void )
 	Precache();
 	SET_MODEL( ENT( pev ), "models/item_collectible.mdl" );
 
-	pev->movetype = MOVETYPE_NONE;
+	pev->movetype = MOVETYPE_FLY;
 	pev->solid = SOLID_TRIGGER;
+	pev->avelocity = Vector( 0, 90.0f, 0 );
 
 	// Vibrant orange glow shell presentation (SPEC §7.3)
 	pev->rendermode = kRenderNormal;
