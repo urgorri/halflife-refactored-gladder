@@ -113,6 +113,11 @@ class GladderGridIndexer
 	bool m_bLoaded;
 };
 
+// Returns true if a position penetrates static world architecture (CONTENTS_SOLID)
+// or is inside any active solid brush entity (func_wall, func_monsterclip, func_door, etc.)
+// (SPEC §4.3, Issue #37)
+bool GladderIsPositionSolidOrBrush( const Vector &vecPos );
+
 // Console command handler for "gladder_reindex_grid"
 void Gladder_ReindexGrid_Cmd( void );
 

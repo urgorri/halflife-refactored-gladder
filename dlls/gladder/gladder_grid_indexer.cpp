@@ -312,16 +312,47 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 	return m_bLoaded;
 }
 
+bool GladderIsPositionSolidOrBrush( const Vector &vecPos )
+{
+	// 1. Static world architecture check (BSP model *0)
+	if ( POINT_CONTENTS( vecPos ) == CONTENTS_SOLID )
+		return true;
+
+	// 2. Solid brush entities check (func_wall, func_monsterclip, func_door, etc.)
+	if ( !gpGlobals )
+		return false;
+
+	int maxEdicts = ( gpGlobals->maxEntities > 0 ) ? gpGlobals->maxEntities : 512;
+	for ( int i = 1; i < maxEdicts; ++i )
+	{
+		edict_t *pEdict = INDEXENT( i );
+		if ( FNullEnt( pEdict ) || pEdict->free )
+			continue;
+
+		if ( pEdict->v.solid != SOLID_BSP )
+			continue;
+
+		if ( vecPos.x >= pEdict->v.absmin.x && vecPos.x <= pEdict->v.absmax.x &&
+		     vecPos.y >= pEdict->v.absmin.y && vecPos.y <= pEdict->v.absmax.y &&
+		     vecPos.z >= pEdict->v.absmin.z && vecPos.z <= pEdict->v.absmax.z )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float zBottom, int32_t areaId, GladderGridCell &outCell )
 {
-	// 1. Descend from zTop if initial coordinate penetrates solid ceiling architecture
+	// 1. Descend from zTop if initial coordinate penetrates solid ceiling architecture or solid brush
 	Vector vecStart = Vector( x, y, zTop - 1.0f );
-	while ( vecStart.z > zBottom + 36.0f && POINT_CONTENTS( vecStart ) == CONTENTS_SOLID )
+	while ( vecStart.z > zBottom + 36.0f && GladderIsPositionSolidOrBrush( vecStart ) )
 	{
 		vecStart.z -= 16.0f;
 	}
 
-	if ( vecStart.z <= zBottom + 36.0f || POINT_CONTENTS( vecStart ) == CONTENTS_SOLID )
+	if ( vecStart.z <= zBottom + 36.0f || GladderIsPositionSolidOrBrush( vecStart ) )
 		return false; // Entire vertical column is solid architecture (pillar/wall)
 
 	Vector vecEnd = Vector( x, y, zBottom - 32.0f );
@@ -356,7 +387,7 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	Vector vecSurface = tr.vecEndPos;
 
 	// Check if surface point is erroneously inside solid brush
-	if ( POINT_CONTENTS( vecSurface + Vector( 0.0f, 0.0f, 4.0f ) ) == CONTENTS_SOLID )
+	if ( GladderIsPositionSolidOrBrush( vecSurface + Vector( 0.0f, 0.0f, 4.0f ) ) )
 		return false;
 
 	// Trace upward to locate overhead ceiling geometry (SPEC §4.3 & §4.4)
@@ -373,7 +404,6 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	// Standing hull obstruction sweep (GoldSrc human_hull: 32x32x72)
 	// In GoldSrc, human_hull origin is centered at entity waist: mins(-16,-16,-36), maxs(16,16,36).
 	// To position feet resting on the walkable surface, the hull origin must be at vecSurface.z + 37.0f.
-	// Using FALSE (dont_ignore_monsters) so breakables, walls, and solid entities block invalid cells!
 	Vector vecHullPos = vecSurface + Vector( 0.0f, 0.0f, 37.0f );
 	TraceResult trHull;
 	TRACE_HULL( vecHullPos, vecHullPos, FALSE, human_hull, NULL, &trHull );
@@ -381,41 +411,14 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction < 1.0f )
 		return false;
 
-	if ( trHull.pHit && trHull.pHit != INDEXENT( 0 ) )
-	{
-		if ( trHull.pHit->v.solid == SOLID_BSP || trHull.pHit->v.solid == SOLID_BBOX )
-			return false;
-	}
-
 	// Lateral wall clearance verification at waist level (ensure entity hull doesn't penetrate adjacent walls or solid brush entities)
 	Vector vecWaist = vecSurface + Vector( 0.0f, 0.0f, 36.0f );
-	static const Vector s_lateralOffsets[4] = {
-		Vector( 16.0f, 0.0f, 0.0f ),
-		Vector( -16.0f, 0.0f, 0.0f ),
-		Vector( 0.0f, 16.0f, 0.0f ),
-		Vector( 0.0f, -16.0f, 0.0f )
-	};
-
-	for ( int i = 0; i < 4; ++i )
+	if ( GladderIsPositionSolidOrBrush( vecWaist + Vector( 16.0f, 0.0f, 0.0f ) ) ||
+	     GladderIsPositionSolidOrBrush( vecWaist - Vector( 16.0f, 0.0f, 0.0f ) ) ||
+	     GladderIsPositionSolidOrBrush( vecWaist + Vector( 0.0f, 16.0f, 0.0f ) ) ||
+	     GladderIsPositionSolidOrBrush( vecWaist - Vector( 0.0f, 16.0f, 0.0f ) ) )
 	{
-		Vector vecTarget = vecWaist + s_lateralOffsets[i];
-		if ( POINT_CONTENTS( vecTarget ) == CONTENTS_SOLID )
-			return false;
-
-		TraceResult trLateral;
-		TRACE_LINE( vecWaist, vecTarget, FALSE, NULL, &trLateral );
-		if ( trLateral.fStartSolid || trLateral.fAllSolid || trLateral.flFraction < 1.0f )
-		{
-			if ( !trLateral.pHit || trLateral.pHit == INDEXENT( 0 ) ||
-			     trLateral.pHit->v.solid == SOLID_BSP || trLateral.pHit->v.solid == SOLID_BBOX )
-			{
-				return false;
-			}
-		}
-		if ( trLateral.pHit && ( trLateral.pHit->v.solid == SOLID_BSP || trLateral.pHit->v.solid == SOLID_BBOX ) )
-		{
-			return false;
-		}
+		return false;
 	}
 
 	// Populate valid candidate cell
@@ -430,45 +433,12 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	// Also test large hull (64x64x72) clearance for large monsters (Bullsquid, Alien Grunt)
 	TraceResult trLargeHull;
 	TRACE_HULL( vecHullPos, vecHullPos, FALSE, large_hull, NULL, &trLargeHull );
-	if ( !trLargeHull.fStartSolid && !trLargeHull.fAllSolid && trLargeHull.flFraction >= 1.0f &&
-	     ( !trLargeHull.pHit || ( trLargeHull.pHit->v.solid != SOLID_BSP && trLargeHull.pHit->v.solid != SOLID_BBOX ) ) )
+	if ( !trLargeHull.fStartSolid && !trLargeHull.fAllSolid && trLargeHull.flFraction >= 1.0f )
 	{
-		static const Vector s_largeOffsets[4] = {
-			Vector( 32.0f, 0.0f, 0.0f ),
-			Vector( -32.0f, 0.0f, 0.0f ),
-			Vector( 0.0f, 32.0f, 0.0f ),
-			Vector( 0.0f, -32.0f, 0.0f )
-		};
-
-		bool bLargeClear = true;
-		for ( int i = 0; i < 4; ++i )
-		{
-			Vector vecLargeTarget = vecWaist + s_largeOffsets[i];
-			if ( POINT_CONTENTS( vecLargeTarget ) == CONTENTS_SOLID )
-			{
-				bLargeClear = false;
-				break;
-			}
-
-			TraceResult trLargeLateral;
-			TRACE_LINE( vecWaist, vecLargeTarget, FALSE, NULL, &trLargeLateral );
-			if ( trLargeLateral.fStartSolid || trLargeLateral.fAllSolid || trLargeLateral.flFraction < 1.0f )
-			{
-				if ( !trLargeLateral.pHit || trLargeLateral.pHit == INDEXENT( 0 ) ||
-				     trLargeLateral.pHit->v.solid == SOLID_BSP || trLargeLateral.pHit->v.solid == SOLID_BBOX )
-				{
-					bLargeClear = false;
-					break;
-				}
-			}
-			if ( trLargeLateral.pHit && ( trLargeLateral.pHit->v.solid == SOLID_BSP || trLargeLateral.pHit->v.solid == SOLID_BBOX ) )
-			{
-				bLargeClear = false;
-				break;
-			}
-		}
-
-		if ( bLargeClear )
+		if ( !GladderIsPositionSolidOrBrush( vecWaist + Vector( 32.0f, 0.0f, 0.0f ) ) &&
+		     !GladderIsPositionSolidOrBrush( vecWaist - Vector( 32.0f, 0.0f, 0.0f ) ) &&
+		     !GladderIsPositionSolidOrBrush( vecWaist + Vector( 0.0f, 32.0f, 0.0f ) ) &&
+		     !GladderIsPositionSolidOrBrush( vecWaist - Vector( 0.0f, 32.0f, 0.0f ) ) )
 		{
 			outCell.flags |= GLADDER_CELL_LARGE_CLEARANCE;
 		}

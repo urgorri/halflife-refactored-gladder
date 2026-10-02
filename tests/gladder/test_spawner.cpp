@@ -603,47 +603,36 @@ TEST_CASE( "Gladder Spawner: Solid brush entities (func_wall, func_monsterclip) 
 
 	SECTION( "Cell with solid brush entity (func_wall, SOLID_BSP) in lateral clearance is rejected" )
 	{
-		auto originalTraceLine = g_engfuncs.pfnTraceLine;
-		g_engfuncs.pfnTraceLine = []( const float *v1, const float *v2, int fNoMonsters, edict_t *pentToSkip, TraceResult *ptr ) {
-			if ( ptr ) {
-				ptr->fStartSolid = 0;
-				ptr->fAllSolid = 0;
-				ptr->flFraction = 0.5f; // Blocked at distance < 16
-				static edict_t edWall;
-				std::memset( &edWall, 0, sizeof( edWall ) );
-				edWall.v.solid = SOLID_BSP;
-				ptr->pHit = &edWall;
-			}
-		};
+		edict_t *pWall = INDEXENT( 1 );
+		REQUIRE( pWall != nullptr );
+		pWall->free = 0;
+		pWall->v.solid  = SOLID_BSP;
+		// Spawn coordinate is (100, 100, 0), waist is at (100, 100, 36), lateral offset +16 is (116, 100, 36)
+		pWall->v.absmin = Vector( 110.0f, 90.0f, 20.0f );
+		pWall->v.absmax = Vector( 130.0f, 110.0f, 50.0f );
 
 		GladderSpawner spawner;
 		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
 		CHECK( spawner.GetLastSpawnedMonsterCount() == 0 );
 
-		g_engfuncs.pfnTraceLine = originalTraceLine;
+		std::memset( pWall, 0, sizeof( edict_t ) );
 	}
 
 	SECTION( "Cell with func_monsterclip in lateral clearance is rejected" )
 	{
-		auto originalTraceLine = g_engfuncs.pfnTraceLine;
-		g_engfuncs.pfnTraceLine = []( const float *v1, const float *v2, int fNoMonsters, edict_t *pentToSkip, TraceResult *ptr ) {
-			if ( ptr ) {
-				ptr->fStartSolid = 0;
-				ptr->fAllSolid = 0;
-				ptr->flFraction = 0.5f;
-				static edict_t edClip;
-				std::memset( &edClip, 0, sizeof( edClip ) );
-				edClip.v.classname = MAKE_STRING( "func_monsterclip" );
-				edClip.v.solid = SOLID_BSP;
-				ptr->pHit = &edClip;
-			}
-		};
+		edict_t *pClip = INDEXENT( 1 );
+		REQUIRE( pClip != nullptr );
+		pClip->free = 0;
+		pClip->v.classname = MAKE_STRING( "func_monsterclip" );
+		pClip->v.solid     = SOLID_BSP;
+		pClip->v.absmin    = Vector( 110.0f, 90.0f, 20.0f );
+		pClip->v.absmax    = Vector( 130.0f, 110.0f, 50.0f );
 
 		GladderSpawner spawner;
 		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
 		CHECK( spawner.GetLastSpawnedMonsterCount() == 0 );
 
-		g_engfuncs.pfnTraceLine = originalTraceLine;
+		std::memset( pClip, 0, sizeof( edict_t ) );
 	}
 
 	ClearMockEntityFactories();

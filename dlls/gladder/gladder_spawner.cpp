@@ -727,54 +727,15 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			{
 				continue;
 			}
-			if ( trHull.pHit && trHull.pHit != INDEXENT( 0 ) )
-			{
-				if ( trHull.pHit->v.solid == SOLID_BSP || trHull.pHit->v.solid == SOLID_BBOX )
-				{
-					continue;
-				}
-			}
 
 			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37)
 			if ( !isBarnacle && !isFlying )
 			{
 				float flRadius = isLarge ? 32.0f : 16.0f;
-				static const Vector s_lateralOffsets[4] = {
-					Vector( 1.0f, 0.0f, 0.0f ),
-					Vector( -1.0f, 0.0f, 0.0f ),
-					Vector( 0.0f, 1.0f, 0.0f ),
-					Vector( 0.0f, -1.0f, 0.0f )
-				};
-
-				bool bLateralBlocked = false;
-				for ( int l = 0; l < 4; ++l )
-				{
-					Vector vecLateralTarget = vecHullCheck + s_lateralOffsets[l] * flRadius;
-					if ( POINT_CONTENTS( vecLateralTarget ) == CONTENTS_SOLID )
-					{
-						bLateralBlocked = true;
-						break;
-					}
-
-					TraceResult trLateral;
-					TRACE_LINE( vecHullCheck, vecLateralTarget, FALSE, NULL, &trLateral );
-					if ( trLateral.fStartSolid || trLateral.fAllSolid || trLateral.flFraction < 1.0f )
-					{
-						if ( !trLateral.pHit || trLateral.pHit == INDEXENT( 0 ) ||
-						     trLateral.pHit->v.solid == SOLID_BSP || trLateral.pHit->v.solid == SOLID_BBOX )
-						{
-							bLateralBlocked = true;
-							break;
-						}
-					}
-					if ( trLateral.pHit && ( trLateral.pHit->v.solid == SOLID_BSP || trLateral.pHit->v.solid == SOLID_BBOX ) )
-					{
-						bLateralBlocked = true;
-						break;
-					}
-				}
-
-				if ( bLateralBlocked )
+				if ( GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) )
 				{
 					continue;
 				}
