@@ -314,13 +314,13 @@ float GladderSpawner::GetWeaponTierWeight( int tier, int iWaveNumber )
 	switch ( tier )
 	{
 		case 1:
-			return (std::max)( 10.0f, 80.0f - ( w - 1.0f ) * 8.0f );
+			return (std::max)( 4.0f, 20.0f - ( w - 1.0f ) * 2.0f );
 		case 2:
-			return ( w < 2.0f ) ? 10.0f : (std::min)( 40.0f, 15.0f + ( w - 2.0f ) * 5.0f );
+			return ( w < 2.0f ) ? 3.0f : (std::min)( 15.0f, 5.0f + ( w - 2.0f ) * 2.0f );
 		case 3:
-			return ( w < 4.0f ) ? 0.0f : (std::min)( 40.0f, ( w - 3.0f ) * 6.0f );
+			return ( w < 4.0f ) ? 0.0f : (std::min)( 15.0f, ( w - 3.0f ) * 2.5f );
 		default:
-			return 10.0f;
+			return 5.0f;
 	}
 }
 
@@ -460,9 +460,9 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 		if ( def.isWeapon )
 			categoryW = GetWeaponTierWeight( def.tier, iWaveNumber );
 		else if ( def.isHealthArmor )
-			categoryW = 35.0f;
+			categoryW = 70.0f;
 		else if ( def.isAmmo )
-			categoryW = 45.0f;
+			categoryW = 65.0f;
 
 		float effectiveW = categoryW * def.relativeWeight;
 		if ( effectiveW > 0.0f )
@@ -728,14 +728,14 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 				continue;
 			}
 
-			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls
+			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37)
 			if ( !isBarnacle && !isFlying )
 			{
 				float flRadius = isLarge ? 32.0f : 16.0f;
-				if ( POINT_CONTENTS( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
-				     POINT_CONTENTS( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) == CONTENTS_SOLID ||
-				     POINT_CONTENTS( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) == CONTENTS_SOLID ||
-				     POINT_CONTENTS( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) == CONTENTS_SOLID )
+				if ( GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) )
 				{
 					continue;
 				}

@@ -31,6 +31,7 @@ class GladderModifiers
 	// Champion stats scaling constants
 	static constexpr float CHAMPION_HEALTH_MULTIPLIER = 2.5f;
 	static constexpr float CHAMPION_FRAMERATE_SCALE   = 1.25f;
+	static constexpr float CHAMPION_GLOW_RENDERAMT   = 16.0f;
 
 	// Minimum capacity floors for wall stations
 	static constexpr float MIN_HEALTH_CHARGER_CAPACITY = 20.0f;

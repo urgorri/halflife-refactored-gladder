@@ -200,6 +200,7 @@ TEST_CASE( "Gladder Grid Indexer: Spatial queries & area filtering", "[gladder][
 static TraceResult s_mockDownwardTrace;
 static TraceResult s_mockCeilingTrace;
 static TraceResult s_mockHullTrace;
+static TraceResult s_mockLateralTrace;
 static int s_traceLineCallCount = 0;
 
 static void CustomTraceLine( const float *v1, const float *v2, int fNoMonsters, edict_t *pentToSkip, TraceResult *ptr )
@@ -207,7 +208,7 @@ static void CustomTraceLine( const float *v1, const float *v2, int fNoMonsters, 
 	s_traceLineCallCount++;
 	if ( ptr )
 	{
-		// Downward trace (v1.z > v2.z) vs Upward ceiling trace (v2.z > v1.z)
+		// Downward trace (v1.z > v2.z) vs Upward ceiling trace (v2.z > v1.z) vs Lateral trace (v1.z == v2.z)
 		if ( v1[2] > v2[2] )
 		{
 			*ptr = s_mockDownwardTrace;
@@ -215,12 +216,19 @@ static void CustomTraceLine( const float *v1, const float *v2, int fNoMonsters, 
 			ptr->vecEndPos[1] = v2[1];
 			ptr->vecEndPos[2] = s_mockDownwardTrace.vecEndPos[2];
 		}
-		else
+		else if ( v2[2] > v1[2] )
 		{
 			*ptr = s_mockCeilingTrace;
 			ptr->vecEndPos[0] = v2[0];
 			ptr->vecEndPos[1] = v2[1];
 			ptr->vecEndPos[2] = s_mockCeilingTrace.vecEndPos[2];
+		}
+		else
+		{
+			*ptr = s_mockLateralTrace;
+			ptr->vecEndPos[0] = v2[0];
+			ptr->vecEndPos[1] = v2[1];
+			ptr->vecEndPos[2] = v2[2];
 		}
 	}
 }
@@ -242,6 +250,9 @@ TEST_CASE( "Gladder Grid Indexer: TraceCellCandidate raycasting verification", "
 	auto originalTraceHull = g_engfuncs.pfnTraceHull;
 	g_engfuncs.pfnTraceLine = CustomTraceLine;
 	g_engfuncs.pfnTraceHull = CustomTraceHull;
+
+	std::memset( &s_mockLateralTrace, 0, sizeof( s_mockLateralTrace ) );
+	s_mockLateralTrace.flFraction = 1.0f;
 
 	GladderGridIndexer indexer;
 	GladderGridCell outCell;
@@ -265,6 +276,9 @@ TEST_CASE( "Gladder Grid Indexer: TraceCellCandidate raycasting verification", "
 		s_mockHullTrace.flFraction          = 1.0f;
 		s_mockHullTrace.fStartSolid         = 0;
 		s_mockHullTrace.fAllSolid           = 0;
+
+		std::memset( &s_mockLateralTrace, 0, sizeof( s_mockLateralTrace ) );
+		s_mockLateralTrace.flFraction       = 1.0f;
 
 		bool ok = indexer.TraceCellCandidate( 100.0f, 200.0f, 500.0f, -100.0f, 42, outCell );
 		REQUIRE( ok == true );
@@ -357,6 +371,132 @@ TEST_CASE( "Gladder Grid Indexer: TraceCellCandidate raycasting verification", "
 		CHECK( outCell.origin.z == Catch::Approx( 51.0f ) );
 
 		g_engfuncs.pfnPointContents = originalPointContents;
+	}
+
+	SECTION( "Downward trace landing on func_monsterclip is rejected (SPEC §4.3, Issue #37)" )
+	{
+		edict_t edMonsterClip;
+		std::memset( &edMonsterClip, 0, sizeof( edMonsterClip ) );
+		edMonsterClip.v.classname = MAKE_STRING( "func_monsterclip" );
+		edMonsterClip.v.solid     = SOLID_BSP;
+
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction     = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos      = Vector( 100.0f, 200.0f, 50.0f );
+		s_mockDownwardTrace.pHit           = &edMonsterClip;
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction      = 0.5f;
+		s_mockCeilingTrace.vecEndPos       = Vector( 100.0f, 200.0f, 300.0f );
+
+		std::memset( &s_mockHullTrace, 0, sizeof( s_mockHullTrace ) );
+		s_mockHullTrace.flFraction         = 1.0f;
+
+		std::memset( &s_mockLateralTrace, 0, sizeof( s_mockLateralTrace ) );
+		s_mockLateralTrace.flFraction      = 1.0f;
+
+		bool ok = indexer.TraceCellCandidate( 100.0f, 200.0f, 500.0f, -100.0f, 0, outCell );
+		CHECK( ok == false );
+	}
+
+	SECTION( "Standing hull collision with solid obstacle (fStartSolid = 1) is rejected (SPEC §4.3, Issue #37)" )
+	{
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction     = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos      = Vector( 100.0f, 200.0f, 50.0f );
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction      = 0.5f;
+		s_mockCeilingTrace.vecEndPos       = Vector( 100.0f, 200.0f, 300.0f );
+
+		std::memset( &s_mockHullTrace, 0, sizeof( s_mockHullTrace ) );
+		s_mockHullTrace.fStartSolid        = 1;
+		s_mockHullTrace.flFraction         = 0.5f; // Obstructed by wall or obstacle
+
+		bool ok = indexer.TraceCellCandidate( 100.0f, 200.0f, 500.0f, -100.0f, 0, outCell );
+		CHECK( ok == false );
+	}
+
+	SECTION( "Lateral clearance blocked by solid brush entity (func_wall, SOLID_BSP) is rejected (SPEC §4.3, Issue #37)" )
+	{
+		// Place a func_wall at index 1 enclosing vecWaist + (16, 0, 0) = (116, 200, 86)
+		edict_t *pWall = INDEXENT( 1 );
+		REQUIRE( pWall != nullptr );
+		pWall->free = 0;
+		pWall->v.solid  = SOLID_BSP;
+		pWall->v.absmin = Vector( 115.0f, 190.0f, 70.0f );
+		pWall->v.absmax = Vector( 130.0f, 210.0f, 100.0f );
+
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction     = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos      = Vector( 100.0f, 200.0f, 50.0f );
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction      = 0.5f;
+		s_mockCeilingTrace.vecEndPos       = Vector( 100.0f, 200.0f, 300.0f );
+
+		std::memset( &s_mockHullTrace, 0, sizeof( s_mockHullTrace ) );
+		s_mockHullTrace.flFraction         = 1.0f;
+
+		bool ok = indexer.TraceCellCandidate( 100.0f, 200.0f, 500.0f, -100.0f, 0, outCell );
+		CHECK( ok == false );
+
+		std::memset( pWall, 0, sizeof( edict_t ) );
+	}
+
+	SECTION( "Lateral clearance blocked by func_monsterclip is rejected (SPEC §4.3, Issue #37)" )
+	{
+		// Place a func_monsterclip at index 1 enclosing vecWaist + (16, 0, 0)
+		edict_t *pClip = INDEXENT( 1 );
+		REQUIRE( pClip != nullptr );
+		pClip->free = 0;
+		pClip->v.classname = MAKE_STRING( "func_monsterclip" );
+		pClip->v.solid     = SOLID_BSP;
+		pClip->v.absmin    = Vector( 115.0f, 190.0f, 70.0f );
+		pClip->v.absmax    = Vector( 130.0f, 210.0f, 100.0f );
+
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction     = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos      = Vector( 100.0f, 200.0f, 50.0f );
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction      = 0.5f;
+		s_mockCeilingTrace.vecEndPos       = Vector( 100.0f, 200.0f, 300.0f );
+
+		std::memset( &s_mockHullTrace, 0, sizeof( s_mockHullTrace ) );
+		s_mockHullTrace.flFraction         = 1.0f;
+
+		bool ok = indexer.TraceCellCandidate( 100.0f, 200.0f, 500.0f, -100.0f, 0, outCell );
+		CHECK( ok == false );
+
+		std::memset( pClip, 0, sizeof( edict_t ) );
+	}
+
+	SECTION( "GladderIsPositionSolidOrBrush discriminates solid architecture and brush entities" )
+	{
+		Vector testPos( 120.0f, 200.0f, 85.0f );
+		CHECK( GladderIsPositionSolidOrBrush( testPos ) == false );
+
+		// Inside SOLID_BSP entity
+		edict_t *pWall = INDEXENT( 1 );
+		REQUIRE( pWall != nullptr );
+		pWall->free = 0;
+		pWall->v.solid  = SOLID_BSP;
+		pWall->v.absmin = Vector( 115.0f, 190.0f, 70.0f );
+		pWall->v.absmax = Vector( 130.0f, 210.0f, 100.0f );
+
+		CHECK( GladderIsPositionSolidOrBrush( testPos ) == true );
+		CHECK( GladderIsPositionSolidOrBrush( Vector( 200.0f, 200.0f, 85.0f ) ) == false ); // Outside bounds
+
+		// Non-solid entity (SOLID_NOT) is not blocking
+		pWall->v.solid = SOLID_NOT;
+		CHECK( GladderIsPositionSolidOrBrush( testPos ) == false );
+
+		std::memset( pWall, 0, sizeof( edict_t ) );
 	}
 
 	// Restore original engine callbacks

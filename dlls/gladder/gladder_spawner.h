@@ -114,6 +114,10 @@ class GladderSpawner
 	// Entity properties query
 	static bool IsLargeMonster( const char *szClassname );
 
+	// Procedural rolling helpers (SPEC §3, Issue #39)
+	static const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
+	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config );
+
   private:
 	std::vector<EHANDLE> m_spawnedEntities;
 	std::vector<Vector> m_spawnedMonsterPositions;
@@ -126,9 +130,6 @@ class GladderSpawner
 	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );
 	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
 	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
-
-	const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
-	const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config );
 };
 
 #endif // GLADDER_SPAWNER_H

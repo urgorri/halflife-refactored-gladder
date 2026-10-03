@@ -64,9 +64,9 @@ TEST_CASE( "Gladder Spawner: Dynamic monster tier probability curves (SPEC §3)"
 	CHECK( GladderSpawner::GetMonsterTierWeight( 4, 15 ) == Catch::Approx( 35.0f ) );
 
 	// Check Weapon Tier Weight progression
-	CHECK( GladderSpawner::GetWeaponTierWeight( 1, 1 ) == Catch::Approx( 80.0f ) );
+	CHECK( GladderSpawner::GetWeaponTierWeight( 1, 1 ) == Catch::Approx( 20.0f ) );
 	CHECK( GladderSpawner::GetWeaponTierWeight( 3, 1 ) == Catch::Approx( 0.0f ) );
-	CHECK( GladderSpawner::GetWeaponTierWeight( 3, 10 ) == Catch::Approx( 40.0f ) );
+	CHECK( GladderSpawner::GetWeaponTierWeight( 3, 10 ) == Catch::Approx( 15.0f ) );
 }
 
 TEST_CASE( "Gladder Map Config: Whitelist, blacklist & file parsing (SPEC §5)", "[gladder][spawner]" )
@@ -527,6 +527,112 @@ TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clea
 			float dist2D = ( itemPos - monsterPos ).Length2D();
 			CHECK( dist2D >= 48.0f );
 		}
+	}
+
+	ClearMockEntityFactories();
+}
+
+TEST_CASE( "Gladder Spawner: Rebalanced pickup spawn distribution favors ammo (SPEC §3, Issue #39)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+	GladderMapConfig config;
+
+	// Simulate 1,000 rolls across wave 1 to 10
+	int ammoCount = 0;
+	int weaponCount = 0;
+	int healthArmorCount = 0;
+	const int kTotalRolls = 1000;
+
+	for ( int i = 0; i < kTotalRolls; ++i )
+	{
+		int wave = 1 + ( i % 10 );
+		const char *item = GladderSpawner::RollPickupItem( wave, config );
+		REQUIRE( item != nullptr );
+
+		if ( strncmp( item, "ammo_", 5 ) == 0 )
+			ammoCount++;
+		else if ( strncmp( item, "weapon_", 7 ) == 0 )
+			weaponCount++;
+		else if ( strcmp( item, "item_healthkit" ) == 0 || strcmp( item, "item_battery" ) == 0 )
+			healthArmorCount++;
+	}
+
+	float ammoPct = ( static_cast<float>( ammoCount ) / kTotalRolls ) * 100.0f;
+	float weaponPct = ( static_cast<float>( weaponCount ) / kTotalRolls ) * 100.0f;
+	float healthArmorPct = ( static_cast<float>( healthArmorCount ) / kTotalRolls ) * 100.0f;
+
+	// Verify required distributions (SPEC §3, Issue #39):
+	// - Ammo frequency > 55%
+	// - Weapon frequency < 20%
+	// - Health/Armor frequency ~ 20-25%
+	CHECK( ammoPct > 55.0f );
+	CHECK( weaponPct < 20.0f );
+	CHECK( healthArmorPct >= 18.0f );
+	CHECK( healthArmorPct <= 28.0f );
+}
+
+TEST_CASE( "Gladder Spawner: Solid brush entities (func_wall, func_monsterclip) enforce cell rejection (SPEC §4.3, Issue #37)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
+
+	GladderGridIndexer indexer;
+	GladderGridCell c;
+	c.origin   = Vector( 100.0f, 100.0f, 0.0f );
+	c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+	c.areaId   = 1;
+	c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	c.ceilingZ = 120.0f;
+	indexer.AddCell( c );
+
+	GladderMapConfig config;
+	config.monsterWhitelist.push_back( "monster_headcrab" );
+	config.baseMonsters    = 1;
+	config.monstersPerWave = 0.0f;
+	config.basePickups     = 0;
+	config.pickupsPerWave  = 0.0f;
+
+	SECTION( "Cell with clear lateral clearance spawns successfully" )
+	{
+		GladderSpawner spawner;
+		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+		CHECK( spawner.GetLastSpawnedMonsterCount() == 1 );
+		CHECK( totalSpawned >= 1 );
+	}
+
+	SECTION( "Cell with solid brush entity (func_wall, SOLID_BSP) in lateral clearance is rejected" )
+	{
+		edict_t *pWall = INDEXENT( 1 );
+		REQUIRE( pWall != nullptr );
+		pWall->free = 0;
+		pWall->v.solid  = SOLID_BSP;
+		// Spawn coordinate is (100, 100, 0), waist is at (100, 100, 36), lateral offset +16 is (116, 100, 36)
+		pWall->v.absmin = Vector( 110.0f, 90.0f, 20.0f );
+		pWall->v.absmax = Vector( 130.0f, 110.0f, 50.0f );
+
+		GladderSpawner spawner;
+		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+		CHECK( spawner.GetLastSpawnedMonsterCount() == 0 );
+
+		std::memset( pWall, 0, sizeof( edict_t ) );
+	}
+
+	SECTION( "Cell with func_monsterclip in lateral clearance is rejected" )
+	{
+		edict_t *pClip = INDEXENT( 1 );
+		REQUIRE( pClip != nullptr );
+		pClip->free = 0;
+		pClip->v.classname = MAKE_STRING( "func_monsterclip" );
+		pClip->v.solid     = SOLID_BSP;
+		pClip->v.absmin    = Vector( 110.0f, 90.0f, 20.0f );
+		pClip->v.absmax    = Vector( 130.0f, 110.0f, 50.0f );
+
+		GladderSpawner spawner;
+		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+		CHECK( spawner.GetLastSpawnedMonsterCount() == 0 );
+
+		std::memset( pClip, 0, sizeof( edict_t ) );
 	}
 
 	ClearMockEntityFactories();
