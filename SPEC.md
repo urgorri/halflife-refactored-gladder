@@ -194,7 +194,6 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * The mechanic is governed by a console variable (`gladder_autoswitch_on_pickup`, default `0`):
   * `gladder_autoswitch_on_pickup 0` (Default): Running over a new weapon silently adds it to the player's inventory/ammo pool without interrupting combat or switching the active weapon. (If the player has no weapon drawn, e.g. empty hands, it automatically equips).
   * `gladder_autoswitch_on_pickup 1`: Restores classic Half-Life autoswitch behavior on pickup.
-
 ---
 
 ## 8. Arcade Audio Cues & Soundscapes
