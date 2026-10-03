@@ -80,7 +80,6 @@ class CTestGladderRulesAutoswitch : public CGameRules
 	{
 		// Static decals must be preserved across wave resets (SPEC §11.3)
 	}
-
 	// Stubs for CGameRules pure virtuals
 	void Think( void ) override {}
 	BOOL IsAllowedToSpawn( CBaseEntity *pEntity ) override { return TRUE; }
@@ -318,4 +317,3 @@ TEST_CASE( "GladderOverlay: Dynamic combat decal purge triggered on wave complet
 		CHECK( overlay.GetDecalPurgeCount() == 1 );
 	}
 }
-

@@ -28,7 +28,6 @@
 #include <unistd.h>
 #endif
 extern cvar_t gladder_autoswitch_on_pickup;
-
 // Static world decal (infodecal) descriptor tracked across wave transitions (SPEC §11.3, Issue #49)
 struct GladderStaticDecal
 {
