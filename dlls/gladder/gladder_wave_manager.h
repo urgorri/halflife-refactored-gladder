@@ -13,6 +13,8 @@
 #include <vector>
 #include <algorithm>
 
+#ifndef GLADDER_WAVE_STATE_DEFINED
+#define GLADDER_WAVE_STATE_DEFINED
 enum GladderWaveState
 {
 	GLADDER_STATE_WAITING_FOR_START = 0,
@@ -20,6 +22,7 @@ enum GladderWaveState
 	GLADDER_STATE_WAVE_COMPLETED    = 2,
 	GLADDER_STATE_MATCH_OVER        = 3
 };
+#endif
 
 class CGladderWaveManager
 {

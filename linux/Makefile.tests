@@ -54,7 +54,9 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/hud_registry.o \
 	$(TESTS_OBJ_DIR)/hud_ammo.o \
 	$(TESTS_OBJ_DIR)/entity_visual_registry.o \
+	$(TESTS_OBJ_DIR)/triangle_render_registry.o \
 	$(TESTS_OBJ_DIR)/test_hud_registry.o \
+	$(TESTS_OBJ_DIR)/test_triangle_render_registry.o \
 	$(TESTS_OBJ_DIR)/test_weapons_resource.o \
 	$(TESTS_OBJ_DIR)/test_effects_beams.o \
 	$(TESTS_OBJ_DIR)/test_crash_handler.o \
@@ -96,6 +98,7 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/gladder_audio.o \
 	$(TESTS_OBJ_DIR)/gladder_items.o \
 	$(TESTS_OBJ_DIR)/gladder_visuals.o \
+	$(TESTS_OBJ_DIR)/hud_gladder_overlay.o \
 	$(TESTS_OBJ_DIR)/test_items.o \
 	$(TESTS_OBJ_DIR)/test_visuals.o \
 	$(TESTS_OBJ_DIR)/test_weapons.o \
@@ -187,6 +190,9 @@ $(TESTS_OBJ_DIR)/client_customization.o: $(HLCORE_SRC_DIR)/client_customization.
 $(TESTS_OBJ_DIR)/entity_visual_registry.o: $(SOURCE_DIR)/cl_dll/entities/entity_visual_registry.cpp | dirs
 	$(DO_TESTS_CXX)
 
+$(TESTS_OBJ_DIR)/triangle_render_registry.o: $(SOURCE_DIR)/cl_dll/render/triangle_render_registry.cpp | dirs
+	$(DO_TESTS_CXX)
+
 $(TESTS_OBJ_DIR)/animation.o: $(HLCORE_SRC_DIR)/animation.cpp | dirs
 	$(DO_TESTS_CXX)
 
@@ -266,6 +272,9 @@ $(TESTS_OBJ_DIR)/gladder_items.o: $(HLDLL_SRC_DIR)/gladder/gladder_items.cpp | d
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/gladder_visuals.o: $(SOURCE_DIR)/cl_dll/gladder/gladder_visuals.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/hud_gladder_overlay.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_overlay.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/test_items.o: $(TESTS_SRC_DIR)/gladder/test_items.cpp | dirs
