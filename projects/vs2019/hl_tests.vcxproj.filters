@@ -274,6 +274,9 @@
     <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\tests\gladder\test_items.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

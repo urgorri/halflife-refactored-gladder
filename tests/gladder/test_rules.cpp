@@ -18,6 +18,16 @@
 #include "ai/monsters.h"
 #include "gameplay/gamerules.h"
 #include "tests/mock_engine.h"
+#include "cl_dll/gladder/hud_gladder_overlay.h"
+
+// GladderStaticDecal struct definition matching gladder_rules.h (SPEC §11.3, Issue #49)
+struct GladderStaticDecal
+{
+	Vector origin;
+	int decalIndex;
+	int entityIndex;
+	int modelIndex;
+};
 
 namespace
 {
@@ -44,6 +54,31 @@ class CTestGladderRulesAutoswitch : public CGameRules
 			return FALSE; // Suppress autoswitch by default
 
 		return TRUE;
+	}
+
+	// Static decal tracking for SPEC §11.3 (Issue #49)
+	std::vector<GladderStaticDecal> m_staticDecals;
+
+	void OnStaticDecal( const Vector &origin, int decalIndex, int entityIndex, int modelIndex ) override
+	{
+		m_staticDecals.push_back( { origin, decalIndex, entityIndex, modelIndex } );
+	}
+
+	const std::vector<GladderStaticDecal> &GetStaticDecals( void ) const { return m_staticDecals; }
+	void ClearStaticDecals( void ) { m_staticDecals.clear(); }
+	void RestoreStaticDecals( void )
+	{
+		if ( g_engfuncs.pfnStaticDecal )
+		{
+			for ( const auto &decal : m_staticDecals )
+			{
+				g_engfuncs.pfnStaticDecal( decal.origin, decal.decalIndex, decal.entityIndex, decal.modelIndex );
+			}
+		}
+	}
+	void ResetWave( void )
+	{
+		// Static decals must be preserved across wave resets (SPEC §11.3)
 	}
 
 	// Stubs for CGameRules pure virtuals
@@ -170,3 +205,117 @@ TEST_CASE( "Gladder Rules: Option to disable autoswitch on weapon pickup (SPEC �
 		CHECK( rules.FShouldSwitchWeapon( pPlayer, pNewWeapon ) == TRUE );
 	}
 }
+
+TEST_CASE( "GladderRules: OnStaticDecal lifecycle hook records mapper-placed infodecals (SPEC §11.3, Issue #49)", "[gladder][rules][decals]" )
+{
+	CTestGladderRulesAutoswitch rules;
+	rules.ClearStaticDecals();
+	REQUIRE( rules.GetStaticDecals().empty() );
+
+	SECTION( "Captures static decals placed at world and brush origins" )
+	{
+		Vector bloodOrigin( 64.0f, -128.0f, 32.0f );
+		rules.OnStaticDecal( bloodOrigin, 12, 0, 0 );
+
+		Vector hazardOrigin( 512.0f, 256.0f, -64.0f );
+		rules.OnStaticDecal( hazardOrigin, 28, 5, 14 );
+
+		REQUIRE( rules.GetStaticDecals().size() == 2 );
+
+		const auto &d1 = rules.GetStaticDecals()[0];
+		CHECK( d1.origin.x == Catch::Approx( 64.0f ) );
+		CHECK( d1.origin.y == Catch::Approx( -128.0f ) );
+		CHECK( d1.origin.z == Catch::Approx( 32.0f ) );
+		CHECK( d1.decalIndex == 12 );
+		CHECK( d1.entityIndex == 0 );
+		CHECK( d1.modelIndex == 0 );
+
+		const auto &d2 = rules.GetStaticDecals()[1];
+		CHECK( d2.origin.x == Catch::Approx( 512.0f ) );
+		CHECK( d2.origin.y == Catch::Approx( 256.0f ) );
+		CHECK( d2.origin.z == Catch::Approx( -64.0f ) );
+		CHECK( d2.decalIndex == 28 );
+		CHECK( d2.entityIndex == 5 );
+		CHECK( d2.modelIndex == 14 );
+	}
+}
+
+TEST_CASE( "GladderRules: Environmental static decals preserved across wave reset (SPEC §11.3, Issue #49)", "[gladder][rules][decals]" )
+{
+	CTestGladderRulesAutoswitch rules;
+	rules.ClearStaticDecals();
+
+	rules.OnStaticDecal( Vector( 100.0f, 200.0f, 0.0f ), 5, 0, 0 );
+	rules.OnStaticDecal( Vector( -50.0f, 30.0f, 10.0f ), 8, 2, 1 );
+	REQUIRE( rules.GetStaticDecals().size() == 2 );
+
+	SECTION( "Wave reset retains static decals in memory" )
+	{
+		rules.ResetWave();
+		CHECK( rules.GetStaticDecals().size() == 2 );
+
+		// Restoration helper runs cleanly without crashing even with null engine function
+		REQUIRE_NOTHROW( rules.RestoreStaticDecals() );
+	}
+}
+
+TEST_CASE( "GladderOverlay: Dynamic combat decal purge triggered on wave completion transition (SPEC §11.3, Issue #49)", "[gladder][overlay][decals]" )
+{
+	CHudGladderOverlay overlay;
+	overlay.Reset();
+	REQUIRE( overlay.GetDecalPurgeCount() == 0 );
+
+	// Wire message buffers: state is byte 0
+	uint8_t msgWaveWaiting[]  = { 0, 1, 0, 0, 0, 0, 0 }; // WAITING_FOR_START
+	uint8_t msgWaveActive[]   = { 1, 1, 0, 0, 0, 0, 0 }; // WAVE_ACTIVE
+	uint8_t msgWaveComplete[] = { 2, 1, 0, 0, 0, 0, 0 }; // WAVE_COMPLETED
+	uint8_t msgMatchOver[]    = { 3, 2, 0, 0, 0, 0, 0 }; // MATCH_OVER
+
+	SECTION( "Initial waiting state does not trigger decal purge" )
+	{
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveWaiting ), msgWaveWaiting );
+		CHECK( overlay.GetWaveState() == 0 );
+		CHECK( overlay.GetDecalPurgeCount() == 0 );
+	}
+
+	SECTION( "Active wave does not trigger decal purge" )
+	{
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveActive ), msgWaveActive );
+		CHECK( overlay.GetWaveState() == 1 );
+		CHECK( overlay.GetDecalPurgeCount() == 0 );
+	}
+
+	SECTION( "Wave completion triggers decal purge during screen fade" )
+	{
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveActive ), msgWaveActive );
+		CHECK( overlay.GetDecalPurgeCount() == 0 );
+
+		// Wave transition to COMPLETED triggers decal clear
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveComplete ), msgWaveComplete );
+		CHECK( overlay.GetWaveState() == 2 );
+		CHECK( overlay.GetDecalPurgeCount() == 1 );
+
+		// Redundant message in same completed state does not trigger duplicate purge
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveComplete ), msgWaveComplete );
+		CHECK( overlay.GetDecalPurgeCount() == 1 );
+
+		// Next wave starts
+		uint8_t msgWave2Active[] = { 1, 2, 0, 0, 0, 0, 0 };
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWave2Active ), msgWave2Active );
+		CHECK( overlay.GetDecalPurgeCount() == 1 );
+
+		// Wave 2 completes -> purge count increments to 2
+		uint8_t msgWave2Complete[] = { 2, 2, 0, 0, 0, 0, 0 };
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWave2Complete ), msgWave2Complete );
+		CHECK( overlay.GetDecalPurgeCount() == 2 );
+	}
+
+	SECTION( "Match conclusion also triggers final decal purge" )
+	{
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveActive ), msgWaveActive );
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgMatchOver ), msgMatchOver );
+		CHECK( overlay.GetWaveState() == 3 );
+		CHECK( overlay.GetDecalPurgeCount() == 1 );
+	}
+}
+

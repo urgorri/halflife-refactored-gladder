@@ -46,10 +46,36 @@ int CHudGladderOverlay::MsgFunc_GladderWave( const char *pszName, int iSize, voi
 {
 #ifdef CLIENT_DLL
 	BEGIN_READ( pbuf, iSize );
-	m_iWaveState      = READ_BYTE();
+	int iNewWaveState = READ_BYTE();
 	m_iWaveNumber     = READ_SHORT();
 	m_flTimeRemaining = READ_COORD();
 	m_flLapTime       = READ_COORD();
+
+	// Purge dynamic combat decals on wave completion transition (fade-to-black) (SPEC §11.3, Issue #49)
+	// GoldSrc's r_cleardecals strips all dynamic combat decals while strictly preserving permanent infodecals
+	if ( ( iNewWaveState == GLADDER_STATE_WAVE_COMPLETED || iNewWaveState == GLADDER_STATE_MATCH_OVER ) &&
+	     m_iWaveState != iNewWaveState )
+	{
+		m_iDecalPurgeCount++;
+		if ( gEngfuncs.pfnClientCmd )
+		{
+			gEngfuncs.pfnClientCmd( "r_cleardecals\n" );
+		}
+	}
+
+	m_iWaveState = iNewWaveState;
+#else
+	if ( pbuf && iSize >= 1 )
+	{
+		const unsigned char *pData = static_cast<const unsigned char *>( pbuf );
+		int iNewWaveState = pData[0];
+		if ( ( iNewWaveState == GLADDER_STATE_WAVE_COMPLETED || iNewWaveState == GLADDER_STATE_MATCH_OVER ) &&
+		     m_iWaveState != iNewWaveState )
+		{
+			m_iDecalPurgeCount++;
+		}
+		m_iWaveState = iNewWaveState;
+	}
 #endif
 	m_iFlags |= HUD_ACTIVE;
 	return 1;

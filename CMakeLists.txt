@@ -375,6 +375,7 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_audio.cpp
         dlls/gladder/gladder_items.cpp
         cl_dll/gladder/gladder_visuals.cpp
+        cl_dll/gladder/hud_gladder_overlay.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
         tests/gladder/test_grid_indexer.cpp

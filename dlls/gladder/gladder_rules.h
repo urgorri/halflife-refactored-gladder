@@ -29,6 +29,15 @@
 #endif
 extern cvar_t gladder_autoswitch_on_pickup;
 
+// Static world decal (infodecal) descriptor tracked across wave transitions (SPEC §11.3, Issue #49)
+struct GladderStaticDecal
+{
+	Vector origin;
+	int decalIndex;
+	int entityIndex;
+	int modelIndex;
+};
+
 class CGladderRules : public CHalfLifeRules
 {
   public:
@@ -73,6 +82,14 @@ class CGladderRules : public CHalfLifeRules
 	float FlHealthChargerCapacity( void ) override;
 	float FlHEVChargerCapacity( void ) override;
 
+	// Intercept and cache mapper-authored static world decals (infodecal) at map initialization (SPEC §11.3, Issue #49)
+	void OnStaticDecal( const Vector &origin, int decalIndex, int entityIndex, int modelIndex ) override;
+
+	// Static decal tracking and audit helpers (SPEC §11.3, Issue #49)
+	const std::vector<GladderStaticDecal> &GetStaticDecals( void ) const { return m_staticDecals; }
+	void ClearStaticDecals( void ) { m_staticDecals.clear(); }
+	void RestoreStaticDecals( void );
+
 	// Wave lifecycle callbacks invoked by triggers
 	void OnWaveTriggerStart( CBaseEntity *pActivator );
 	void OnWaveTriggerFinish( CBaseEntity *pActivator );
@@ -113,6 +130,7 @@ class CGladderRules : public CHalfLifeRules
 	GladderComboTracker m_comboTracker;
 	GladderModifiers m_modifiers;
 	GladderScoreBreakdown m_lastScoreBreakdown;
+	std::vector<GladderStaticDecal> m_staticDecals;
 	bool m_bInitialSpawnDone;
 	bool m_bRestoreAttempted;
 	bool m_bPendingSavePurge;

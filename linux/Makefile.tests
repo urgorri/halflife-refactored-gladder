@@ -98,6 +98,7 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/gladder_audio.o \
 	$(TESTS_OBJ_DIR)/gladder_items.o \
 	$(TESTS_OBJ_DIR)/gladder_visuals.o \
+	$(TESTS_OBJ_DIR)/hud_gladder_overlay.o \
 	$(TESTS_OBJ_DIR)/test_items.o \
 	$(TESTS_OBJ_DIR)/test_visuals.o \
 	$(TESTS_OBJ_DIR)/test_weapons.o \
@@ -271,6 +272,9 @@ $(TESTS_OBJ_DIR)/gladder_items.o: $(HLDLL_SRC_DIR)/gladder/gladder_items.cpp | d
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/gladder_visuals.o: $(SOURCE_DIR)/cl_dll/gladder/gladder_visuals.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/hud_gladder_overlay.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_overlay.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/test_items.o: $(TESTS_SRC_DIR)/gladder/test_items.cpp | dirs

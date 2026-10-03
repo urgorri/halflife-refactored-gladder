@@ -13,6 +13,17 @@
 #include "hud/hud_base.h"
 #include "hud/hud_registry.h"
 
+#ifndef GLADDER_WAVE_STATE_DEFINED
+#define GLADDER_WAVE_STATE_DEFINED
+enum GladderWaveState
+{
+	GLADDER_STATE_WAITING_FOR_START = 0,
+	GLADDER_STATE_WAVE_ACTIVE       = 1,
+	GLADDER_STATE_WAVE_COMPLETED    = 2,
+	GLADDER_STATE_MATCH_OVER        = 3
+};
+#endif
+
 class CHudGladderOverlay : public CHudBase
 {
   public:
@@ -25,31 +36,27 @@ class CHudGladderOverlay : public CHudBase
 	      m_flSlowestLap( 0.0f ),
 	      m_flAverageLap( 0.0f ),
 	      m_iCompletedLaps( 0 ),
-	      m_iFrags( 0 )
+	      m_iFrags( 0 ),
+	      m_iDecalPurgeCount( 0 )
 	{
 		m_iFlags = HUD_ACTIVE;
 	}
 
-#ifdef CLIENT_DLL
 	int Init( void ) override;
 	int VidInit( void ) override;
 	int Draw( float flTime ) override;
-#else
-	int Init( void ) override { return 1; }
-	int VidInit( void ) override { return 1; }
-	int Draw( float flTime ) override { return 1; }
-#endif
 	void Reset( void ) override
 	{
-		m_iWaveState      = 0;
-		m_iWaveNumber     = 1;
-		m_flTimeRemaining = 600.0f;
-		m_flLapTime       = 0.0f;
-		m_flFastestLap    = 0.0f;
-		m_flSlowestLap    = 0.0f;
-		m_flAverageLap    = 0.0f;
-		m_iCompletedLaps  = 0;
-		m_iFrags          = 0;
+		m_iWaveState       = 0;
+		m_iWaveNumber      = 1;
+		m_flTimeRemaining  = 600.0f;
+		m_flLapTime        = 0.0f;
+		m_flFastestLap     = 0.0f;
+		m_flSlowestLap     = 0.0f;
+		m_flAverageLap     = 0.0f;
+		m_iCompletedLaps   = 0;
+		m_iFrags           = 0;
+		m_iDecalPurgeCount = 0;
 	}
 
 	// User message handlers
@@ -66,6 +73,7 @@ class CHudGladderOverlay : public CHudBase
 	float GetFastestLap( void ) const { return m_flFastestLap; }
 	float GetSlowestLap( void ) const { return m_flSlowestLap; }
 	float GetAverageLap( void ) const { return m_flAverageLap; }
+	int GetDecalPurgeCount( void ) const { return m_iDecalPurgeCount; }
 
 	// Test/Simulation setters
 	void SetWaveState( int state, int waveNum, float timeRemaining, float lapTime )
@@ -96,6 +104,7 @@ class CHudGladderOverlay : public CHudBase
 	float m_flAverageLap;
 	int m_iCompletedLaps;
 	int m_iFrags;
+	int m_iDecalPurgeCount;
 };
 
 extern CHudGladderOverlay g_HudGladderOverlay;
