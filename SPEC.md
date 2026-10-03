@@ -270,7 +270,7 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 512 to 900+ entities), strict resource purging occurs at each wave reset:
 * **Active Monster Cleanup**: Any monsters surviving from the previous wave are eradicated immediately upon wave completion.
 * **Dropped Item Purge**: Uncollected weapons, ammunition boxes, and medical kits scattered across the map are removed to prevent entity buildup.
-* **Transient Entity Clearing**: Lingering projectiles, gibs, corpses, and temporary decal effects are purged.
+* **Transient Entity Clearing & Orphaned Effects**: Lingering combat projectiles (rockets, grenades, hornets), monster energy balls and attack charges (such as Alien Controller head balls and zap balls: `controller_head_ball`, `controller_energy_ball`), gibs, corpses, decals, and any dynamically spawned or attached effect sprites (`env_sprite` attached via `MOVETYPE_FOLLOW` to monsters or lacking valid parent entities) are comprehensively purged, preventing floating static sprites or orphaned visual artifacts from persisting into subsequent waves.
 * **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
 
 ### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`func_breakable`)
