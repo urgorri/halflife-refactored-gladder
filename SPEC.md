@@ -115,6 +115,9 @@ To accommodate distinct enemy mechanics and level geometry, specific monster typ
 * **Flying Monsters Variable Altitude Spawning**:
   * Flying enemies (such as `monster_flyer`, `monster_alien_controller`, or other airborne species) do not spawn grounded on floor surfaces.
   * When spawned at a grid coordinate, their vertical position (Z axis) is randomized dynamically along a variable altitude range between the floor elevation and the ceiling clearance height of that grid cell, creating diverse vertical engagement angles and unpredictable combat encounters in every wave.
+* **Floor-Grounded Monsters Drop-In Elevation (+8 Units)**:
+  * In GoldSrc, spawning monsters with their bounding box bottom flush against floor geometry often causes `stuck in wall/floor` collision failures on their initial physics tick due to micro-uneven brush seams, floor bevels, or ramp slopes.
+  * To ensure clean collision initialization, ground-based monsters spawn with a vertical clearance offset of approximately +8 units above the detected surface. Native engine step physics and gravity (`MOVETYPE_STEP`) automatically settle the monster cleanly onto the ground on its first physics frame, preventing false stuck-in-world detections.
 
 ---
 
