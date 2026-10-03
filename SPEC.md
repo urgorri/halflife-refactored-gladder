@@ -270,7 +270,12 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 512 to 900+ entities), strict resource purging occurs at each wave reset:
 * **Active Monster Cleanup**: Any monsters surviving from the previous wave are eradicated immediately upon wave completion.
 * **Dropped Item Purge**: Uncollected weapons, ammunition boxes, and medical kits scattered across the map are removed to prevent entity buildup.
-* **Transient Entity Clearing & Orphaned Effects**: Lingering combat projectiles (rockets, grenades, hornets), monster energy balls and attack charges (such as Alien Controller head balls and zap balls: `controller_head_ball`, `controller_energy_ball`), gibs, corpses, decals, and any dynamically spawned or attached effect sprites (`env_sprite` attached via `MOVETYPE_FOLLOW` to monsters or lacking valid parent entities) are comprehensively purged, preventing floating static sprites or orphaned visual artifacts from persisting into subsequent waves.
+* **Transient Entity Clearing & Orphaned Effects**:
+  To prevent floating visual artifacts, broken physics links, or edict leaks across wave resets, all transient combat entities and attached visual effects are comprehensively purged:
+  * **Monster & Player Projectiles**: Rockets (`rpg_rocket`, `hvr_rocket`), grenades (`grenade`), Alien Grunt hornets (`hornet`), live snarks (`monster_snark`), crossbow bolts (`bolt`), Bullsquid acid spitballs (`squidspit`), Gonarch mortar spit (`bmortar`), Alien Controller attack balls (`controller_head_ball`, `controller_energy_ball`), Nihilanth spheres (`nihilanth_energy_ball`), planted satchels (`monster_satchel`), and planted tripmines (`monster_tripmine`).
+  * **Beams & Continuous Effects**: Active laser and lightning beams (`beam` / `CBeam`, including Vortigaunt lightning, Gargantua flame beams, tripmine lasers, and Egon beams) and laser targeting spots (`laser_spot`).
+  * **Orphaned Attached Sprites**: Dynamic effect sprites (`env_sprite`) attached to monsters via `MOVETYPE_FOLLOW` (such as Alien Controller charging head balls `sprites/xspark4.spr`, Gargantua eye glows, Turret eye glows, Nihilanth tele balls) whose parent entity was removed or freed.
+  * **Debris & Corpses**: Monster gibs (`gib`), player corpses, and temporary impact decals.
 * **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
 
 ### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`func_breakable`)
