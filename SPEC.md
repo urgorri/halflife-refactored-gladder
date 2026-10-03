@@ -282,6 +282,8 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 ## 11. Engine Resource Management & Wave Garbage Collection
 
 Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 512 to 900+ entities), strict resource purging occurs at each wave reset:
+
+### 11.1 Transient Entity Clearing & Wave Purge
 * **Active Monster Cleanup**: Any monsters surviving from the previous wave are eradicated immediately upon wave completion.
 * **Dropped Item Purge**: Uncollected weapons, ammunition boxes, and medical kits scattered across the map are removed to prevent entity buildup.
 * **Transient Entity Clearing & Orphaned Effects**:
@@ -289,7 +291,7 @@ Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 
   * **Monster & Player Projectiles**: Rockets (`rpg_rocket`, `hvr_rocket`), grenades (`grenade`), Alien Grunt hornets (`hornet`), live snarks (`monster_snark`), crossbow bolts (`bolt`), Bullsquid acid spitballs (`squidspit`), Gonarch mortar spit (`bmortar`), Alien Controller attack balls (`controller_head_ball`, `controller_energy_ball`), Nihilanth spheres (`nihilanth_energy_ball`), planted satchels (`monster_satchel`), and planted tripmines (`monster_tripmine`).
   * **Beams & Continuous Effects**: Active laser and lightning beams (`beam` / `CBeam`, including Vortigaunt lightning, Gargantua flame beams, tripmine lasers, and Egon beams) and laser targeting spots (`laser_spot`).
   * **Orphaned Attached Sprites**: Dynamic effect sprites (`env_sprite`) attached to monsters via `MOVETYPE_FOLLOW` (such as Alien Controller charging head balls `sprites/xspark4.spr`, Gargantua eye glows, Turret eye glows, Nihilanth tele balls) whose parent entity was removed or freed.
-  * **Debris & Corpses**: Monster gibs (`gib`), player corpses, and temporary impact decals.
+  * **Debris & Corpses**: Monster gibs (`gib`) and player corpses.
 * **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
 
 ### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`func_breakable`)
@@ -299,6 +301,20 @@ To maintain consistent level interactivity and route geometry without entity deg
   * Breakable environmental objects (such as wooden crates, glass panes, or barricades) are retained across waves and regenerated at the start of each wave reset.
   * **Non-Destructive Break Simulation**: When a `func_breakable` takes lethal damage during an active wave, it triggers its standard breaking visual/audio effects, debris particles, and collision removal, but the underlying server entity is preserved in memory rather than permanently deleted (`UTIL_Remove`).
   * **State Hiding & Reset**: Upon destruction, the object enters a hidden/disabled state (`EF_NODRAW`, solid state set to `SOLID_NOT`). During wave reset garbage collection, all broken `func_breakable` entities are restored to their original visual appearance, collision bounds, and hit points, cleanly resetting the environment for the incoming wave.
+
+### 11.3 Combat Decal Purging & Environmental Decal Preservation
+Intense combat across successive waves rapidly accumulates hundreds of dynamic surface decals (bullet impacts, monster blood splatters, explosion burns). If left uncleared, dynamic decals degrade rendering performance, clutter map navigation, and eventually cause erratic decal replacement as the engine hits internal decal limits.
+
+* **Separation of Dynamic vs. Environmental Decals**:
+  * **Dynamic Combat Decals**: Decals produced by projectile impacts (`UTIL_DecalTrace`, `TE_DECAL`, `TE_WORLDDECAL`), monster blood splatters (`UTIL_BloodDrips`), and explosions (`scorch1`). These decals lack the engine's `FDECAL_PERMANENT` flag.
+  * **Static Environmental Decals**: Pre-placed map decals created by level designers (`infodecal` entities: blood stains, hazard markings, radioactive warning signs, grime). These are instantiated at map initialization via `g_engfuncs.pfnStaticDecal()` with the `FDECAL_PERMANENT` flag set.
+* **Wave Transition Decal Purge**:
+  * Upon wave completion (when the player hits Point B `trigger_gladder_end`), the client receives the wave completion transition event.
+  * During the subsequent screen fade-to-black before the player is teleported back to Point A, the client executes an engine decal purge (`r_cleardecals`).
+  * Because GoldSrc's `r_cleardecals` command strictly strips decals lacking `FDECAL_PERMANENT`, all transient combat impacts and blood are completely removed, while all level-authored `infodecal`s remain intact.
+* **Upstream Server-Side Static Decal Tracking (`OnStaticDecal`)**:
+  * To guard against any edge cases where surface decals are globally invalidated or need deterministic replay across wave resets, upstream `urgorri/halflife-refactored` provides the `CGameRules::OnStaticDecal(...)` lifecycle hook called from `CDecal::StaticDecal()`.
+  * `CGladderRules` captures and caches all static decal origins, textures, and parent entities at map spawn, allowing instant reconstruction if required.
 
 ---
 
