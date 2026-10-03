@@ -310,8 +310,8 @@ Intense combat across successive waves rapidly accumulates hundreds of dynamic s
   * **Static Environmental Decals**: Pre-placed map decals created by level designers (`infodecal` entities: blood stains, hazard markings, radioactive warning signs, grime). These are instantiated at map initialization via `g_engfuncs.pfnStaticDecal()` with the `FDECAL_PERMANENT` flag set.
 * **Wave Transition Decal Purge**:
   * Upon wave completion (when the player hits Point B `trigger_gladder_end`), the client receives the wave completion transition event.
-  * During the subsequent screen fade-to-black before the player is teleported back to Point A, the client executes an engine decal purge (`r_cleardecals`).
-  * Because GoldSrc's `r_cleardecals` command strictly strips decals lacking `FDECAL_PERMANENT`, all transient combat impacts and blood are completely removed, while all level-authored `infodecal`s remain intact.
+  * During the subsequent screen fade-to-black before the player is teleported back to Point A, the client executes an engine decal purge (`GladderPurgeCombatDecals` / `R_DecalRemoveAll`, also aliased to `r_cleardecals`).
+  * Because GoldSrc's `R_DecalRemoveAll` strictly unlinks decals lacking `FDECAL_PERMANENT`, all transient combat impacts and blood are completely removed, while all level-authored `infodecal`s remain intact.
 * **Upstream Server-Side Static Decal Tracking (`OnStaticDecal`)**:
   * To guard against any edge cases where surface decals are globally invalidated or need deterministic replay across wave resets, upstream `urgorri/halflife-refactored` provides the `CGameRules::OnStaticDecal(...)` lifecycle hook called from `CDecal::StaticDecal()`.
   * `CGladderRules` captures and caches all static decal origins, textures, and parent entities at map spawn, allowing instant reconstruction if required.

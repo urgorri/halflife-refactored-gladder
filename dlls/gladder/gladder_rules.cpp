@@ -410,6 +410,7 @@ void CGladderRules::ResetWave( void )
 	PurgeWaveEntities();
 	RechargeWallStations();
 	ResetBreakableEntities();
+	RestoreStaticDecals();
 }
 
 void CGladderRules::PurgeWaveEntities( void )

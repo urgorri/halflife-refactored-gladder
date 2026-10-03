@@ -22,6 +22,9 @@
 #include "entities/entity_visual_registry.h"
 #include "render/triangle_render_registry.h"
 #include "triangleapi.h"
+#include "r_studioint.h"
+
+extern engine_studio_api_t IEngineStudio;
 #else
 #include "common/mathlib.h"
 #include "common/const.h"
@@ -398,7 +401,7 @@ void GladderDrawChargerGlowShells( void )
 		return;
 
 	float clientTime = gEngfuncs.GetClientTime ? gEngfuncs.GetClientTime() : 0.0f;
-	const float flDelta = 2.0f; // Expansion offset Delta ≈ 1.5 - 2.5 units (SPEC §7.2, Issue #48)
+	const float flDelta = 1.2f; // Subtle contouring shell (~16 renderamt outline thickness)
 
 	// Clean out any stale chargers not rendered in the last 0.15 seconds
 	for ( auto it = s_activeWallChargers.begin(); it != s_activeWallChargers.end(); )
@@ -416,8 +419,64 @@ void GladderDrawChargerGlowShells( void )
 	if ( s_activeWallChargers.empty() )
 		return;
 
+	// Obtain chrome sprite (identical to StudioModelRenderer::StudioRenderModel)
+	model_t *pChromeSprite = nullptr;
+#ifdef CLIENT_DLL
+	if ( IEngineStudio.GetChromeSprite )
+	{
+		pChromeSprite = IEngineStudio.GetChromeSprite();
+	}
+#endif
+	if ( pChromeSprite )
+	{
+		gEngfuncs.pTriAPI->SpriteTexture( pChromeSprite, 0 );
+	}
+
+	// Obtain view parameters for chrome environment reflection mapping
+	Vector vRenderOrigin( 0, 0, 0 );
+	Vector vUp( 0, 0, 1 );
+	Vector vRight( 0, 1, 0 );
+	Vector vNormal( 1, 0, 0 );
+#ifdef CLIENT_DLL
+	if ( IEngineStudio.GetViewInfo )
+	{
+		IEngineStudio.GetViewInfo( (float *)vRenderOrigin, (float *)vUp, (float *)vRight, (float *)vNormal );
+	}
+	else if ( gEngfuncs.GetViewAngles )
+	{
+		Vector vAngles;
+		gEngfuncs.GetViewAngles( (float *)vAngles );
+		gEngfuncs.pfnAngleVectors( (float *)vAngles, (float *)vNormal, (float *)vRight, (float *)vUp );
+		cl_entity_t *pLocal = gEngfuncs.GetLocalPlayer ? gEngfuncs.GetLocalPlayer() : nullptr;
+		if ( pLocal )
+		{
+			vRenderOrigin = pLocal->origin;
+		}
+	}
+#endif
+
 	gEngfuncs.pTriAPI->RenderMode( kRenderTransAdd );
-	gEngfuncs.pTriAPI->CullFace( TRI_NONE );
+	// Cull back-facing triangles so only the front-facing shell towards the camera is drawn,
+	// preventing wall-facing geometry from rendering additively.
+	gEngfuncs.pTriAPI->CullFace( TRI_FRONT );
+
+	// Lambda to emit vertex with reflection-mapped chrome UV coordinates
+	auto EmitVertex = [&]( const Vector &pos, const Vector &norm ) {
+		Vector dir = pos - vRenderOrigin;
+		float len = dir.Length();
+		if ( len > 0.001f )
+			dir = dir * ( 1.0f / len );
+
+		// Reflection vector: R = dir - 2 * (dir . norm) * norm
+		Vector R = dir - norm * ( 2.0f * DotProduct( dir, norm ) );
+
+		// Environment map chrome projection (0.0 to 1.0)
+		float u = DotProduct( R, vRight ) * 0.5f + 0.5f;
+		float v = -DotProduct( R, vUp ) * 0.5f + 0.5f;
+
+		gEngfuncs.pTriAPI->TexCoord2f( u, v );
+		gEngfuncs.pTriAPI->Vertex3f( pos.x, pos.y, pos.z );
+	};
 
 	for ( const auto &charger : s_activeWallChargers )
 	{
@@ -427,70 +486,53 @@ void GladderDrawChargerGlowShells( void )
 		float r = charger.r / 255.0f;
 		float g = charger.g / 255.0f;
 		float b = charger.b / 255.0f;
-		float a = 0.25f; // Vibrant arcade shell with 0.25 opacity (SPEC §7.2, Issue #48)
+		// Subtle dynamic pulse matching studio model aura
+		float flPulse = 0.70f + 0.25f * sinf( clientTime * 3.5f );
 
-		gEngfuncs.pTriAPI->Color4f( r, g, b, a );
+		gEngfuncs.pTriAPI->Color4f( r * flPulse, g * flPulse, b * flPulse, flPulse );
 		gEngfuncs.pTriAPI->Begin( TRI_QUADS );
 
 		// Face 1: Top (+Z)
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMins.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMins.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMaxs.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMaxs.y, vecMaxs.z );
+		Vector normTop( 0.0f, 0.0f, 1.0f );
+		EmitVertex( Vector( vecMins.x, vecMins.y, vecMaxs.z ), normTop );
+		EmitVertex( Vector( vecMaxs.x, vecMins.y, vecMaxs.z ), normTop );
+		EmitVertex( Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ), normTop );
+		EmitVertex( Vector( vecMins.x, vecMaxs.y, vecMaxs.z ), normTop );
 
 		// Face 2: Bottom (-Z)
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMins.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMaxs.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMaxs.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMins.y, vecMins.z );
+		Vector normBottom( 0.0f, 0.0f, -1.0f );
+		EmitVertex( Vector( vecMins.x, vecMaxs.y, vecMins.z ), normBottom );
+		EmitVertex( Vector( vecMaxs.x, vecMaxs.y, vecMins.z ), normBottom );
+		EmitVertex( Vector( vecMaxs.x, vecMins.y, vecMins.z ), normBottom );
+		EmitVertex( Vector( vecMins.x, vecMins.y, vecMins.z ), normBottom );
 
 		// Face 3: Front (+X)
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMins.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMaxs.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMaxs.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMins.y, vecMaxs.z );
+		Vector normFrontX( 1.0f, 0.0f, 0.0f );
+		EmitVertex( Vector( vecMaxs.x, vecMins.y, vecMins.z ), normFrontX );
+		EmitVertex( Vector( vecMaxs.x, vecMaxs.y, vecMins.z ), normFrontX );
+		EmitVertex( Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ), normFrontX );
+		EmitVertex( Vector( vecMaxs.x, vecMins.y, vecMaxs.z ), normFrontX );
 
 		// Face 4: Back (-X)
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMins.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMins.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMaxs.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMaxs.y, vecMins.z );
+		Vector normBackX( -1.0f, 0.0f, 0.0f );
+		EmitVertex( Vector( vecMins.x, vecMaxs.y, vecMins.z ), normBackX );
+		EmitVertex( Vector( vecMins.x, vecMins.y, vecMins.z ), normBackX );
+		EmitVertex( Vector( vecMins.x, vecMins.y, vecMaxs.z ), normBackX );
+		EmitVertex( Vector( vecMins.x, vecMaxs.y, vecMaxs.z ), normBackX );
 
 		// Face 5: Right (+Y)
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMaxs.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMaxs.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMaxs.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMaxs.y, vecMins.z );
+		Vector normRightY( 0.0f, 1.0f, 0.0f );
+		EmitVertex( Vector( vecMaxs.x, vecMaxs.y, vecMins.z ), normRightY );
+		EmitVertex( Vector( vecMins.x, vecMaxs.y, vecMins.z ), normRightY );
+		EmitVertex( Vector( vecMins.x, vecMaxs.y, vecMaxs.z ), normRightY );
+		EmitVertex( Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ), normRightY );
 
 		// Face 6: Left (-Y)
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMins.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 0.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMins.y, vecMins.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMaxs.x, vecMins.y, vecMaxs.z );
-		gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 1.0f );
-		gEngfuncs.pTriAPI->Vertex3f( vecMins.x, vecMins.y, vecMaxs.z );
+		Vector normLeftY( 0.0f, -1.0f, 0.0f );
+		EmitVertex( Vector( vecMins.x, vecMins.y, vecMins.z ), normLeftY );
+		EmitVertex( Vector( vecMaxs.x, vecMins.y, vecMins.z ), normLeftY );
+		EmitVertex( Vector( vecMaxs.x, vecMins.y, vecMaxs.z ), normLeftY );
+		EmitVertex( Vector( vecMins.x, vecMins.y, vecMaxs.z ), normLeftY );
 
 		gEngfuncs.pTriAPI->End();
 	}

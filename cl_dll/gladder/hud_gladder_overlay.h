@@ -24,6 +24,10 @@ enum GladderWaveState
 };
 #endif
 
+// Purges all transient combat decals (bullet holes, blood splatters, burns)
+// while strictly preserving mapper-placed permanent infodecals (SPEC §11.3, Issue #49)
+void GladderPurgeCombatDecals( void );
+
 class CHudGladderOverlay : public CHudBase
 {
   public:

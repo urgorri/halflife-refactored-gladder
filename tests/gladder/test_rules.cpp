@@ -66,8 +66,10 @@ class CTestGladderRulesAutoswitch : public CGameRules
 
 	const std::vector<GladderStaticDecal> &GetStaticDecals( void ) const { return m_staticDecals; }
 	void ClearStaticDecals( void ) { m_staticDecals.clear(); }
+	int m_restoreCallCount = 0;
 	void RestoreStaticDecals( void )
 	{
+		m_restoreCallCount++;
 		if ( g_engfuncs.pfnStaticDecal )
 		{
 			for ( const auto &decal : m_staticDecals )
@@ -78,7 +80,8 @@ class CTestGladderRulesAutoswitch : public CGameRules
 	}
 	void ResetWave( void )
 	{
-		// Static decals must be preserved across wave resets (SPEC §11.3)
+		// Static decals must be preserved and restored across wave resets (SPEC §11.3)
+		RestoreStaticDecals();
 	}
 	// Stubs for CGameRules pure virtuals
 	void Think( void ) override {}
@@ -248,10 +251,12 @@ TEST_CASE( "GladderRules: Environmental static decals preserved across wave rese
 	rules.OnStaticDecal( Vector( -50.0f, 30.0f, 10.0f ), 8, 2, 1 );
 	REQUIRE( rules.GetStaticDecals().size() == 2 );
 
-	SECTION( "Wave reset retains static decals in memory" )
+	SECTION( "Wave reset retains static decals in memory and restores them" )
 	{
+		CHECK( rules.m_restoreCallCount == 0 );
 		rules.ResetWave();
 		CHECK( rules.GetStaticDecals().size() == 2 );
+		CHECK( rules.m_restoreCallCount == 1 );
 
 		// Restoration helper runs cleanly without crashing even with null engine function
 		REQUIRE_NOTHROW( rules.RestoreStaticDecals() );
@@ -315,5 +320,10 @@ TEST_CASE( "GladderOverlay: Dynamic combat decal purge triggered on wave complet
 		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgMatchOver ), msgMatchOver );
 		CHECK( overlay.GetWaveState() == 3 );
 		CHECK( overlay.GetDecalPurgeCount() == 1 );
+	}
+
+	SECTION( "Direct GladderPurgeCombatDecals execution runs safely" )
+	{
+		REQUIRE_NOTHROW( GladderPurgeCombatDecals() );
 	}
 }
