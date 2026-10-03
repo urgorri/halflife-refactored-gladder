@@ -98,7 +98,8 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/gladder_visuals.o \
 	$(TESTS_OBJ_DIR)/test_items.o \
 	$(TESTS_OBJ_DIR)/test_visuals.o \
-	$(TESTS_OBJ_DIR)/test_weapons.o
+	$(TESTS_OBJ_DIR)/test_weapons.o \
+	$(TESTS_OBJ_DIR)/test_rules.o
 
 
 PM_OBJS = \
@@ -274,6 +275,9 @@ $(TESTS_OBJ_DIR)/test_visuals.o: $(TESTS_SRC_DIR)/gladder/test_visuals.cpp | dir
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/test_weapons.o: $(TESTS_SRC_DIR)/gladder/test_weapons.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_rules.o: $(TESTS_SRC_DIR)/gladder/test_rules.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs

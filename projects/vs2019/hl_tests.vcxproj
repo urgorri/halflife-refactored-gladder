@@ -188,6 +188,7 @@
     <ClCompile Include="..\..\tests\gladder\test_items.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_visuals.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_weapons.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_rules.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

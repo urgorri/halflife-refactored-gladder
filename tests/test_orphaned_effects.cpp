@@ -144,6 +144,7 @@ TEST_CASE( "Effects: CBeam self-terminates when endpoint entity is removed or fr
 
 	CBeam beam;
 	beam.pev = &beamEdict.v;
+	beam.m_pfnThink     = nullptr;
 	beam.pev->classname = MAKE_STRING( "beam" );
 	gpGlobals->time     = 2.0f;
 

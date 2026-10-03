@@ -662,7 +662,7 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			}
 			else
 			{
-				vecSpawnPos.z += 1.0f;
+				vecSpawnPos.z += 8.0f;
 			}
 
 			// 1. Distance separation check against already spawned monsters
@@ -908,7 +908,7 @@ void GladderSpawner::PurgeWaveEntities()
 			if ( pEnt->pev->owner != nullptr )
 			{
 				CBaseEntity *pOwner = CBaseEntity::Instance( pEnt->pev->owner );
-				if ( pOwner && pOwner->IsPlayer() )
+				if ( ( pOwner && pOwner->IsPlayer() ) || ( pEnt->pev->owner->v.flags & FL_CLIENT ) )
 				{
 					continue;
 				}
@@ -956,21 +956,41 @@ void GladderSpawner::PurgeWaveEntities()
 		if ( FClassnameIs( pEnt->pev, "item_suit" ) )
 			return;
 
-		// A. Eradicate surviving monsters & corpses
+		// A. Remove orphaned attached effect sprites (SPEC §11, Issue #42)
+		if ( FClassnameIs( pEnt->pev, "env_sprite" ) )
+		{
+			if ( pEnt->pev->movetype == MOVETYPE_FOLLOW )
+			{
+				if ( !pEnt->pev->aiment || pEnt->pev->aiment->free || ( pEnt->pev->aiment->v.flags & FL_KILLME ) )
+				{
+					UTIL_Remove( pEnt );
+					return;
+				}
+			}
+		}
+
+		// B. Remove continuous beams & laser spots (SPEC §11, Issue #42)
+		if ( FClassnameIs( pEnt->pev, "beam" ) || FClassnameIs( pEnt->pev, "laser_spot" ) )
+		{
+			UTIL_Remove( pEnt );
+			return;
+		}
+
+		// C. Eradicate surviving monsters & corpses
 		if ( pEnt->MyMonsterPointer() != nullptr )
 		{
 			UTIL_Remove( pEnt );
 			return;
 		}
 
-		// B. Remove dropped weapon boxes
+		// D. Remove dropped weapon boxes
 		if ( FClassnameIs( pEnt->pev, "weaponbox" ) )
 		{
 			UTIL_Remove( pEnt );
 			return;
 		}
 
-		// C. Remove dropped world weapons and ammo (unowned by players)
+		// E. Remove dropped world weapons and ammo (unowned by players)
 		if ( strncmp( szClass, "weapon_", 7 ) == 0 || strncmp( szClass, "ammo_", 5 ) == 0 )
 		{
 			if ( pEnt->pev->owner == nullptr )
@@ -980,7 +1000,7 @@ void GladderSpawner::PurgeWaveEntities()
 			}
 		}
 
-		// D. Remove unowned world items (healthkits, batteries, collectibles)
+		// F. Remove unowned world items (healthkits, batteries, collectibles)
 		if ( strncmp( szClass, "item_", 5 ) == 0 )
 		{
 			if ( pEnt->pev->owner == nullptr )
@@ -990,13 +1010,21 @@ void GladderSpawner::PurgeWaveEntities()
 			}
 		}
 
-		// E. Remove combat projectiles & temporary debris
+		// G. Remove combat projectiles, monster attacks, unexploded ordnance & temporary debris (SPEC §11, Issue #42)
 		if ( FClassnameIs( pEnt->pev, "rpg_rocket" ) ||
 		     FClassnameIs( pEnt->pev, "hvr_rocket" ) ||
 		     FClassnameIs( pEnt->pev, "hornet" ) ||
 		     FClassnameIs( pEnt->pev, "grenade" ) ||
 		     FClassnameIs( pEnt->pev, "monster_snark" ) ||
-		     FClassnameIs( pEnt->pev, "gib" ) )
+		     FClassnameIs( pEnt->pev, "gib" ) ||
+		     FClassnameIs( pEnt->pev, "squidspit" ) ||
+		     FClassnameIs( pEnt->pev, "bmortar" ) ||
+		     FClassnameIs( pEnt->pev, "bolt" ) ||
+		     FClassnameIs( pEnt->pev, "controller_head_ball" ) ||
+		     FClassnameIs( pEnt->pev, "controller_energy_ball" ) ||
+		     FClassnameIs( pEnt->pev, "nihilanth_energy_ball" ) ||
+		     FClassnameIs( pEnt->pev, "monster_satchel" ) ||
+		     FClassnameIs( pEnt->pev, "monster_tripmine" ) )
 		{
 			UTIL_Remove( pEnt );
 			return;

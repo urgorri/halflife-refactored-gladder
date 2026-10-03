@@ -132,6 +132,11 @@ void GladderModifiers::RechargeWallStations( void )
 		{
 			pCharger->pev->frame = 0;
 		}
+
+		// Vibrant Green glow shell for active health chargers (SPEC §3, §7.2, Issue #46)
+		pCharger->pev->renderfx = kRenderFxGlowShell;
+		pCharger->pev->rendercolor = Vector( 32, 255, 32 );
+		pCharger->pev->renderamt = 16;
 	}
 
 	// Re-energize all wall HEV suit chargers
@@ -146,6 +151,62 @@ void GladderModifiers::RechargeWallStations( void )
 		else
 		{
 			pCharger->pev->frame = 0;
+		}
+
+		// Vibrant Golden-Amber / Orange glow shell for active HEV suit chargers (SPEC §3, §7.2, Issue #46)
+		pCharger->pev->renderfx = kRenderFxGlowShell;
+		pCharger->pev->rendercolor = Vector( 255, 140, 20 );
+		pCharger->pev->renderamt = 16;
+	}
+}
+
+void GladderModifiers::UpdateWallStations( void )
+{
+	// Inspect active wall health chargers: extinguish glow if depleted
+	CBaseEntity *pCharger = nullptr;
+	while ( ( pCharger = UTIL_FindEntityByClassname( pCharger, "func_healthcharger" ) ) != nullptr )
+	{
+		if ( pCharger->pev->frame == 1 )
+		{
+			if ( pCharger->pev->renderfx != kRenderFxNone )
+			{
+				pCharger->pev->renderfx = kRenderFxNone;
+				pCharger->pev->rendercolor = Vector( 0, 0, 0 );
+				pCharger->pev->renderamt = 0;
+			}
+		}
+		else if ( pCharger->pev->frame == 0 )
+		{
+			if ( pCharger->pev->renderfx != kRenderFxGlowShell )
+			{
+				pCharger->pev->renderfx = kRenderFxGlowShell;
+				pCharger->pev->rendercolor = Vector( 32, 255, 32 );
+				pCharger->pev->renderamt = 16;
+			}
+		}
+	}
+
+	// Inspect active wall HEV suit chargers: extinguish glow if depleted
+	pCharger = nullptr;
+	while ( ( pCharger = UTIL_FindEntityByClassname( pCharger, "func_recharge" ) ) != nullptr )
+	{
+		if ( pCharger->pev->frame == 1 )
+		{
+			if ( pCharger->pev->renderfx != kRenderFxNone )
+			{
+				pCharger->pev->renderfx = kRenderFxNone;
+				pCharger->pev->rendercolor = Vector( 0, 0, 0 );
+				pCharger->pev->renderamt = 0;
+			}
+		}
+		else if ( pCharger->pev->frame == 0 )
+		{
+			if ( pCharger->pev->renderfx != kRenderFxGlowShell )
+			{
+				pCharger->pev->renderfx = kRenderFxGlowShell;
+				pCharger->pev->rendercolor = Vector( 255, 140, 20 );
+				pCharger->pev->renderamt = 16;
+			}
 		}
 	}
 }

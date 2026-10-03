@@ -384,6 +384,7 @@ if(BUILD_TESTS)
         tests/gladder/test_items.cpp
         tests/gladder/test_visuals.cpp
         tests/gladder/test_weapons.cpp
+        tests/gladder/test_rules.cpp
         ${PM_SHARED_SOURCES}
     )
 

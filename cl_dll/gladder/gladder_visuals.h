@@ -29,7 +29,8 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName );
 // and live snarks), while allowing collectible weapon pickups on the ground (SPEC §7.2, Issue #40).
 bool ShouldApplyPickupVisuals( const struct cl_entity_s *ent, const char *pszModelName );
 
-// Modifier function registered with EntityVisualRegistry
+// Modifier functions registered with EntityVisualRegistry
 void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char *modelname );
+void GladderChargerVisualModifier( int type, struct cl_entity_s *ent, const char *modelname );
 
 #endif // GLADDER_VISUALS_H

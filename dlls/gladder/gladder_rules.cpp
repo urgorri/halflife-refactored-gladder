@@ -21,6 +21,7 @@
 // and the factory falls back to CHalfLifeRules — CGladderRules is never instantiated.
 cvar_t gladder         = { "gladder",         "1",   FCVAR_SERVER | FCVAR_ARCHIVE, 1.0f,   nullptr };
 cvar_t gladder_timelimit = { "gladder_timelimit", "600", FCVAR_SERVER | FCVAR_ARCHIVE, 600.0f, nullptr };
+cvar_t gladder_autoswitch_on_pickup = { "gladder_autoswitch_on_pickup", "0", FCVAR_SERVER | FCVAR_ARCHIVE, 0.0f, nullptr };
 
 // Early cvar registration: called from ConditionGladder() so the engine has the "gladder"
 // cvar available on the console before CGladderRules is ever constructed.
@@ -33,6 +34,7 @@ static void Gladder_RegisterCvars( void )
 		return;
 	CVAR_REGISTER( &gladder );
 	CVAR_REGISTER( &gladder_timelimit );
+	CVAR_REGISTER( &gladder_autoswitch_on_pickup );
 	s_bGladderCvarsRegistered = true;
 }
 
@@ -130,6 +132,9 @@ void CGladderRules::Think( void )
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
 	}
+
+	// Maintain wall charger active state and glow extinction upon depletion (SPEC §3, Issue #46)
+	GladderModifiers::UpdateWallStations();
 }
 
 void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
@@ -148,6 +153,9 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 	if ( !m_bInitialSpawnDone )
 	{
 		m_bInitialSpawnDone = true;
+
+		// Initialize wall charger glows and capacity (SPEC §3, Issue #46)
+		RechargeWallStations();
 
 		// Equip HEV suit: set weapon bitmask directly to guarantee HUD/battery activation
 		pPlayer->pev->weapons |= ( 1 << WEAPON_SUIT );
@@ -267,6 +275,24 @@ void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, en
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
 {
 	return GladderMonsterModifiers::GetModernYawSpeed( pMonster, flDefaultYawSpeed );
+}
+
+BOOL CGladderRules::FCanMonsterDropItem( CBaseMonster *pMonster, const char *pszItemName )
+{
+	// All weapons, ammunition, and medical supplies in Gladder are governed strictly
+	// by the procedural spawner; disallow monster item drops (SPEC §3, Issue #44)
+	return FALSE;
+}
+
+BOOL CGladderRules::FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon )
+{
+	if ( !pPlayer || !pPlayer->m_pActiveItem )
+		return TRUE; // Always switch if player currently has no weapon drawn
+
+	if ( gladder_autoswitch_on_pickup.value == 0.0f )
+		return FALSE; // Suppress autoswitch by default (SPEC §7.5, Issue #45)
+
+	return CHalfLifeRules::FShouldSwitchWeapon( pPlayer, pWeapon );
 }
 
 float CGladderRules::FlHealthChargerCapacity( void )

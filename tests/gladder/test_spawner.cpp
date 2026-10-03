@@ -638,3 +638,150 @@ TEST_CASE( "Gladder Spawner: Solid brush entities (func_wall, func_monsterclip) 
 	ClearMockEntityFactories();
 }
 
+TEST_CASE( "Gladder Spawner: Floor-grounded monsters drop-in elevation (+8 units) (SPEC §4.4, Issue #43)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_zombie", FactoryTestMonster );
+	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+
+	GladderGridIndexer indexer;
+	for ( int i = 0; i < 4; ++i )
+	{
+		GladderGridCell c;
+		c.origin   = Vector( 100.0f + i * 64.0f, 100.0f, 50.0f );
+		c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+		c.areaId   = 1;
+		c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK | GLADDER_CELL_CEILING_VALID;
+		c.ceilingZ = 200.0f;
+		indexer.AddCell( c );
+	}
+
+	GladderMapConfig config;
+	config.baseMonsters = 1;
+	config.monstersPerWave = 0.0f;
+	config.maxMonsters = 1;
+	config.basePickups = 0;
+	config.pickupsPerWave = 0.0f;
+	config.maxPickups = 0;
+	config.monsterWhitelist.push_back( "monster_zombie" );
+
+	GladderSpawner spawner;
+	spawner.SpawnWave( 1, indexer, config );
+
+	REQUIRE( spawner.GetLastSpawnedMonsterCount() == 1 );
+
+	// Find the spawned monster
+	CBaseEntity *pSpawnedMonster = nullptr;
+	for ( size_t i = 0; i < spawner.GetTrackedEntityCount(); ++i )
+	{
+		CBaseEntity *pEnt = spawner.GetTrackedEntity( i );
+		const char *szClass = ( pEnt && pEnt->pev ) ? STRING( pEnt->pev->classname ) : "";
+		if ( strncmp( szClass, "monster_", 8 ) == 0 )
+		{
+			pSpawnedMonster = pEnt;
+			break;
+		}
+	}
+
+	REQUIRE( pSpawnedMonster != nullptr );
+	// SPEC §4.4: Ground monster spawn elevation must be cell.origin.z + 8.0f
+	CHECK( pSpawnedMonster->pev->origin.z == Catch::Approx( 50.0f + 8.0f ) );
+
+	ClearMockEntityFactories();
+}
+
+TEST_CASE( "Gladder Spawner: PurgeWaveEntities clears orphaned sprites, beams, projectiles, and ordnance (SPEC §11, Issue #42)", "[gladder][spawner]" )
+{
+	ResetMockEngine();
+	gpGlobals->maxEntities = 32;
+
+	struct TransientEntMock
+	{
+		CBaseEntity ent;
+	};
+
+	const char *classesToPurge[] = {
+		"beam",
+		"laser_spot",
+		"squidspit",
+		"bmortar",
+		"bolt",
+		"controller_head_ball",
+		"controller_energy_ball",
+		"nihilanth_energy_ball",
+		"hornet",
+		"monster_satchel",
+		"monster_tripmine"
+	};
+
+	size_t numClasses = sizeof( classesToPurge ) / sizeof( classesToPurge[0] );
+	std::vector<TransientEntMock> mocks( numClasses );
+
+	for ( size_t i = 0; i < numClasses; ++i )
+	{
+		int slot = static_cast<int>( i + 1 );
+		edict_t *pSlot = GetMockClientEntity( slot );
+		REQUIRE( pSlot != nullptr );
+
+		memset( pSlot, 0, sizeof( edict_t ) );
+		pSlot->free = 0;
+		pSlot->v.pContainingEntity = pSlot;
+		pSlot->v.classname         = MAKE_STRING( classesToPurge[i] );
+		pSlot->pvPrivateData       = &mocks[i].ent;
+		mocks[i].ent.pev           = &pSlot->v;
+	}
+
+	// Also add an orphaned env_sprite with MOVETYPE_FOLLOW and dead aiment
+	int spriteSlot = static_cast<int>( numClasses + 1 );
+	edict_t *pSpriteSlot = GetMockClientEntity( spriteSlot );
+	REQUIRE( pSpriteSlot != nullptr );
+	memset( pSpriteSlot, 0, sizeof( edict_t ) );
+	pSpriteSlot->free = 0;
+	pSpriteSlot->v.pContainingEntity = pSpriteSlot;
+	pSpriteSlot->v.classname         = MAKE_STRING( "env_sprite" );
+	pSpriteSlot->v.movetype          = MOVETYPE_FOLLOW;
+	pSpriteSlot->v.aiment            = nullptr; // orphaned!
+	CBaseEntity spriteEnt;
+	pSpriteSlot->pvPrivateData       = &spriteEnt;
+	spriteEnt.pev                    = &pSpriteSlot->v;
+
+	// Also add an active, non-orphaned env_sprite that should NOT be purged
+	int validSpriteSlot = static_cast<int>( numClasses + 2 );
+	edict_t *pValidSpriteSlot = GetMockClientEntity( validSpriteSlot );
+	REQUIRE( pValidSpriteSlot != nullptr );
+	memset( pValidSpriteSlot, 0, sizeof( edict_t ) );
+	pValidSpriteSlot->free = 0;
+	pValidSpriteSlot->v.pContainingEntity = pValidSpriteSlot;
+	pValidSpriteSlot->v.classname         = MAKE_STRING( "env_sprite" );
+	pValidSpriteSlot->v.movetype          = MOVETYPE_NONE; // not follow, static map sprite
+	CBaseEntity validSpriteEnt;
+	pValidSpriteSlot->pvPrivateData       = &validSpriteEnt;
+	validSpriteEnt.pev                    = &pValidSpriteSlot->v;
+
+	GladderSpawner spawner;
+	spawner.PurgeWaveEntities();
+
+	// All transient entities must be flagged with FL_KILLME
+	for ( size_t i = 0; i < numClasses; ++i )
+	{
+		int slot = static_cast<int>( i + 1 );
+		edict_t *pSlot = GetMockClientEntity( slot );
+		CHECK( ( pSlot->v.flags & FL_KILLME ) != 0 );
+	}
+
+	// Orphaned follow sprite must be flagged with FL_KILLME
+	CHECK( ( pSpriteSlot->v.flags & FL_KILLME ) != 0 );
+
+	// Static map sprite must NOT be flagged
+	CHECK( ( pValidSpriteSlot->v.flags & FL_KILLME ) == 0 );
+
+	// Cleanup mock slots
+	for ( int s = 1; s <= 32; ++s )
+	{
+		edict_t *pSlot = GetMockClientEntity( s );
+		if ( pSlot )
+			memset( pSlot, 0, sizeof( edict_t ) );
+	}
+}
+

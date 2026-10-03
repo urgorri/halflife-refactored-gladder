@@ -57,6 +57,7 @@ class GladderModifiers
 	static float CalculateHealthChargerCapacity( int iWaveNumber, float flBaseCapacity = 50.0f );
 	static float CalculateHEVChargerCapacity( int iWaveNumber, float flBaseCapacity = 75.0f );
 	static void RechargeWallStations( void );
+	static void UpdateWallStations( void );
 
 	// --- 4. Special Wave Mutators ---
 	GladderMutatorType GetActiveMutator( void ) const { return m_activeMutator; }
