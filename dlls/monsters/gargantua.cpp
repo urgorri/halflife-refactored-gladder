@@ -631,6 +631,17 @@ void CGargantua::Killed( entvars_t *pevAttacker, int iGib )
 	CBaseMonster::Killed( pevAttacker, GIB_NEVER );
 }
 
+void CGargantua::UpdateOnRemove( void )
+{
+	if ( m_pEyeGlow )
+	{
+		UTIL_Remove( m_pEyeGlow );
+		m_pEyeGlow = NULL;
+	}
+	FlameDestroy();
+	CBaseMonster::UpdateOnRemove();
+}
+
 //=========================================================
 // CheckMeleeAttack1
 // Garg swipe attack

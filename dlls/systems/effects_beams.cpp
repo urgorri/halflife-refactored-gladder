@@ -139,6 +139,11 @@ void CBeam::PointEntInit( const Vector &start, int endIndex )
 	SetStartAttachment( 0 );
 	SetEndAttachment( 0 );
 	RelinkBeam();
+	if ( !m_pfnThink )
+	{
+		SetThink( &CBeam::BeamThink );
+		pev->nextthink = gpGlobals->time + 0.1;
+	}
 }
 
 void CBeam::EntsInit( int startIndex, int endIndex )
@@ -149,6 +154,47 @@ void CBeam::EntsInit( int startIndex, int endIndex )
 	SetStartAttachment( 0 );
 	SetEndAttachment( 0 );
 	RelinkBeam();
+	if ( !m_pfnThink )
+	{
+		SetThink( &CBeam::BeamThink );
+		pev->nextthink = gpGlobals->time + 0.1;
+	}
+}
+
+void CBeam::BeamThink( void )
+{
+	int type = GetType();
+	if ( type == BEAM_ENTS || type == BEAM_ENTPOINT )
+	{
+		edict_t *pStart = ( type == BEAM_ENTS ) ? g_engfuncs.pfnPEntityOfEntIndex( GetStartEntity() ) : NULL;
+		edict_t *pEnd   = g_engfuncs.pfnPEntityOfEntIndex( GetEndEntity() );
+
+		if ( ( type == BEAM_ENTS && !UTIL_IsValidEntity( pStart ) ) || !UTIL_IsValidEntity( pEnd ) )
+		{
+			UTIL_Remove( this );
+			return;
+		}
+	}
+
+	pev->nextthink = gpGlobals->time + 0.1;
+}
+
+void CBeam::Think( void )
+{
+	int type = GetType();
+	if ( type == BEAM_ENTS || type == BEAM_ENTPOINT )
+	{
+		edict_t *pStart = ( type == BEAM_ENTS ) ? g_engfuncs.pfnPEntityOfEntIndex( GetStartEntity() ) : NULL;
+		edict_t *pEnd   = g_engfuncs.pfnPEntityOfEntIndex( GetEndEntity() );
+
+		if ( ( type == BEAM_ENTS && !UTIL_IsValidEntity( pStart ) ) || !UTIL_IsValidEntity( pEnd ) )
+		{
+			UTIL_Remove( this );
+			return;
+		}
+	}
+
+	CBaseEntity::Think();
 }
 
 void CBeam::RelinkBeam( void )
@@ -971,6 +1017,15 @@ CSprite *CSprite::SpriteCreate( const char *pSpriteName, const Vector &origin, B
 
 void CSprite::AnimateThink( void )
 {
+	if ( pev->movetype == MOVETYPE_FOLLOW )
+	{
+		if ( !UTIL_IsValidEntity( pev->aiment ) )
+		{
+			UTIL_Remove( this );
+			return;
+		}
+	}
+
 	Animate( pev->framerate * ( gpGlobals->time - m_lastTime ) );
 	pev->nextthink = gpGlobals->time + 0.1;
 	m_lastTime     = gpGlobals->time;

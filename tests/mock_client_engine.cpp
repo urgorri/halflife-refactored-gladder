@@ -383,9 +383,30 @@ static void stub_SPR_DisableScissor( void )
 {
 }
 
+static client_sprite_t *s_customMockSprites = nullptr;
+static int s_customMockSpriteCount = 0;
+
+void SetMockSpriteList( client_sprite_t *pSprites, int count )
+{
+	s_customMockSprites = pSprites;
+	s_customMockSpriteCount = count;
+}
+
+void ResetMockSpriteList( void )
+{
+	s_customMockSprites = nullptr;
+	s_customMockSpriteCount = 0;
+}
+
 static struct client_sprite_s *stub_SPR_GetList( char *psz, int *piCount )
 {
 	(void)psz;
+	if ( s_customMockSprites )
+	{
+		if ( piCount )
+			*piCount = s_customMockSpriteCount;
+		return s_customMockSprites;
+	}
 	if ( piCount )
 		*piCount = sizeof( s_mockSprites ) / sizeof( s_mockSprites[0] );
 	return s_mockSprites;
@@ -723,6 +744,7 @@ void ResetMockClientEngine( void )
 	g_mockPlayerCount = 1;
 	g_mockClientTime  = 1.0f;
 	gViewPort         = nullptr;
+	ResetMockSpriteList();
 }
 
 void SetMockMapName( const char *pszMapName )

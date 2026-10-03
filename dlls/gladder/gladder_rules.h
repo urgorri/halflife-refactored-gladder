@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #endif
+extern cvar_t gladder_autoswitch_on_pickup;
 
 class CGladderRules : public CHalfLifeRules
 {
@@ -61,6 +62,12 @@ class CGladderRules : public CHalfLifeRules
 
 	// Modernized monster turning speed hook (Issue #26)
 	float FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed ) override;
+
+	// Suppress monster weapon and supply drops to preserve procedural item weights (SPEC §3, Issue #44)
+	BOOL FCanMonsterDropItem( CBaseMonster *pMonster, const char *pszItemName ) override;
+
+	// User-configurable autoswitch prevention on weapon pickup (SPEC §7.5, Issue #45)
+	BOOL FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon ) override;
 
 	// Wall chargers capacity degradation & recharge
 	float FlHealthChargerCapacity( void ) override;

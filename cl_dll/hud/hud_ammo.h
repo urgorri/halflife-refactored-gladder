@@ -17,8 +17,13 @@
 #define HUD_AMMO_H
 
 #include "wrect.h"
+#include "cdll_dll.h"
 #include "global_consts.h"
 #include <string.h>
+
+#ifndef HSPRITE
+#define HSPRITE int
+#endif
 
 #define MAX_WEAPON_NAME 128
 #define WEAPON_FLAGS_SELECTONEMPTY 1
@@ -58,6 +63,8 @@ struct WEAPON
 };
 
 typedef int AMMO;
+
+typedef void ( *CrosshairFallbackFn )( WEAPON *pWeapon, int iResolution );
 
 // this is the max number of items in each bucket
 #define MAX_WEAPON_POSITIONS MAX_WEAPON_SLOTS
@@ -125,6 +132,9 @@ class WeaponsResource
 	void SetAmmo( int iId, int iCount ) { riAmmo[iId] = iCount; }
 	int CountAmmo( int iId );
 	HSPRITE *GetAmmoPicFromWeapon( int iAmmoId, wrect_t &rect );
+
+	static void SetCrosshairFallbackHandler( CrosshairFallbackFn pfnHandler );
+	static CrosshairFallbackFn GetCrosshairFallbackHandler( void );
 };
 
 extern WeaponsResource gWR;

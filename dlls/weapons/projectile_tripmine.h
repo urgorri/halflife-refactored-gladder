@@ -39,6 +39,7 @@ class CTripmineGrenade : public CGrenade
 
 	void MakeBeam( void );
 	void KillBeam( void );
+	void UpdateOnRemove( void );
 
 	float m_flPowerUp;
 	Vector m_vecDir;

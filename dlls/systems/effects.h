@@ -60,6 +60,12 @@ class CSprite : public CPointEntity
 			pev->body     = attachment;
 			pev->aiment   = pEntity;
 			pev->movetype = MOVETYPE_FOLLOW;
+			if ( !m_pfnThink )
+			{
+				SetThink( &CSprite::AnimateThink );
+				pev->nextthink = gpGlobals->time + 0.1;
+				m_lastTime     = gpGlobals->time;
+			}
 		}
 	}
 	void TurnOff( void );
@@ -174,6 +180,8 @@ class CBeam : public CBaseEntity
 	inline int GetScrollRate( void ) { return pev->animtime; }
 
 	void RelinkBeam( void );
+	void EXPORT BeamThink( void );
+	virtual void Think( void );
 
 	void DoSparks( const Vector &start, const Vector &end );
 	CBaseEntity *RandomTargetname( const char *szName );

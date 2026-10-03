@@ -53,6 +53,7 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Ammunition**: Must represent the majority of procedural supply spawns, ensuring players are rewarded for exploration and forced to manage reserves across escalating combat encounters.
     * **Health & Armor**: Balanced secondary consumable drops to recover from attrition.
     * **Weapons**: Assigned substantially lower procedural probability weights compared to ammunition, serving as rare, high-impact tactical upgrades rather than common drops.
+    * **Monster Weapon Dropping Prohibition**: Monsters (specifically HECU Grunts or Barney) are strictly prohibited from dropping weapons or ammunition upon death (`DropItem` calls suppressed). All weapons, ammunition, and items present in the map must originate exclusively from the procedural spawner, ensuring complete deterministic authority over supply distribution and pacing.
 * **Special Waves & Random Mutators**:
   * Every few waves (at configurable intervals, e.g. every 5th wave), the mod rolls a random gameplay mutator:
     * **Blackout**: Level lights are extinguished into pitch darkness; navigation relies heavily on the HEV flashlight.
@@ -62,9 +63,13 @@ Instead of progressing linearly through a series of maps, players run through a 
   * Original Half-Life monsters feature sluggish turning rates (`m_flYawSpeed`), resulting in slow rotational reaction times that feel dated and allow players to easily bypass or stand behind monsters without being tracked.
   * In this mod, the default `yawspeed` across all monster species is increased globally to deliver snappy, modern arcade responsiveness.
   * Monsters turn and re-orient toward flanking or sprinting players significantly faster, eliminating exploitable blind spots and maintaining high-intensity combat pressure during fast runs.
-* **Diminishing Wall Charger Capacity**:
+* **Diminishing Wall Charger Capacity & Active State Glow**:
   * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
   * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.
+  * **Arcade Visual Glow & Dynamic Light**: While a station retains restorative capacity ("juice", `frame == 0`), it emits the mod's signature arcade visual glow (`kRenderFxGlowShell`) and casts a localized dynamic point light:
+    * `func_healthcharger`: Vibrant Green glow (`RGB(32, 255, 32)`) and localized green dynamic light.
+    * `func_recharge`: Golden-Amber / Orange glow (`RGB(255, 140, 20)`) and localized amber dynamic light.
+  * **Depletion Feedback**: The instant the station's capacity is exhausted by player use (`frame == 1`), the glow shell and dynamic light immediately extinguish, providing clear visual feedback that the station is depleted until the next wave reset.
 
 
 
@@ -115,6 +120,9 @@ To accommodate distinct enemy mechanics and level geometry, specific monster typ
 * **Flying Monsters Variable Altitude Spawning**:
   * Flying enemies (such as `monster_flyer`, `monster_alien_controller`, or other airborne species) do not spawn grounded on floor surfaces.
   * When spawned at a grid coordinate, their vertical position (Z axis) is randomized dynamically along a variable altitude range between the floor elevation and the ceiling clearance height of that grid cell, creating diverse vertical engagement angles and unpredictable combat encounters in every wave.
+* **Floor-Grounded Monsters Drop-In Elevation (+8 Units)**:
+  * In GoldSrc, spawning monsters with their bounding box bottom flush against floor geometry often causes `stuck in wall/floor` collision failures on their initial physics tick due to micro-uneven brush seams, floor bevels, or ramp slopes.
+  * To ensure clean collision initialization, ground-based monsters spawn with a vertical clearance offset of approximately +8 units above the detected surface. Native engine step physics and gravity (`MOVETYPE_STEP`) automatically settle the monster cleanly onto the ground on its first physics frame, preventing false stuck-in-world detections.
 
 ---
 
@@ -180,6 +188,12 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * In Half-Life: Gladder, **all weapons must have a visible crosshair** on the client HUD.
 * The default fallback crosshair for weapons that traditionally lack a reticle (melee weapons, grenades, satchels, snarks) must use the standard centered crosshair used by the 9mm handgun / Glock (`crosshair.spr`), rather than an empty/null crosshair. This guarantees consistent, immediate visual targeting alignment during high-speed gauntlet runs.
 
+### 7.5 Auto-Switch on Weapon Pickup Prevention (`gladder_autoswitch_on_pickup`)
+* In vanilla Half-Life, picking up a newly acquired weapon automatically forces the player to holster their current weapon and immediately deploy the new one. In high-speed gauntlet runner combat, this behavior is severely disruptive when sprinting and firing through dense hostile encounters.
+* In Half-Life: Gladder, **automatic weapon switching upon pickup is disabled by default** whenever the player already has an active weapon drawn.
+* The mechanic is governed by a console variable (`gladder_autoswitch_on_pickup`, default `0`):
+  * `gladder_autoswitch_on_pickup 0` (Default): Running over a new weapon silently adds it to the player's inventory/ammo pool without interrupting combat or switching the active weapon. (If the player has no weapon drawn, e.g. empty hands, it automatically equips).
+  * `gladder_autoswitch_on_pickup 1`: Restores classic Half-Life autoswitch behavior on pickup.
 ---
 
 ## 8. Arcade Audio Cues & Soundscapes
@@ -270,7 +284,12 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 512 to 900+ entities), strict resource purging occurs at each wave reset:
 * **Active Monster Cleanup**: Any monsters surviving from the previous wave are eradicated immediately upon wave completion.
 * **Dropped Item Purge**: Uncollected weapons, ammunition boxes, and medical kits scattered across the map are removed to prevent entity buildup.
-* **Transient Entity Clearing**: Lingering projectiles, gibs, corpses, and temporary decal effects are purged.
+* **Transient Entity Clearing & Orphaned Effects**:
+  To prevent floating visual artifacts, broken physics links, or edict leaks across wave resets, all transient combat entities and attached visual effects are comprehensively purged:
+  * **Monster & Player Projectiles**: Rockets (`rpg_rocket`, `hvr_rocket`), grenades (`grenade`), Alien Grunt hornets (`hornet`), live snarks (`monster_snark`), crossbow bolts (`bolt`), Bullsquid acid spitballs (`squidspit`), Gonarch mortar spit (`bmortar`), Alien Controller attack balls (`controller_head_ball`, `controller_energy_ball`), Nihilanth spheres (`nihilanth_energy_ball`), planted satchels (`monster_satchel`), and planted tripmines (`monster_tripmine`).
+  * **Beams & Continuous Effects**: Active laser and lightning beams (`beam` / `CBeam`, including Vortigaunt lightning, Gargantua flame beams, tripmine lasers, and Egon beams) and laser targeting spots (`laser_spot`).
+  * **Orphaned Attached Sprites**: Dynamic effect sprites (`env_sprite`) attached to monsters via `MOVETYPE_FOLLOW` (such as Alien Controller charging head balls `sprites/xspark4.spr`, Gargantua eye glows, Turret eye glows, Nihilanth tele balls) whose parent entity was removed or freed.
+  * **Debris & Corpses**: Monster gibs (`gib`), player corpses, and temporary impact decals.
 * **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
 
 ### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`func_breakable`)

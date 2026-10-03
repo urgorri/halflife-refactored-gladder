@@ -138,3 +138,83 @@ TEST_CASE( "GladderModifiers: Special wave mutator activation and reversion", "[
 	CHECK( modifiers.GetActiveMutator() == GLADDER_MUTATOR_NONE );
 	CHECK( modifiers.GetSwarmSpecies().empty() );
 }
+
+TEST_CASE( "GladderModifiers: Wall station active glow shell and depletion extinction (SPEC §3, §7.2, Issue #46)", "[gladder][modifiers][chargers]" )
+{
+	ResetMockEngine();
+	gpGlobals->maxEntities = 3;
+
+	CBaseEntity healthCharger;
+	edict_t *pEdHealth = GetMockClientEntity( 1 );
+	REQUIRE( pEdHealth != nullptr );
+	memset( pEdHealth, 0, sizeof( edict_t ) );
+	pEdHealth->free                = 0;
+	pEdHealth->v.pContainingEntity = pEdHealth;
+	pEdHealth->pvPrivateData       = &healthCharger;
+	pEdHealth->v.classname         = MAKE_STRING( "func_healthcharger" );
+	healthCharger.pev              = &pEdHealth->v;
+	healthCharger.pev->frame       = 0;
+
+	CBaseEntity hevCharger;
+	edict_t *pEdHEV = GetMockClientEntity( 2 );
+	REQUIRE( pEdHEV != nullptr );
+	memset( pEdHEV, 0, sizeof( edict_t ) );
+	pEdHEV->free                = 0;
+	pEdHEV->v.pContainingEntity = pEdHEV;
+	pEdHEV->pvPrivateData       = &hevCharger;
+	pEdHEV->v.classname         = MAKE_STRING( "func_recharge" );
+	hevCharger.pev              = &pEdHEV->v;
+	hevCharger.pev->frame       = 0;
+
+	SECTION( "RechargeWallStations applies green/amber glow shells to active stations" )
+	{
+		GladderModifiers::RechargeWallStations();
+
+		// Health charger -> Vibrant Green glow shell
+		CHECK( healthCharger.pev->renderfx == kRenderFxGlowShell );
+		CHECK( healthCharger.pev->rendercolor.x == Catch::Approx( 32.0f ) );
+		CHECK( healthCharger.pev->rendercolor.y == Catch::Approx( 255.0f ) );
+		CHECK( healthCharger.pev->rendercolor.z == Catch::Approx( 32.0f ) );
+		CHECK( healthCharger.pev->renderamt == Catch::Approx( 16.0f ) );
+
+		// HEV charger -> Vibrant Amber/Orange glow shell
+		CHECK( hevCharger.pev->renderfx == kRenderFxGlowShell );
+		CHECK( hevCharger.pev->rendercolor.x == Catch::Approx( 255.0f ) );
+		CHECK( hevCharger.pev->rendercolor.y == Catch::Approx( 140.0f ) );
+		CHECK( hevCharger.pev->rendercolor.z == Catch::Approx( 20.0f ) );
+		CHECK( hevCharger.pev->renderamt == Catch::Approx( 16.0f ) );
+	}
+
+	SECTION( "UpdateWallStations extinguishes glow when station is depleted (frame == 1)" )
+	{
+		GladderModifiers::RechargeWallStations();
+
+		// Deplete stations
+		healthCharger.pev->frame = 1;
+		hevCharger.pev->frame    = 1;
+
+		GladderModifiers::UpdateWallStations();
+
+		// Glow shell extinguished
+		CHECK( healthCharger.pev->renderfx == kRenderFxNone );
+		CHECK( healthCharger.pev->renderamt == Catch::Approx( 0.0f ) );
+
+		CHECK( hevCharger.pev->renderfx == kRenderFxNone );
+		CHECK( hevCharger.pev->renderamt == Catch::Approx( 0.0f ) );
+
+		// Re-energize stations -> glow restored
+		healthCharger.pev->frame = 0;
+		hevCharger.pev->frame    = 0;
+
+		GladderModifiers::UpdateWallStations();
+
+		CHECK( healthCharger.pev->renderfx == kRenderFxGlowShell );
+		CHECK( healthCharger.pev->renderamt == Catch::Approx( 16.0f ) );
+		CHECK( hevCharger.pev->renderfx == kRenderFxGlowShell );
+		CHECK( hevCharger.pev->renderamt == Catch::Approx( 16.0f ) );
+	}
+
+	memset( pEdHealth, 0, sizeof( edict_t ) );
+	memset( pEdHEV, 0, sizeof( edict_t ) );
+}
+

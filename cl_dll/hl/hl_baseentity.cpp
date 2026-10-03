@@ -42,6 +42,7 @@ ItemInfo CBasePlayerItem::ItemInfoArray[MAX_WEAPONS];
 void EMIT_SOUND_DYN( edict_t *entity, int channel, const char *sample, float volume, float attenuation, int flags, int pitch ) {}
 
 // CBaseEntity Stubs
+void CBaseEntity::UpdateOnRemove( void ) {}
 int CBaseEntity ::TakeHealth( float flHealth, int bitsDamageType )
 {
 	return 1;

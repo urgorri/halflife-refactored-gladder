@@ -70,6 +70,7 @@ class CGargantua : public CBaseMonster
 
 	void Killed( entvars_t *pevAttacker, int iGib );
 	void DeathEffect( void );
+	void UpdateOnRemove( void );
 
 	void EyeOff( void );
 	void EyeOn( int level );

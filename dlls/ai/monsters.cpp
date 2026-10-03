@@ -1206,6 +1206,11 @@ CBaseEntity *CBaseMonster ::DropItem( char *pszItemName, const Vector &vecPos, c
 		return NULL;
 	}
 
+	if ( g_pGameRules && !g_pGameRules->FCanMonsterDropItem( this, pszItemName ) )
+	{
+		return NULL;
+	}
+
 	CBaseEntity *pItem = CBaseEntity::Create( pszItemName, vecPos, vecAng, edict() );
 
 	if ( pItem )
@@ -1218,7 +1223,7 @@ CBaseEntity *CBaseMonster ::DropItem( char *pszItemName, const Vector &vecPos, c
 	else
 	{
 		ALERT( at_console, "DropItem() - Didn't create!\n" );
-		return FALSE;
+		return NULL;
 	}
 }
 

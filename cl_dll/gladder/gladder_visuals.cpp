@@ -17,11 +17,13 @@
 #include "const.h"
 #include "entity_types.h"
 #include "r_efx.h"
+#include "com_model.h"
 #include "entities/entity_visual_registry.h"
 #else
 #include "common/mathlib.h"
 #include "common/const.h"
 #include "common/entity_state.h"
+#include "common/com_model.h"
 #include "common/cl_entity.h"
 #endif
 
@@ -231,4 +233,60 @@ void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char 
 }
 
 REGISTER_ENTITY_VISUAL_MODIFIER( GladderPickupVisualModifier );
+
+void GladderChargerVisualModifier( int type, struct cl_entity_s *ent, const char *modelname )
+{
+	if ( !ent || !modelname )
+		return;
+
+	// Only apply to brush entities (SPEC §3, §7.2, Issue #46)
+	if ( modelname[0] != '*' )
+		return;
+
+	if ( ent->curstate.renderfx != kRenderFxGlowShell )
+		return;
+
+	// Check for active HealthCharger (Green: 32, 255, 32) or HEV Recharge (Orange: 255, 140, 20)
+	unsigned char r = ent->curstate.rendercolor.r;
+	unsigned char g = ent->curstate.rendercolor.g;
+	unsigned char b = ent->curstate.rendercolor.b;
+
+	bool bIsHealth = ( r == 32 && g == 255 && b == 32 );
+	bool bIsHEV    = ( r == 255 && g == 140 && b == 20 );
+
+	if ( !bIsHealth && !bIsHEV )
+		return;
+
+	float clientTime = gEngfuncs.GetClientTime ? gEngfuncs.GetClientTime() : 0.0f;
+
+	// Cast localized colored dynamic point light (radius ~120 units) centered at charger
+	if ( gEngfuncs.pEfxAPI && gEngfuncs.pEfxAPI->CL_AllocDlight )
+	{
+		dlight_t *dl = gEngfuncs.pEfxAPI->CL_AllocDlight( ent->index );
+		if ( dl )
+		{
+			vec3_t vecCenter;
+			if ( ent->model )
+			{
+				vecCenter[0] = ( ent->model->mins[0] + ent->model->maxs[0] ) * 0.5f + ent->origin[0];
+				vecCenter[1] = ( ent->model->mins[1] + ent->model->maxs[1] ) * 0.5f + ent->origin[1];
+				vecCenter[2] = ( ent->model->mins[2] + ent->model->maxs[2] ) * 0.5f + ent->origin[2];
+			}
+			else
+			{
+				VectorCopy( ent->origin, vecCenter );
+			}
+
+			VectorCopy( vecCenter, dl->origin );
+			dl->radius  = 120.0f;
+			dl->color.r = r;
+			dl->color.g = g;
+			dl->color.b = b;
+			dl->die     = clientTime + 0.05f;
+			dl->decay   = 300.0f;
+		}
+	}
+}
+
+REGISTER_ENTITY_VISUAL_MODIFIER( GladderChargerVisualModifier );
 #endif

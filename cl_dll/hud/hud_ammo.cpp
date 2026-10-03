@@ -13,6 +13,7 @@
  *
  ****/
 
+#if !defined( HL_TESTS )
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
@@ -28,11 +29,49 @@ WEAPON *gpActiveSel; // NULL means off, 1 means just the menu bar, otherwise
                      // this points to the active weapon menu item
 WEAPON *gpLastSel;   // Last weapon menu selection
 
+int g_weaponselect = 0;
+#else
+#include <string.h>
+#include <stdio.h>
+#include <algorithm>
+#include "tests/mock_client_engine.h"
+#include "hud_ammo.h"
+
+#ifndef max
+#define max(a,b) (((a)>(b))?(a):(b))
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#define SPR_GetList (*g_mockClientEngineFuncs.pfnSPR_GetList)
+#define SPR_Load (*g_mockClientEngineFuncs.pfnSPR_Load)
+
+int ScreenWidth = 640;
+int ScreenHeight = 480;
+HistoryResource gHR;
+#endif
+
 client_sprite_t *GetSpriteList( client_sprite_t *pList, const char *psz, int iRes, int iCount );
 
 WeaponsResource gWR;
 
-int g_weaponselect = 0;
+static CrosshairFallbackFn s_pfnCrosshairFallback = nullptr;
+
+void WeaponsResource::SetCrosshairFallbackHandler( CrosshairFallbackFn pfnHandler )
+{
+	s_pfnCrosshairFallback = pfnHandler;
+}
+
+CrosshairFallbackFn WeaponsResource::GetCrosshairFallbackHandler( void )
+{
+	return s_pfnCrosshairFallback;
+}
 
 void WeaponsResource ::LoadAllWeaponSprites( void )
 {
@@ -109,7 +148,13 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 		pWeapon->rcCrosshair = p->rc;
 	}
 	else
+	{
 		pWeapon->hCrosshair = NULL;
+		if ( s_pfnCrosshairFallback )
+		{
+			s_pfnCrosshairFallback( pWeapon, iRes );
+		}
+	}
 
 	p = GetSpriteList( pList, "autoaim", iRes, i );
 	if ( p )
@@ -224,6 +269,7 @@ WEAPON *WeaponsResource ::GetNextActivePos( int iSlot, int iSlotPos )
 	return p;
 }
 
+#if !defined( HL_TESTS )
 int giBucketHeight, giBucketWidth, giABHeight, giABWidth; // Ammo Bar width and height
 
 HSPRITE ghsprBuckets; // Sprite for top row of weapons menu
@@ -641,6 +687,7 @@ int CHudAmmo::Draw( float flTime )
 	}
 	return 1;
 }
+#endif // !defined( HL_TESTS )
 
 client_sprite_t *GetSpriteList( client_sprite_t *pList, const char *psz, int iRes, int iCount )
 {
@@ -660,6 +707,7 @@ client_sprite_t *GetSpriteList( client_sprite_t *pList, const char *psz, int iRe
 	return NULL;
 }
 
+#if !defined( HL_TESTS )
 //=========================================================
 // Secondary Ammo HUD Implementation
 //=========================================================
@@ -958,3 +1006,5 @@ int HistoryResource ::DrawAmmoHistory( float flTime )
 
 	return 1;
 }
+#endif // !defined( HL_TESTS )
+

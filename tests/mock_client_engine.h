@@ -11,16 +11,24 @@ typedef float vec_t;
 typedef float vec3_t[3];
 typedef int ( *pfnUserMsgHook )( const char *pszName, int iSize, void *pbuf );
 
+#if !defined( WRECTH )
+#define WRECTH
 typedef struct rect_s
 {
 	int left, right, top, bottom;
 } wrect_t;
+#endif
 
 #include "common/const.h"
 #include "common/cvardef.h"
 #include "common/com_model.h"
 #include "common/demo_api.h"
 #include "common/r_studioint.h"
+#ifdef _WIN32
+#include "common/winsani_in.h"
+#include <windows.h>
+#include "common/winsani_out.h"
+#endif
 #include "engine/cdll_int.h"
 
 // Forward declaration of TeamFortressViewport for pointer verification
@@ -52,6 +60,8 @@ void SetMockMapName( const char *pszMapName );
 void SetMockPlayerCount( int count );
 void SetMockClientTime( float flTime );
 void SetMockScreenInfo( int width, int height );
+void SetMockSpriteList( struct client_sprite_s *pSprites, int count );
+void ResetMockSpriteList( void );
 
 // Dynamic library loading and client export resolution
 bool LoadClientLibrary( const char *customPath = nullptr );

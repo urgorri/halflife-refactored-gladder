@@ -58,6 +58,7 @@ class CBaseTurret : public CBaseMonster
 	virtual void Ping( void );
 	virtual void EyeOn( void );
 	virtual void EyeOff( void );
+	void UpdateOnRemove( void );
 
 	virtual int Save( CSave &save );
 	virtual int Restore( CRestore &restore );
