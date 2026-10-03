@@ -53,6 +53,7 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Ammunition**: Must represent the majority of procedural supply spawns, ensuring players are rewarded for exploration and forced to manage reserves across escalating combat encounters.
     * **Health & Armor**: Balanced secondary consumable drops to recover from attrition.
     * **Weapons**: Assigned substantially lower procedural probability weights compared to ammunition, serving as rare, high-impact tactical upgrades rather than common drops.
+    * **Monster Weapon Dropping Prohibition**: Monsters (specifically HECU Grunts or Barney) are strictly prohibited from dropping weapons or ammunition upon death (`DropItem` calls suppressed). All weapons, ammunition, and items present in the map must originate exclusively from the procedural spawner, ensuring complete deterministic authority over supply distribution and pacing.
 * **Special Waves & Random Mutators**:
   * Every few waves (at configurable intervals, e.g. every 5th wave), the mod rolls a random gameplay mutator:
     * **Blackout**: Level lights are extinguished into pitch darkness; navigation relies heavily on the HEV flashlight.
@@ -62,9 +63,13 @@ Instead of progressing linearly through a series of maps, players run through a 
   * Original Half-Life monsters feature sluggish turning rates (`m_flYawSpeed`), resulting in slow rotational reaction times that feel dated and allow players to easily bypass or stand behind monsters without being tracked.
   * In this mod, the default `yawspeed` across all monster species is increased globally to deliver snappy, modern arcade responsiveness.
   * Monsters turn and re-orient toward flanking or sprinting players significantly faster, eliminating exploitable blind spots and maintaining high-intensity combat pressure during fast runs.
-* **Diminishing Wall Charger Capacity**:
+* **Diminishing Wall Charger Capacity & Active State Glow**:
   * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
   * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.
+  * **Arcade Visual Glow & Dynamic Light**: While a station retains restorative capacity ("juice", `frame == 0`), it emits the mod's signature arcade visual glow (`kRenderFxGlowShell`) and casts a localized dynamic point light:
+    * `func_healthcharger`: Vibrant Green glow (`RGB(32, 255, 32)`) and localized green dynamic light.
+    * `func_recharge`: Golden-Amber / Orange glow (`RGB(255, 140, 20)`) and localized amber dynamic light.
+  * **Depletion Feedback**: The instant the station's capacity is exhausted by player use (`frame == 1`), the glow shell and dynamic light immediately extinguish, providing clear visual feedback that the station is depleted until the next wave reset.
 
 
 
@@ -182,6 +187,13 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * In standard Half-Life, melee weapons (`weapon_crowbar`, `weapon_pipewrench`, `weapon_knife`) and throwable ordnance (`weapon_handgrenade`, `weapon_satchel`, `weapon_snark`) lack an on-screen crosshair, leaving the player with an empty reticle.
 * In Half-Life: Gladder, **all weapons must have a visible crosshair** on the client HUD.
 * The default fallback crosshair for weapons that traditionally lack a reticle (melee weapons, grenades, satchels, snarks) must use the standard centered crosshair used by the 9mm handgun / Glock (`crosshair.spr`), rather than an empty/null crosshair. This guarantees consistent, immediate visual targeting alignment during high-speed gauntlet runs.
+
+### 7.5 Auto-Switch on Weapon Pickup Prevention (`gladder_autoswitch_on_pickup`)
+* In vanilla Half-Life, picking up a newly acquired weapon automatically forces the player to holster their current weapon and immediately deploy the new one. In high-speed gauntlet runner combat, this behavior is severely disruptive when sprinting and firing through dense hostile encounters.
+* In Half-Life: Gladder, **automatic weapon switching upon pickup is disabled by default** whenever the player already has an active weapon drawn.
+* The mechanic is governed by a console variable (`gladder_autoswitch_on_pickup`, default `0`):
+  * `gladder_autoswitch_on_pickup 0` (Default): Running over a new weapon silently adds it to the player's inventory/ammo pool without interrupting combat or switching the active weapon. (If the player has no weapon drawn, e.g. empty hands, it automatically equips).
+  * `gladder_autoswitch_on_pickup 1`: Restores classic Half-Life autoswitch behavior on pickup.
 
 ---
 
