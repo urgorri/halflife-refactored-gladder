@@ -225,6 +225,16 @@ void CBaseTurret::EyeOff()
 	}
 }
 
+void CBaseTurret::UpdateOnRemove( void )
+{
+	if ( m_pEyeGlow )
+	{
+		UTIL_Remove( m_pEyeGlow );
+		m_pEyeGlow = NULL;
+	}
+	CBaseMonster::UpdateOnRemove();
+}
+
 void CBaseTurret::ActiveThink( void )
 {
 	int fAttack = 0;

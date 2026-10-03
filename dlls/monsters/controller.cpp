@@ -149,6 +149,19 @@ void CController::GibMonster( void )
 	CSquadMonster::GibMonster();
 }
 
+void CController::UpdateOnRemove( void )
+{
+	for ( int i = 0; i < 2; i++ )
+	{
+		if ( m_pBall[i] )
+		{
+			UTIL_Remove( m_pBall[i] );
+			m_pBall[i] = NULL;
+		}
+	}
+	CSquadMonster::UpdateOnRemove();
+}
+
 void CController ::PainSound( void )
 {
 	if ( RANDOM_LONG( 0, 5 ) < 2 )

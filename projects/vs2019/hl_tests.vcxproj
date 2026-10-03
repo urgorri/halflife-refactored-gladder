@@ -60,7 +60,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;VALVE_DLL;HL_TESTS;CATCH_AMALGAMATED_CUSTOM_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\hud;..\..\cl_dll\events;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\gladder;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\core;..\..\cl_dll\hud;..\..\cl_dll\events;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\gladder;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
@@ -78,7 +78,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;VALVE_DLL;HL_TESTS;CATCH_AMALGAMATED_CUSTOM_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\hud;..\..\cl_dll\events;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\gladder;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\;..\..\tests;..\..\external\catch2;..\..\dlls;..\..\dlls\core;..\..\dlls\weapons;..\..\dlls\gameplay;..\..\dlls\gladder;..\..\cl_dll;..\..\cl_dll\core;..\..\cl_dll\hud;..\..\cl_dll\events;..\..\cl_dll\entities;..\..\cl_dll\hl;..\..\cl_dll\gladder;..\..\engine;..\..\common;..\..\pm_shared;..\..\game_shared;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <LanguageStandard>stdcpp14</LanguageStandard>
@@ -97,6 +97,7 @@
     <ClInclude Include="..\..\tests\mock_client_engine.h" />
     <ClInclude Include="..\..\cl_dll\hud\hud_base.h" />
     <ClInclude Include="..\..\cl_dll\hud\hud_registry.h" />
+    <ClInclude Include="..\..\cl_dll\hud\hud_ammo.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\external\catch2\catch_amalgamated.cpp" />
@@ -130,7 +131,9 @@
     <ClCompile Include="..\..\cl_dll\hl\client_weapon_manager.cpp" />
     <ClCompile Include="..\..\cl_dll\events\event_registry.cpp" />
     <ClCompile Include="..\..\cl_dll\hud\hud_registry.cpp" />
+    <ClCompile Include="..\..\cl_dll\hud\hud_ammo.cpp" />
     <ClCompile Include="..\..\tests\test_hud_registry.cpp" />
+    <ClCompile Include="..\..\tests\test_weapons_resource.cpp" />
     <ClCompile Include="..\..\tests\test_client_lifecycle.cpp" />
     <ClCompile Include="..\..\tests\test_client_studio.cpp" />
     <ClCompile Include="..\..\tests\test_gamerules_skill.cpp" />
@@ -156,6 +159,8 @@
     <ClCompile Include="..\..\tests\test_buttons.cpp" />
     <ClCompile Include="..\..\tests\test_breakable_lifecycle.cpp" />
     <ClCompile Include="..\..\tests\test_entity_iteration.cpp" />
+    <ClCompile Include="..\..\tests\test_orphaned_effects.cpp" />
+    <ClCompile Include="..\..\tests\test_monster_drop_hook.cpp" />
     <ClCompile Include="..\..\dlls\core\animation.cpp" />
     <ClCompile Include="..\..\dlls\systems\buttons.cpp" />
     <ClCompile Include="..\..\dlls\systems\func_break.cpp" />

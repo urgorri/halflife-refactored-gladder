@@ -662,4 +662,3 @@ TEST_CASE( "GameplayHooks: FlMonsterYawSpeed delegates and scales monster turn r
 
 	g_pGameRules = nullptr;
 }
-

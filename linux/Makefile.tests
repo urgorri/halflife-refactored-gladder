@@ -10,7 +10,7 @@ EXTERNAL_SRC_DIR=$(SOURCE_DIR)/external
 TESTS_OBJ_DIR=$(BUILD_OBJ_DIR)/tests
 PM_OBJ_DIR=$(BUILD_OBJ_DIR)/tests_pm
 
-TESTS_INCLUDEDIRS=-I$(SOURCE_DIR) -I$(TESTS_SRC_DIR) -I$(EXTERNAL_SRC_DIR)/catch2 -I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(HLDLL_SRC_DIR)/gladder -I$(SOURCE_DIR)/cl_dll -I$(SOURCE_DIR)/cl_dll/hud -I$(SOURCE_DIR)/cl_dll/events -I$(SOURCE_DIR)/cl_dll/entities -I$(SOURCE_DIR)/cl_dll/hl -I$(SOURCE_DIR)/cl_dll/gladder -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR)
+TESTS_INCLUDEDIRS=-I$(SOURCE_DIR) -I$(TESTS_SRC_DIR) -I$(EXTERNAL_SRC_DIR)/catch2 -I$(HLDLL_SRC_DIR) -I$(HLCORE_SRC_DIR) -I$(HLDLL_SRC_DIR)/weapons -I$(HLDLL_SRC_DIR)/gladder -I$(SOURCE_DIR)/cl_dll -I$(SOURCE_DIR)/cl_dll/core -I$(SOURCE_DIR)/cl_dll/hud -I$(SOURCE_DIR)/cl_dll/events -I$(SOURCE_DIR)/cl_dll/entities -I$(SOURCE_DIR)/cl_dll/hl -I$(SOURCE_DIR)/cl_dll/gladder -I$(ENGINE_SRC_DIR) -I$(COMMON_SRC_DIR) -I$(PM_SRC_DIR) -I$(GAME_SHARED_SRC_DIR) -I$(PUBLIC_SRC_DIR)
 
 TESTS_CFLAGS=$(BASE_CFLAGS) $(ARCH_CFLAGS) -std=c++14 -DHL_TESTS -DVALVE_DLL -DCATCH_AMALGAMATED_CUSTOM_MAIN
 PM_CFLAGS=$(BASE_CFLAGS) $(ARCH_CFLAGS)
@@ -52,8 +52,10 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/client_weapon_manager.o \
 	$(TESTS_OBJ_DIR)/event_registry.o \
 	$(TESTS_OBJ_DIR)/hud_registry.o \
+	$(TESTS_OBJ_DIR)/hud_ammo.o \
 	$(TESTS_OBJ_DIR)/entity_visual_registry.o \
 	$(TESTS_OBJ_DIR)/test_hud_registry.o \
+	$(TESTS_OBJ_DIR)/test_weapons_resource.o \
 	$(TESTS_OBJ_DIR)/test_effects_beams.o \
 	$(TESTS_OBJ_DIR)/test_crash_handler.o \
 	$(TESTS_OBJ_DIR)/test_triggers.o \
@@ -63,6 +65,8 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/test_buttons.o \
 	$(TESTS_OBJ_DIR)/test_breakable_lifecycle.o \
 	$(TESTS_OBJ_DIR)/test_entity_iteration.o \
+	$(TESTS_OBJ_DIR)/test_orphaned_effects.o \
+	$(TESTS_OBJ_DIR)/test_monster_drop_hook.o \
 	$(TESTS_OBJ_DIR)/client_customization.o \
 	$(TESTS_OBJ_DIR)/animation.o \
 	$(TESTS_OBJ_DIR)/buttons.o \
@@ -165,6 +169,12 @@ $(TESTS_OBJ_DIR)/event_registry.o: $(SOURCE_DIR)/cl_dll/events/event_registry.cp
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/hud_registry.o: $(SOURCE_DIR)/cl_dll/hud/hud_registry.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/hud_ammo.o: $(SOURCE_DIR)/cl_dll/hud/hud_ammo.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_weapons_resource.o: $(TESTS_SRC_DIR)/test_weapons_resource.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/user_message_registry.o: $(HLCORE_SRC_DIR)/user_message_registry.cpp | dirs

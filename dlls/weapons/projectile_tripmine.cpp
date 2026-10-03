@@ -193,6 +193,12 @@ void CTripmineGrenade::KillBeam( void )
 	}
 }
 
+void CTripmineGrenade::UpdateOnRemove( void )
+{
+	KillBeam();
+	CGrenade::UpdateOnRemove();
+}
+
 void CTripmineGrenade::MakeBeam( void )
 {
 	TraceResult tr;

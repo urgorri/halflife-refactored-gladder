@@ -333,6 +333,9 @@ if(BUILD_TESTS)
         tests/test_buttons.cpp
         tests/test_breakable_lifecycle.cpp
         tests/test_entity_iteration.cpp
+        tests/test_orphaned_effects.cpp
+        tests/test_monster_drop_hook.cpp
+        tests/test_weapons_resource.cpp
         dlls/core/animation.cpp
         dlls/systems/buttons.cpp
         dlls/systems/func_break.cpp
@@ -356,6 +359,7 @@ if(BUILD_TESTS)
         cl_dll/hl/client_weapon_manager.cpp
         cl_dll/events/event_registry.cpp
         cl_dll/hud/hud_registry.cpp
+        cl_dll/hud/hud_ammo.cpp
         cl_dll/entities/entity_visual_registry.cpp
         dlls/gladder/gladder_wave_manager.cpp
         dlls/gladder/gladder_usermsg.cpp
@@ -410,6 +414,7 @@ if(BUILD_TESTS)
         dlls/gameplay
         dlls/gladder
         cl_dll
+        cl_dll/core
         cl_dll/hud
         cl_dll/events
         cl_dll/entities
