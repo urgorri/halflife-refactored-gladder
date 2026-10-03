@@ -98,6 +98,7 @@
     <ClInclude Include="..\..\cl_dll\hud\hud_base.h" />
     <ClInclude Include="..\..\cl_dll\hud\hud_registry.h" />
     <ClInclude Include="..\..\cl_dll\hud\hud_ammo.h" />
+    <ClInclude Include="..\..\cl_dll\render\triangle_render_registry.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\external\catch2\catch_amalgamated.cpp" />
@@ -133,6 +134,7 @@
     <ClCompile Include="..\..\cl_dll\hud\hud_registry.cpp" />
     <ClCompile Include="..\..\cl_dll\hud\hud_ammo.cpp" />
     <ClCompile Include="..\..\tests\test_hud_registry.cpp" />
+    <ClCompile Include="..\..\tests\test_triangle_render_registry.cpp" />
     <ClCompile Include="..\..\tests\test_weapons_resource.cpp" />
     <ClCompile Include="..\..\tests\test_client_lifecycle.cpp" />
     <ClCompile Include="..\..\tests\test_client_studio.cpp" />
@@ -145,6 +147,7 @@
     <ClCompile Include="..\..\dlls\core\skill.cpp" />
     <ClCompile Include="..\..\dlls\core\user_message_registry.cpp" />
     <ClCompile Include="..\..\cl_dll\entities\entity_visual_registry.cpp" />
+    <ClCompile Include="..\..\cl_dll\render\triangle_render_registry.cpp" />
     <ClCompile Include="..\..\dlls\systems\chargers.cpp" />
     <ClCompile Include="..\..\dlls\systems\effects_beams.cpp" />
     <ClCompile Include="..\..\dlls\systems\crash_handler.cpp" />

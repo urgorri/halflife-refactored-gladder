@@ -158,6 +158,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\cl_dll\studio\StudioModelRenderer.cpp" />
     <ClCompile Include="..\..\cl_dll\studio\studio_util.cpp" />
     <ClCompile Include="..\..\cl_dll\render\tri.cpp" />
+    <ClCompile Include="..\..\cl_dll\render\triangle_render_registry.cpp" />
     <ClCompile Include="..\..\cl_dll\core\util.cpp" />
     <ClCompile Include="..\..\cl_dll\vgui\vgui_ClassMenuPanel.cpp" />
     <ClCompile Include="..\..\cl_dll\vgui\vgui_ControlConfigPanel.cpp" />
@@ -256,6 +257,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClInclude Include="..\..\cl_dll\input\kbutton.h" />
     <ClInclude Include="..\..\cl_dll\studio\StudioModelRenderer.h" />
     <ClInclude Include="..\..\cl_dll\render\tri.h" />
+    <ClInclude Include="..\..\cl_dll\render\triangle_render_registry.h" />
     <ClInclude Include="..\..\cl_dll\core\util_vector.h" />
     <ClInclude Include="..\..\cl_dll\vgui\vgui_ControlConfigPanel.h" />
     <ClInclude Include="..\..\cl_dll\vgui\vgui_int.h" />

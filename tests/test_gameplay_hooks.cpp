@@ -109,6 +109,19 @@ class CTestHookRules : public CGameRules
 		m_spawnedEntities.push_back( pEntity );
 	}
 
+	struct StaticDecalRecord
+	{
+		Vector origin;
+		int decalIndex;
+		int entityIndex;
+		int modelIndex;
+	};
+	std::vector<StaticDecalRecord> m_staticDecals;
+	void OnStaticDecal( const Vector &origin, int decalIndex, int entityIndex, int modelIndex ) override
+	{
+		m_staticDecals.push_back( { origin, decalIndex, entityIndex, modelIndex } );
+	}
+
 	void MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override
 	{
 		m_bMonsterKilledCalled = true;
@@ -661,4 +674,61 @@ TEST_CASE( "GameplayHooks: FlMonsterYawSpeed delegates and scales monster turn r
 	}
 
 	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GameplayHooks: OnStaticDecal lifecycle notification (#180)", "[gameplay][gamerules][hooks][decal]" )
+{
+	ResetMockEngine();
+
+	SECTION( "Vanilla default CGameRules executes safe empty no-op" )
+	{
+		g_pGameRules = nullptr;
+		GameRulesFactory::Reset();
+		gpGlobals->deathmatch = 0.0f;
+		CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+		REQUIRE( pVanillaRules != nullptr );
+
+		REQUIRE_NOTHROW( pVanillaRules->OnStaticDecal( Vector( 100.0f, 200.0f, 300.0f ), 5, 0, 0 ) );
+		REQUIRE_NOTHROW( pVanillaRules->OnStaticDecal( Vector( -50.0f, 0.0f, 10.0f ), 22, 3, 14 ) );
+
+		delete pVanillaRules;
+	}
+
+	SECTION( "Custom game rules intercepts static world decals with exact parameters" )
+	{
+		CTestHookRules customRules;
+		g_pGameRules = &customRules;
+
+		Vector bloodOrigin( 64.0f, -128.0f, 16.0f );
+		int bloodDecalIndex = 14; // e.g. blood splatter
+		int worldEntityIndex = 0;
+		int worldModelIndex = 0;
+
+		customRules.OnStaticDecal( bloodOrigin, bloodDecalIndex, worldEntityIndex, worldModelIndex );
+
+		Vector hazardOrigin( 256.0f, 512.0f, -64.0f );
+		int hazardDecalIndex = 29; // radioactive hazard
+		int brushEntityIndex = 7;
+		int brushModelIndex = 42;
+
+		customRules.OnStaticDecal( hazardOrigin, hazardDecalIndex, brushEntityIndex, brushModelIndex );
+
+		REQUIRE( customRules.m_staticDecals.size() == 2 );
+
+		CHECK( customRules.m_staticDecals[0].origin.x == Catch::Approx( 64.0f ) );
+		CHECK( customRules.m_staticDecals[0].origin.y == Catch::Approx( -128.0f ) );
+		CHECK( customRules.m_staticDecals[0].origin.z == Catch::Approx( 16.0f ) );
+		CHECK( customRules.m_staticDecals[0].decalIndex == 14 );
+		CHECK( customRules.m_staticDecals[0].entityIndex == 0 );
+		CHECK( customRules.m_staticDecals[0].modelIndex == 0 );
+
+		CHECK( customRules.m_staticDecals[1].origin.x == Catch::Approx( 256.0f ) );
+		CHECK( customRules.m_staticDecals[1].origin.y == Catch::Approx( 512.0f ) );
+		CHECK( customRules.m_staticDecals[1].origin.z == Catch::Approx( -64.0f ) );
+		CHECK( customRules.m_staticDecals[1].decalIndex == 29 );
+		CHECK( customRules.m_staticDecals[1].entityIndex == 7 );
+		CHECK( customRules.m_staticDecals[1].modelIndex == 42 );
+
+		g_pGameRules = nullptr;
+	}
 }

@@ -54,7 +54,9 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/hud_registry.o \
 	$(TESTS_OBJ_DIR)/hud_ammo.o \
 	$(TESTS_OBJ_DIR)/entity_visual_registry.o \
+	$(TESTS_OBJ_DIR)/triangle_render_registry.o \
 	$(TESTS_OBJ_DIR)/test_hud_registry.o \
+	$(TESTS_OBJ_DIR)/test_triangle_render_registry.o \
 	$(TESTS_OBJ_DIR)/test_weapons_resource.o \
 	$(TESTS_OBJ_DIR)/test_effects_beams.o \
 	$(TESTS_OBJ_DIR)/test_crash_handler.o \
@@ -185,6 +187,9 @@ $(TESTS_OBJ_DIR)/client_customization.o: $(HLCORE_SRC_DIR)/client_customization.
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/entity_visual_registry.o: $(SOURCE_DIR)/cl_dll/entities/entity_visual_registry.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/triangle_render_registry.o: $(SOURCE_DIR)/cl_dll/render/triangle_render_registry.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/animation.o: $(HLCORE_SRC_DIR)/animation.cpp | dirs
