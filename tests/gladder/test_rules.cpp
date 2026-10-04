@@ -314,6 +314,22 @@ TEST_CASE( "GladderOverlay: Dynamic combat decal purge triggered on wave complet
 		CHECK( overlay.GetDecalPurgeCount() == 2 );
 	}
 
+	SECTION( "Wave completion transitioning directly to STANDBY triggers decal purge (gameplay flow)" )
+	{
+		uint8_t msgWaveStandby[] = { 0, 2, 0, 0, 0, 0, 0 };
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveActive ), msgWaveActive );
+		CHECK( overlay.GetDecalPurgeCount() == 0 );
+
+		// Transition from ACTIVE (1) to STANDBY (0) triggers decal clear
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveStandby ), msgWaveStandby );
+		CHECK( overlay.GetWaveState() == 0 );
+		CHECK( overlay.GetDecalPurgeCount() == 1 );
+
+		// Remaining in STANDBY on repeated ticks does NOT trigger duplicate purge
+		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveStandby ), msgWaveStandby );
+		CHECK( overlay.GetDecalPurgeCount() == 1 );
+	}
+
 	SECTION( "Match conclusion also triggers final decal purge" )
 	{
 		overlay.MsgFunc_GladderWave( "GladWave", sizeof( msgWaveActive ), msgWaveActive );

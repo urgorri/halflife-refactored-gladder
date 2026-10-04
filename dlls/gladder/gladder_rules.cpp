@@ -377,6 +377,19 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	{
 		UTIL_ScreenFade( pActivator, Vector( 0, 0, 0 ), 0.5f, 0.5f, 255, FFADE_OUT );
 	}
+
+	// Explicitly broadcast decal purge client command to all connected players during transition (SPEC §11.3, Issue #49)
+	if ( gpGlobals )
+	{
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pEnt = UTIL_PlayerByIndex( i );
+			if ( pEnt && pEnt->IsPlayer() && pEnt->edict() )
+			{
+				CLIENT_COMMAND( pEnt->edict(), "r_cleardecals\n" );
+			}
+		}
+	}
 #endif
 
 	// Acoustic cue for triumphant wave completion

@@ -39,8 +39,8 @@ void GladderPurgeCombatDecals( void )
 	if ( !gEngfuncs.pEfxAPI || !gEngfuncs.pEfxAPI->R_DecalRemoveAll )
 		return;
 
-	// 1. Purge all standard combat decals by engine index (0..64)
-	for ( int i = 0; i <= 64; ++i )
+	// 1. Purge all standard combat decals by engine index (0..511)
+	for ( int i = 0; i < 512; ++i )
 	{
 		gEngfuncs.pEfxAPI->R_DecalRemoveAll( i );
 	}
@@ -56,7 +56,10 @@ void GladderPurgeCombatDecals( void )
 		"{spit1", "{spit2",
 		"{bproof1", "{gargstomp",
 		"{smscorch1", "{smscorch2", "{smscorch3",
-		"{mommablob",
+		"{mommablob", "{mommabirth",
+		"{dent1", "{dent2", "{little_dent",
+		"{gaussshot1", "{gaussshot2",
+		"{hand1",
 		"{lambda01", "{lambda02", "{lambda03", "{lambda04", "{lambda05", "{lambda06"
 	};
 
@@ -77,6 +80,17 @@ void GladderPurgeCombatDecals( void )
 					}
 				}
 			}
+		}
+	}
+
+	// 3. Briefly flush engine decal cache/buffers via r_decals toggle if cvar funcs available
+	if ( gEngfuncs.pfnGetCvarFloat && gEngfuncs.Cvar_SetValue )
+	{
+		float flDecals = gEngfuncs.pfnGetCvarFloat( "r_decals" );
+		if ( flDecals > 0.0f )
+		{
+			gEngfuncs.Cvar_SetValue( "r_decals", 0.0f );
+			gEngfuncs.Cvar_SetValue( "r_decals", flDecals );
 		}
 	}
 #endif
@@ -107,10 +121,18 @@ int CHudGladderOverlay::MsgFunc_GladderWave( const char *pszName, int iSize, voi
 	m_flTimeRemaining = READ_COORD();
 	m_flLapTime       = READ_COORD();
 
-	// Purge dynamic combat decals on wave completion transition (fade-to-black) (SPEC §11.3, Issue #49)
-	// GoldSrc's R_DecalRemoveAll strips all dynamic combat decals while strictly preserving permanent infodecals
-	if ( ( iNewWaveState == GLADDER_STATE_WAVE_COMPLETED || iNewWaveState == GLADDER_STATE_MATCH_OVER ) &&
-	     m_iWaveState != iNewWaveState )
+	// Purge dynamic combat decals whenever an active wave completes (SPEC §11.3, Issue #49).
+	// In Gladder gameplay, completing a wave transitions FROM GLADDER_STATE_WAVE_ACTIVE (1) to
+	// GLADDER_STATE_WAITING_FOR_START (0, standby for next wave), GLADDER_STATE_WAVE_COMPLETED (2),
+	// or GLADDER_STATE_MATCH_OVER (3).
+	bool bActiveWaveFinished = ( m_iWaveState == GLADDER_STATE_WAVE_ACTIVE &&
+	                             ( iNewWaveState == GLADDER_STATE_WAITING_FOR_START ||
+	                               iNewWaveState == GLADDER_STATE_WAVE_COMPLETED ||
+	                               iNewWaveState == GLADDER_STATE_MATCH_OVER ) );
+	bool bExplicitCompletion = ( ( iNewWaveState == GLADDER_STATE_WAVE_COMPLETED || iNewWaveState == GLADDER_STATE_MATCH_OVER ) &&
+	                             m_iWaveState != iNewWaveState );
+
+	if ( bActiveWaveFinished || bExplicitCompletion )
 	{
 		m_iDecalPurgeCount++;
 		GladderPurgeCombatDecals();
@@ -122,8 +144,14 @@ int CHudGladderOverlay::MsgFunc_GladderWave( const char *pszName, int iSize, voi
 	{
 		const unsigned char *pData = static_cast<const unsigned char *>( pbuf );
 		int iNewWaveState = pData[0];
-		if ( ( iNewWaveState == GLADDER_STATE_WAVE_COMPLETED || iNewWaveState == GLADDER_STATE_MATCH_OVER ) &&
-		     m_iWaveState != iNewWaveState )
+		bool bActiveWaveFinished = ( m_iWaveState == GLADDER_STATE_WAVE_ACTIVE &&
+		                             ( iNewWaveState == GLADDER_STATE_WAITING_FOR_START ||
+		                               iNewWaveState == GLADDER_STATE_WAVE_COMPLETED ||
+		                               iNewWaveState == GLADDER_STATE_MATCH_OVER ) );
+		bool bExplicitCompletion = ( ( iNewWaveState == GLADDER_STATE_WAVE_COMPLETED || iNewWaveState == GLADDER_STATE_MATCH_OVER ) &&
+		                             m_iWaveState != iNewWaveState );
+
+		if ( bActiveWaveFinished || bExplicitCompletion )
 		{
 			m_iDecalPurgeCount++;
 		}
