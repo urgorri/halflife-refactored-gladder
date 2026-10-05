@@ -447,6 +447,24 @@
     <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_weapons.cpp">
       <Filter>Source Files\cl_dll\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_usermsg.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_combo.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_knife.cpp">
       <Filter>Source Files\dlls\weapons</Filter>
     </ClCompile>
@@ -468,6 +486,24 @@
       <Filter>Header Files\cl_dll\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\cl_dll\gladder\gladder_visuals.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\cl_dll\gladder\gladder_crosshair.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\cl_dll\gladder\gladder_cl_usermsg.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_combo.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_summary.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_leaderboard.h">
       <Filter>Header Files\cl_dll\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h">

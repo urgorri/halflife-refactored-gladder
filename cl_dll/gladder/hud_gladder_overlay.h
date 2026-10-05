@@ -41,6 +41,7 @@ class CHudGladderOverlay : public CHudBase
 	      m_flAverageLap( 0.0f ),
 	      m_iCompletedLaps( 0 ),
 	      m_iFrags( 0 ),
+	      m_iCollectibles( 0 ),
 	      m_iDecalPurgeCount( 0 )
 	{
 		m_iFlags = HUD_ACTIVE;
@@ -60,6 +61,7 @@ class CHudGladderOverlay : public CHudBase
 		m_flAverageLap     = 0.0f;
 		m_iCompletedLaps   = 0;
 		m_iFrags           = 0;
+		m_iCollectibles    = 0;
 		m_iDecalPurgeCount = 0;
 	}
 
@@ -74,6 +76,7 @@ class CHudGladderOverlay : public CHudBase
 	float GetLapTime( void ) const { return m_flLapTime; }
 	int GetCompletedLaps( void ) const { return m_iCompletedLaps; }
 	int GetFrags( void ) const { return m_iFrags; }
+	int GetCollectibles( void ) const { return m_iCollectibles; }
 	float GetFastestLap( void ) const { return m_flFastestLap; }
 	float GetSlowestLap( void ) const { return m_flSlowestLap; }
 	float GetAverageLap( void ) const { return m_flAverageLap; }
@@ -88,13 +91,14 @@ class CHudGladderOverlay : public CHudBase
 		m_flLapTime       = lapTime;
 	}
 
-	void SetTelemetry( float fastest, float slowest, float avg, int completedLaps, int frags )
+	void SetTelemetry( float fastest, float slowest, float avg, int completedLaps, int frags, int collectibles = 0 )
 	{
 		m_flFastestLap   = fastest;
 		m_flSlowestLap   = slowest;
 		m_flAverageLap   = avg;
 		m_iCompletedLaps = completedLaps;
 		m_iFrags         = frags;
+		m_iCollectibles  = collectibles;
 	}
 
   private:
@@ -108,6 +112,7 @@ class CHudGladderOverlay : public CHudBase
 	float m_flAverageLap;
 	int m_iCompletedLaps;
 	int m_iFrags;
+	int m_iCollectibles;
 	int m_iDecalPurgeCount;
 };
 

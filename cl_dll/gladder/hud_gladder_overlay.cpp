@@ -6,6 +6,7 @@
  ****/
 
 #include "hud_gladder_overlay.h"
+#include "gladder_crosshair.h"
 #include <cstdio>
 #include <cstring>
 
@@ -102,6 +103,7 @@ int CHudGladderOverlay::Init( void )
 	gEngfuncs.pfnHookUserMsg( "GladWave", MsgFunc_GladWave_Dispatcher );
 	gEngfuncs.pfnHookUserMsg( "GladTelem", MsgFunc_GladTelem_Dispatcher );
 	gEngfuncs.pfnAddCommand( "r_cleardecals", Cmd_ClearDecals );
+	Gladder_InitCrosshairFallback();
 #endif
 	m_iFlags |= HUD_ACTIVE;
 	return 1;
@@ -171,6 +173,10 @@ int CHudGladderOverlay::MsgFunc_GladderTelemetry( const char *pszName, int iSize
 	m_flAverageLap   = READ_COORD();
 	m_iCompletedLaps = READ_SHORT();
 	m_iFrags         = READ_SHORT();
+	if ( iSize >= 12 )
+	{
+		m_iCollectibles = READ_SHORT();
+	}
 #endif
 	m_iFlags |= HUD_ACTIVE;
 	return 1;
@@ -232,12 +238,17 @@ int CHudGladderOverlay::Draw( float flTime )
 	DrawConsoleString( x, y, szBuf );
 	y += 16;
 
-	// 4. Frags
+	// 4. Collectibles Counter (SPEC §9.1)
+	sprintf( szBuf, "COLLECTIBLES: %02d", m_iCollectibles );
+	DrawConsoleString( x, y, szBuf );
+	y += 16;
+
+	// 5. Frags
 	sprintf( szBuf, "FRAGS: %d", m_iFrags );
 	DrawConsoleString( x, y, szBuf );
 	y += 16;
 
-	// 5. Average Wave Time
+	// 6. Average Wave Time
 	if ( m_iCompletedLaps > 0 )
 	{
 		int avgMin = static_cast<int>( m_flAverageLap ) / 60;

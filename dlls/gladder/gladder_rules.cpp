@@ -10,6 +10,8 @@
 #include "gladder_breakable.h"
 #include "gladder_usermsg.h"
 #include "gladder_audio.h"
+#include "gladder_leaderboard.h"
+#include <ctime>
 #include "core/skill_manager.h"
 #include "items/item_base.h"
 #include "weapons/weapon_base.h"
@@ -132,6 +134,7 @@ void CGladderRules::Think( void )
 		m_flLastTelemetryBroadcast = flTime;
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
+		BroadcastComboUpdate();
 	}
 
 	// Maintain wall charger active state and glow extinction upon depletion (SPEC §3, Issue #46)
@@ -271,6 +274,7 @@ void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, en
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_comboTracker.OnMonsterKilled( pVictim, pKiller, pInflictor, flTime );
 	m_iTotalFrags = m_comboTracker.GetTotalFrags();
+	BroadcastComboUpdate();
 }
 
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
@@ -345,6 +349,7 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		// Fire start relays (event = 0)
 		Gladder_FireWaveRelays( 0, pActivator );
 
+		BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ) );
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
 	}
@@ -397,6 +402,8 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 
 	// Fire wave completion relays (event = 1)
 	Gladder_FireWaveRelays( 1, pActivator );
+
+	BroadcastWaveNotify( nullptr, 1, m_waveManager.GetWaveNumber(), 0 );
 
 	// Revert active mutators back to default
 	m_modifiers.RevertMutators();
@@ -489,6 +496,38 @@ void CGladderRules::CalculateFinalScore( bool bSurvived )
 	       m_lastScoreBreakdown.collectiblesCount,
 	       m_lastScoreBreakdown.totalDamageTaken );
 	ALERT( at_console, "[Gladder] ======================\n" );
+
+	// 1. Submit to persistent map leaderboards (SPEC §10.2, Issue #17)
+	GladderLeaderboardEntry lbEntry;
+	lbEntry.timestamp = static_cast<uint64_t>( time( nullptr ) );
+	lbEntry.score     = m_lastScoreBreakdown.finalCompositeScore;
+	lbEntry.waves     = m_lastScoreBreakdown.wavesCompleted;
+	lbEntry.frags     = m_lastScoreBreakdown.totalFrags;
+	lbEntry.totalTime = m_lastScoreBreakdown.totalMatchTime;
+	lbEntry.grade     = m_lastScoreBreakdown.rankGrade;
+	lbEntry.survived  = m_lastScoreBreakdown.bSurvived;
+
+	int rank = -1;
+	bool isNewHigh = false;
+	const char *pszMap = ( gpGlobals && gpGlobals->mapname ) ? STRING( gpGlobals->mapname ) : "default";
+	GladderLeaderboard::SubmitScore( pszMap ? pszMap : "default", lbEntry, rank, isNewHigh );
+
+	// 2. Seamlessly shift player viewport to designated trigger_camera (SPEC §6, Issue #16)
+	CBaseEntity *pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
+	if ( pCamera && gpGlobals )
+	{
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+			if ( pPlr && pPlr->edict() )
+			{
+				SET_VIEW( pPlr->edict(), pCamera->edict() );
+			}
+		}
+	}
+
+	// 3. Broadcast full summary payload to client HUD (SPEC §9.2, Issue #14, #16)
+	BroadcastSummaryUpdate( nullptr, m_lastScoreBreakdown, m_comboTracker.GetStats() );
 }
 
 void CGladderRules::BroadcastWaveUpdate( CBasePlayer *pPlayer )
@@ -522,6 +561,84 @@ void CGladderRules::BroadcastTelemetryUpdate( CBasePlayer *pPlayer )
 	WRITE_COORD( m_waveManager.GetAverageLapTime() );
 	WRITE_SHORT( m_waveManager.GetCompletedWavesCount() );
 	WRITE_SHORT( m_iTotalFrags );
+	WRITE_SHORT( m_iCollectiblesCount );
+	MESSAGE_END();
+}
+
+void CGladderRules::BroadcastComboUpdate( CBasePlayer *pPlayer )
+{
+	if ( !gmsgGladderCombo )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	int multiplier = m_comboTracker.GetCurrentMultiplier();
+	float gauge = m_comboTracker.GetNormalizedGauge();
+	uint8_t decayFraction255 = static_cast<uint8_t>( (std::max)( 0.0f, (std::min)( 1.0f, gauge ) ) * 255.0f );
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderCombo, nullptr, pTarget );
+	WRITE_BYTE( multiplier );
+	WRITE_BYTE( decayFraction255 );
+	MESSAGE_END();
+}
+
+void CGladderRules::BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iWaveNumber, int iMutatorType )
+{
+	if ( !gmsgGladderNotify )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderNotify, nullptr, pTarget );
+	WRITE_BYTE( iType );
+	WRITE_BYTE( iWaveNumber );
+	WRITE_BYTE( iMutatorType );
+	MESSAGE_END();
+}
+
+void CGladderRules::BroadcastSummaryUpdate( CBasePlayer *pPlayer, const GladderScoreBreakdown &score, const GladderKillStats &kills )
+{
+	if ( !gmsgGladderSummary )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderSummary, nullptr, pTarget );
+	WRITE_BYTE( score.bSurvived ? 1 : 0 );
+	WRITE_SHORT( score.wavesCompleted );
+	WRITE_LONG( score.finalCompositeScore );
+	WRITE_CHAR( score.rankGrade );
+	WRITE_SHORT( score.maxComboStreak );
+	WRITE_SHORT( score.totalFrags );
+	WRITE_SHORT( score.collectiblesCount );
+	WRITE_COORD( score.totalMatchTime );
+	WRITE_COORD( score.averageLapTime );
+	WRITE_COORD( score.fastestLapTime );
+	WRITE_COORD( score.slowestLapTime );
+	WRITE_COORD( score.totalDamageTaken );
+	WRITE_LONG( score.baseCombatPoints );
+	WRITE_LONG( score.comboBonusPoints );
+	WRITE_LONG( score.waveBonusPoints );
+	WRITE_LONG( score.lambdaBonusPoints );
+	WRITE_LONG( score.survivalBonusPoints );
+	WRITE_LONG( score.damagePenaltyPoints );
+
+	// Species kill pairs (capped at 255)
+	uint8_t speciesCount = static_cast<uint8_t>( (std::min)( size_t( 255 ), kills.speciesKills.size() ) );
+	WRITE_BYTE( speciesCount );
+	uint8_t written = 0;
+	for ( const auto &pair : kills.speciesKills )
+	{
+		if ( written >= speciesCount )
+			break;
+		std::string friendly = GladderComboTracker::GetFriendlySpeciesName( pair.first );
+		WRITE_STRING( friendly.c_str() );
+		WRITE_SHORT( pair.second );
+		written++;
+	}
 	MESSAGE_END();
 }
 

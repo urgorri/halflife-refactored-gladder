@@ -102,7 +102,19 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/test_items.o \
 	$(TESTS_OBJ_DIR)/test_visuals.o \
 	$(TESTS_OBJ_DIR)/test_weapons.o \
-	$(TESTS_OBJ_DIR)/test_rules.o
+	$(TESTS_OBJ_DIR)/test_rules.o \
+	$(TESTS_OBJ_DIR)/gladder_leaderboard.o \
+	$(TESTS_OBJ_DIR)/gladder_crosshair.o \
+	$(TESTS_OBJ_DIR)/gladder_cl_usermsg.o \
+	$(TESTS_OBJ_DIR)/hud_gladder_combo.o \
+	$(TESTS_OBJ_DIR)/hud_gladder_wave_notify.o \
+	$(TESTS_OBJ_DIR)/hud_gladder_summary.o \
+	$(TESTS_OBJ_DIR)/test_crosshair_fallback.o \
+	$(TESTS_OBJ_DIR)/test_leaderboard.o \
+	$(TESTS_OBJ_DIR)/test_usermsg.o \
+	$(TESTS_OBJ_DIR)/test_wave_notify_msg.o \
+	$(TESTS_OBJ_DIR)/test_hud.o \
+	$(TESTS_OBJ_DIR)/test_summary_screen.o
 
 
 PM_OBJS = \
@@ -287,6 +299,42 @@ $(TESTS_OBJ_DIR)/test_weapons.o: $(TESTS_SRC_DIR)/gladder/test_weapons.cpp | dir
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/test_rules.o: $(TESTS_SRC_DIR)/gladder/test_rules.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_leaderboard.o: $(HLDLL_SRC_DIR)/gladder/gladder_leaderboard.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_crosshair.o: $(SOURCE_DIR)/cl_dll/gladder/gladder_crosshair.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_cl_usermsg.o: $(SOURCE_DIR)/cl_dll/gladder/gladder_cl_usermsg.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/hud_gladder_combo.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_combo.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/hud_gladder_wave_notify.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_wave_notify.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/hud_gladder_summary.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_summary.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_crosshair_fallback.o: $(TESTS_SRC_DIR)/gladder/test_crosshair_fallback.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_leaderboard.o: $(TESTS_SRC_DIR)/gladder/test_leaderboard.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_usermsg.o: $(TESTS_SRC_DIR)/gladder/test_usermsg.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_wave_notify_msg.o: $(TESTS_SRC_DIR)/gladder/test_wave_notify_msg.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_hud.o: $(TESTS_SRC_DIR)/gladder/test_hud.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_summary_screen.o: $(TESTS_SRC_DIR)/gladder/test_summary_screen.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs

@@ -105,6 +105,9 @@ class CGladderRules : public CHalfLifeRules
 	// Network telemetry broadcast
 	void BroadcastWaveUpdate( CBasePlayer *pPlayer = nullptr );
 	void BroadcastTelemetryUpdate( CBasePlayer *pPlayer = nullptr );
+	void BroadcastComboUpdate( CBasePlayer *pPlayer = nullptr );
+	void BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iWaveNumber, int iMutatorType );
+	void BroadcastSummaryUpdate( CBasePlayer *pPlayer, const GladderScoreBreakdown &score, const GladderKillStats &kills );
 
 	// Accessors
 	CGladderWaveManager &GetWaveManager( void ) { return m_waveManager; }
