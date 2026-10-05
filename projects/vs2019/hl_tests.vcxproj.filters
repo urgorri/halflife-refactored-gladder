@@ -35,6 +35,9 @@
     <ClInclude Include="..\..\cl_dll\hud\hud_ammo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\cl_dll\render\triangle_render_registry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\tests\mock_client_engine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -106,6 +109,9 @@
     <ClCompile Include="..\..\tests\test_hud_registry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\tests\test_triangle_render_registry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\tests\test_weapons_resource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -143,6 +149,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\cl_dll\entities\entity_visual_registry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\cl_dll\render\triangle_render_registry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\dlls\systems\chargers.cpp">
@@ -263,6 +272,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\tests\gladder\test_items.cpp">

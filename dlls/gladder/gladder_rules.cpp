@@ -13,6 +13,7 @@
 #include "core/skill_manager.h"
 #include "items/item_base.h"
 #include "weapons/weapon_base.h"
+#include "shake.h"
 
 // Gladder gamemode cvar (1 enables Gladder mode).
 // NOTE: value MUST be initialized to 1.0f here. ConditionGladder() checks gladder.value
@@ -349,10 +350,47 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 	}
 }
 
+void CGladderRules::OnStaticDecal( const Vector &origin, int decalIndex, int entityIndex, int modelIndex )
+{
+	m_staticDecals.push_back( { origin, decalIndex, entityIndex, modelIndex } );
+}
+
+void CGladderRules::RestoreStaticDecals( void )
+{
+	if ( g_engfuncs.pfnStaticDecal )
+	{
+		for ( const auto &decal : m_staticDecals )
+		{
+			g_engfuncs.pfnStaticDecal( decal.origin, decal.decalIndex, decal.entityIndex, decal.modelIndex );
+		}
+	}
+}
+
 void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 {
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.CompleteWave( flTime );
+
+#ifndef HL_TESTS
+	// Smooth screen fade-to-black transition before teleporting back to Point A (SPEC §11.3, Issue #49)
+	if ( pActivator && pActivator->IsPlayer() )
+	{
+		UTIL_ScreenFade( pActivator, Vector( 0, 0, 0 ), 0.5f, 0.5f, 255, FFADE_OUT );
+	}
+
+	// Explicitly broadcast decal purge client command to all connected players during transition (SPEC §11.3, Issue #49)
+	if ( gpGlobals )
+	{
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pEnt = UTIL_PlayerByIndex( i );
+			if ( pEnt && pEnt->IsPlayer() && pEnt->edict() )
+			{
+				CLIENT_COMMAND( pEnt->edict(), "r_cleardecals\n" );
+			}
+		}
+	}
+#endif
 
 	// Acoustic cue for triumphant wave completion
 	GladderAudio::PlayCue( GLADDER_CUE_WAVE_COMPLETE, pActivator );
@@ -385,6 +423,7 @@ void CGladderRules::ResetWave( void )
 	PurgeWaveEntities();
 	RechargeWallStations();
 	ResetBreakableEntities();
+	RestoreStaticDecals();
 }
 
 void CGladderRules::PurgeWaveEntities( void )

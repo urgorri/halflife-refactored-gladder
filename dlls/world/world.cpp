@@ -177,6 +177,11 @@ void CDecal ::StaticDecal( void )
 
 	g_engfuncs.pfnStaticDecal( pev->origin, (int)pev->skin, entityIndex, modelIndex );
 
+	if ( g_pGameRules )
+	{
+		g_pGameRules->OnStaticDecal( pev->origin, (int)pev->skin, entityIndex, modelIndex );
+	}
+
 	SUB_Remove();
 }
 

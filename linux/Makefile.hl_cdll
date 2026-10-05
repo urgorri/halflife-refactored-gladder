@@ -81,6 +81,7 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/studio/studio_util.o \
 	$(HL1_OBJ_DIR)/studio/StudioModelRenderer.o \
 	$(HL1_OBJ_DIR)/render/tri.o \
+	$(HL1_OBJ_DIR)/render/triangle_render_registry.o \
 	$(HL1_OBJ_DIR)/core/util.o \
 	$(HL1_OBJ_DIR)/render/view.o \
 	$(HL1_OBJ_DIR)/render/view_camera.o \

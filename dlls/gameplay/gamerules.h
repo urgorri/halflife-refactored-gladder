@@ -70,6 +70,11 @@ class CGameRules
 	// to observe or modify newly spawned entities without touching core code.
 	virtual void OnEntitySpawned( CBaseEntity *pEntity ) {}
 
+	// Called when a static world decal (infodecal) is applied at map start.
+	// Default implementation is empty; downstream subclasses may override
+	// to intercept, track, or index static decals without touching core code.
+	virtual void OnStaticDecal( const Vector &origin, int decalIndex, int entityIndex, int modelIndex ) {}
+
 	virtual BOOL FAllowFlashlight( void )                                                   = 0; // Are players allowed to switch on their flashlight?
 	virtual BOOL FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon )      = 0; // should the player switch to this weapon?
 	virtual BOOL GetNextBestWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pCurrentWeapon ) = 0; // I can't use this weapon anymore, get me the next best one.

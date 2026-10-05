@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2002, Valve LLC, All rights reserved. ============
+//========= Copyright (c) 1996-2002, Valve LLC, All rights reserved. ============
 //
 // Purpose:
 //
@@ -20,6 +20,7 @@
 
 #include "particleman.h"
 #include "tri.h"
+#include "render/triangle_render_registry.h"
 extern IParticleMan *g_pParticleMan;
 
 /*
@@ -34,6 +35,8 @@ void CL_DLLEXPORT HUD_DrawNormalTriangles( void )
 	//	RecClDrawNormalTriangles();
 
 	gHUD.m_Spectator.DrawOverview();
+
+	TriangleRenderRegistry::DispatchNormalTriangles();
 }
 
 #if defined( _TFC )
@@ -57,4 +60,6 @@ void CL_DLLEXPORT HUD_DrawTransparentTriangles( void )
 
 	if ( g_pParticleMan )
 		g_pParticleMan->Update();
+
+	TriangleRenderRegistry::DispatchTransparentTriangles();
 }

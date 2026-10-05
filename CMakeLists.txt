@@ -319,6 +319,7 @@ if(BUILD_TESTS)
         tests/test_gamerules_skill.cpp
         tests/test_gameplay_hooks.cpp
         tests/test_hud_registry.cpp
+        tests/test_triangle_render_registry.cpp
         tests/mock_client_engine.cpp
         tests/test_client_lifecycle.cpp
         tests/test_client_studio.cpp
@@ -361,6 +362,7 @@ if(BUILD_TESTS)
         cl_dll/hud/hud_registry.cpp
         cl_dll/hud/hud_ammo.cpp
         cl_dll/entities/entity_visual_registry.cpp
+        cl_dll/render/triangle_render_registry.cpp
         dlls/gladder/gladder_wave_manager.cpp
         dlls/gladder/gladder_usermsg.cpp
         dlls/gladder/gladder_breakable.cpp
@@ -373,6 +375,7 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_audio.cpp
         dlls/gladder/gladder_items.cpp
         cl_dll/gladder/gladder_visuals.cpp
+        cl_dll/gladder/hud_gladder_overlay.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
         tests/gladder/test_grid_indexer.cpp
