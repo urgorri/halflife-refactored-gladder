@@ -165,7 +165,31 @@ PM_SHARED_OBJS = \
 
 
 
-all: client.$(SHLIBEXT)
+all: dirs client.$(SHLIBEXT)
+
+dirs:
+	mkdir -p $(HL1_OBJ_DIR)
+	mkdir -p $(HL1_OBJ_DIR)/hud
+	mkdir -p $(HL1_OBJ_DIR)/hl
+	mkdir -p $(HL1_OBJ_DIR)/studio
+	mkdir -p $(HL1_OBJ_DIR)/input
+	mkdir -p $(HL1_OBJ_DIR)/core
+	mkdir -p $(HL1_OBJ_DIR)/render
+	mkdir -p $(HL1_OBJ_DIR)/entities
+	mkdir -p $(HL1_OBJ_DIR)/dlls/wpn_shared
+	mkdir -p $(HL1_OBJ_DIR)/VGUI
+	mkdir -p $(HL1_OBJ_DIR)/systems
+	mkdir -p $(HL1_OBJ_DIR)/events
+	mkdir -p $(HL1_OBJ_DIR)/gladder
+	mkdir -p $(HL1_SERVER_OBJ_DIR)
+	mkdir -p $(HL1_SERVER_OBJ_DIR)/wpn_shared
+	mkdir -p $(HL1_SERVER_OBJ_DIR)/weapons
+	mkdir -p $(HL1_SERVER_OBJ_DIR)/gladder
+	mkdir -p $(HL1_SERVER_OBJ_DIR)/gladder/weapons
+	mkdir -p $(PUBLIC_OBJ_DIR)
+	mkdir -p $(COMMON_OBJ_DIR)
+	mkdir -p $(GAME_SHARED_OBJ_DIR)
+	mkdir -p $(PM_SHARED_OBJ_DIR)
 
 client.$(SHLIBEXT): $(HL1_OBJS) $(PUBLIC_OBJS) $(COMMON_OBJS) $(GAME_SHARED_OBJS) $(DLL_OBJS) $(PM_SHARED_OBJS)
 	$(CLINK) -o $(BUILD_DIR)/$@ $(HL1_OBJS) $(PUBLIC_OBJS) $(COMMON_OBJS) $(GAME_SHARED_OBJS) $(DLL_OBJS) $(PM_SHARED_OBJS) $(LDFLAGS) $(CPP_LIB)
@@ -201,6 +225,12 @@ $(HL1_SERVER_OBJ_DIR):
 $(HL1_SERVER_OBJ_DIR)/weapons:
 	mkdir -p $(HL1_SERVER_OBJ_DIR)/weapons
 
+$(HL1_SERVER_OBJ_DIR)/gladder:
+	mkdir -p $(HL1_SERVER_OBJ_DIR)/gladder
+
+$(HL1_SERVER_OBJ_DIR)/gladder/weapons:
+	mkdir -p $(HL1_SERVER_OBJ_DIR)/gladder/weapons
+
 $(PUBLIC_OBJ_DIR):
 	mkdir -p $(PUBLIC_OBJ_DIR)
 
@@ -231,9 +261,6 @@ $(HL1_SERVER_OBJ_DIR)/gladder/%.o: $(HL_SERVER_SRC_DIR)/gladder/%.cpp $(filter-o
 	$(DO_CC)
 
 $(HL1_SERVER_OBJ_DIR)/gladder/weapons/%.o: $(HL_SERVER_SRC_DIR)/gladder/weapons/%.cpp $(filter-out $(wildcard $(HL1_SERVER_OBJ_DIR)/gladder/weapons), $(HL1_SERVER_OBJ_DIR)/gladder/weapons)
-	$(DO_CC)
-
-$(HL1_SERVER_OBJ_DIR)/%.o: $(HL_SERVER_SRC_DIR)/%.cpp $(filter-out $(wildcard  $(HL1_SERVER_OBJ_DIR)),  $(HL1_SERVER_OBJ_DIR))
 	$(DO_CC)
 
 $(HL1_SERVER_OBJ_DIR)/%.o: $(HL_SERVER_SRC_DIR)/%.cpp $(filter-out $(wildcard  $(HL1_SERVER_OBJ_DIR)),  $(HL1_SERVER_OBJ_DIR))

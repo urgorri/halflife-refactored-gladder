@@ -48,7 +48,10 @@ struct GladderNotifyMsg
 struct GladderSpeciesFrag
 {
 	std::string speciesName;
-	int kills = 0;
+	int kills;
+
+	GladderSpeciesFrag() : speciesName(), kills( 0 ) {}
+	GladderSpeciesFrag( std::string name, int k ) : speciesName( std::move( name ) ), kills( k ) {}
 };
 
 struct GladderSummaryMsg

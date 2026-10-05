@@ -56,6 +56,28 @@ The repository maintains multiple build systems that must remain strictly synchr
 * **Synchronize test suites**: Ensure all unit test files added under `tests/` are included in `CMakeLists.txt` (`TESTS_SOURCES`), `projects/vs2019/hl_tests.vcxproj`, and `linux/Makefile.tests`.
 * **Synchronize map editor definitions (`gladder.fgd`)**: Whenever an entity is added, modified, or removed in `dlls/gladder/` (via `LINK_ENTITY_TO_CLASS`), update `gladder.fgd` at the root of the repository so level designers can place and configure the entity in map editors (Valve Hammer Editor, J.A.C.K., TrenchBroom).
 
+### Mandatory Pre-PR Dual Build Verification (Windows & Linux):
+
+Before creating or updating any pull request, agents **must** verify that both Windows and Linux builds succeed without errors:
+
+1. **Windows x86 Targets (MSBuild & CMake)**:
+   - Build both `projects/vs2019/hl_cdll.vcxproj` and `hldll.vcxproj` in Release/Win32 configuration.
+   - Build CMake targets (`cmake -B build -A Win32` && `cmake --build build --config Release`).
+   - Run the full Catch2 test suite: `hl_tests.exe`.
+   - Run the client smoke test: `smoke_test_client.exe <path/to/client.dll>`.
+   - Verify exported symbols against golden baselines (`verify_symbols.py`).
+
+2. **Linux x86 Targets (CMake & Makefiles)**:
+   - **Language Standard Compliance**: Code must remain fully compatible with `-std=gnu++11` (used by `linux/Makefile.*`). In particular, avoid C++14-only aggregate initialization (`{...}`) on structs with default member initializers—always provide explicit constructors or aggregate-safe definitions.
+   - **Directory Target Rules**: Ensure every directory referenced under `release/obj/...` in `linux/Makefile.hl_cdll` and `linux/Makefile.hldll` has an explicit target rule (`mkdir -p ...`) and is registered under `dirs:`.
+   - **Verification via Docker / WSL / CI**: When Docker or WSL is available, run the Linux build locally before pushing:
+     ```bash
+     make -C linux hl_cdll ARCH_CFLAGS_I486="-m32" ARCH_CFLAGS_I686="-m32" ARCH_CFLAGS_AMD="-m32" ARCH_CFLAGS_AMD64="-m32" HL_OUTPUT_DIR=release CREATE_OUTPUT_DIRS=1
+     make -C linux hl ARCH_CFLAGS_I486="-m32" ARCH_CFLAGS_I686="-m32" ARCH_CFLAGS_AMD="-m32" ARCH_CFLAGS_AMD64="-m32" HL_OUTPUT_DIR=release CREATE_OUTPUT_DIRS=1
+     cmake -B build-linux -DCMAKE_BUILD_TYPE=Release && cmake --build build-linux
+     ```
+   - Never assume a successful Windows build guarantees Linux compilation; always verify both platforms before opening a PR.
+
 ---
 
 ## Level Design & Map Editor Compatibility (`gladder.fgd`)

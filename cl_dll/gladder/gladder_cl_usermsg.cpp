@@ -136,7 +136,8 @@ bool Gladder_ParseSummaryMsg( const void *pbuf, int iSize, GladderSummaryMsg &ou
 		int kills = ReadInt16( p + offset );
 		offset += 2;
 
-		outMsg.speciesLog.push_back( { speciesName, kills } );
+		GladderSpeciesFrag frag( speciesName, kills );
+		outMsg.speciesLog.push_back( frag );
 	}
 
 	return true;
