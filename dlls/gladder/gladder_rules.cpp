@@ -243,7 +243,25 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 	if ( FStrEq( pcmd, "gladder_test_camera" ) )
 	{
 		ShiftPlayerCamera( pPlayer );
-		ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "[Gladder] Switched view to camera.\n" );
+		CBaseEntity *pCamera = UTIL_FindEntityByTargetname( nullptr, "gladder_camera" );
+		if ( !pCamera )
+		{
+			pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
+		}
+
+		if ( pCamera )
+		{
+			const char *pszName = pCamera->pev->targetname ? STRING( pCamera->pev->targetname ) : STRING( pCamera->pev->classname );
+			ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE,
+				UTIL_VarArgs( "[Gladder] Switched view to map camera '%s' at (%.0f, %.0f, %.0f), angles (%.1f, %.1f, %.1f).\n",
+					pszName ? pszName : "unnamed",
+					pCamera->pev->origin.x, pCamera->pev->origin.y, pCamera->pev->origin.z,
+					pCamera->pev->angles.x, pCamera->pev->angles.y, pCamera->pev->angles.z ) );
+		}
+		else
+		{
+			ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "[Gladder] Switched view to dynamic fallback camera.\n" );
+		}
 		return TRUE;
 	}
 
@@ -556,8 +574,52 @@ void CGladderRules::ShiftPlayerCamera( CBaseEntity *pPlr )
 		pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
 	}
 
+	const char *pszPlayerModel = ( pPlr->pev->model ) ? STRING( pPlr->pev->model ) : "models/player.mdl";
+
 	if ( pCamera && pCamera->edict() )
 	{
+		// Determine orientation: if targeting another entity (e.g. info_target), aim towards it
+		Vector vecCamAngles = pCamera->pev->angles;
+		if ( pCamera->pev->target )
+		{
+			const char *pszTarget = STRING( pCamera->pev->target );
+			if ( pszTarget && pszTarget[0] )
+			{
+				CBaseEntity *pTarget = UTIL_FindEntityByTargetname( nullptr, pszTarget );
+				if ( pTarget && pTarget->edict() )
+				{
+					Vector vecDir = pTarget->pev->origin - pCamera->pev->origin;
+					vecCamAngles = UTIL_VecToAngles( vecDir );
+					vecCamAngles.x = -vecCamAngles.x; // Pitch inversion for view angles in GoldSrc
+				}
+			}
+		}
+		else if ( vecCamAngles == g_vecZero )
+		{
+			// If no target and no explicit angles, look towards the player
+			Vector vecDir = ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - pCamera->pev->origin;
+			vecCamAngles = UTIL_VecToAngles( vecDir );
+			vecCamAngles.x = -vecCamAngles.x;
+		}
+
+		pCamera->pev->angles = vecCamAngles;
+		pCamera->pev->v_angle = vecCamAngles;
+
+		// CRITICAL FOR GOLDSRC ENGINE:
+		// Entities with modelindex == 0 are omitted from server delta packets (SV_WriteEntitiesToClient).
+		// Without a valid modelindex, the client never receives origin updates and defaults cl_entities[i].origin
+		// to (0, 0, 0) (the center of the map!). Assigning a precached model with renderamt=0 ensures the camera
+		// is correctly networked to the client while remaining completely invisible.
+		if ( pCamera->pev->modelindex == 0 )
+		{
+			SET_MODEL( pCamera->edict(), pszPlayerModel );
+		}
+		pCamera->pev->rendermode = kRenderTransTexture;
+		pCamera->pev->renderamt = 0;
+		pCamera->pev->solid = SOLID_NOT;
+		pCamera->pev->movetype = MOVETYPE_NONE;
+		UTIL_SetOrigin( pCamera->pev, pCamera->pev->origin );
+
 		SET_VIEW( pPlr->edict(), pCamera->edict() );
 	}
 	else
@@ -583,11 +645,17 @@ void CGladderRules::ShiftPlayerCamera( CBaseEntity *pPlr )
 		}
 		if ( pFallCam && pFallCam->edict() )
 		{
-			pFallCam->pev->origin = vecCamPos;
-			pFallCam->pev->angles = vecAngles;
-			pFallCam->pev->v_angle = vecAngles;
+			if ( pFallCam->pev->modelindex == 0 )
+			{
+				SET_MODEL( pFallCam->edict(), pszPlayerModel );
+			}
+			pFallCam->pev->rendermode = kRenderTransTexture;
+			pFallCam->pev->renderamt = 0;
 			pFallCam->pev->solid = SOLID_NOT;
 			pFallCam->pev->movetype = MOVETYPE_NONE;
+			pFallCam->pev->angles = vecAngles;
+			pFallCam->pev->v_angle = vecAngles;
+			UTIL_SetOrigin( pFallCam->pev, vecCamPos );
 			SET_VIEW( pPlr->edict(), pFallCam->edict() );
 		}
 	}
