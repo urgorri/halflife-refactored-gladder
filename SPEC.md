@@ -14,7 +14,7 @@ Instead of progressing linearly through a series of maps, players run through a 
 2. **On-Demand Wave Activation**: The wave does not force immediate combat upon arrival. The player triggers wave activation on demand (e.g., crossing a start boundary or cycling airlock doors), initiating procedural spawns and starting the active wave stopwatch.
 3. **Traversal & Combat**: The player navigates through the map toward Point B while battling procedurally spawned enemies and scavenging randomized supplies.
 4. **Reaching Point B (Finish)**: Entering the designated extraction / completion zone (Point B) immediately completes the current wave.
-5. **Screen Fade & Teleportation**: The engine automatically initiates an immediate screen fade-out to black at the moment Point B is touched. The viewport remains completely black during the exact instant the player is teleported back to Point A, followed by a smooth screen fade-in to soften and polish the transition.
+5. **Screen Fade & Teleportation**: The moment Point B is touched, the screen immediately turns solid black (instant 100% black fade). The viewport remains completely black during the exact instant the player is teleported back to Point A, followed by a smooth progressive screen fade from black back to 0% transparency to reveal the reset staging area.
 6. **Wave Increment & Respawn**: The wave counter increases (Wave 1 → Wave 2 → ...), a comprehensive garbage collection clears leftover monsters and entities, and a fresh wave of threats and supplies is generated across the map.
 7. **Player State Persistence**: The player preserves all collected weapons, remaining ammunition, and current health/armor across waves, making continuous resource preservation critical.
 8. **Persistence**: The loop repeats continuously without map reloads or level transitions until match completion.
@@ -66,7 +66,7 @@ Instead of progressing linearly through a series of maps, players run through a 
 * **Diminishing Wall Charger Capacity & Active State Glow**:
   * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
   * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.
-  * **Arcade Visual Glow & Dynamic Light**: While a station retains restorative capacity ("juice", `frame == 0`), it emits the mod's signature arcade visual glow (`kRenderFxGlowShell`) and casts a localized dynamic point light:
+  * **Arcade Visual Glow & Dynamic Light**: While a station retains restorative capacity ("juice", `frame == 0`), it emits the mod's signature arcade visual glow (`kRenderFxGlowShell`) and casts a localized dynamic point light. Because chargers are solid world brush entities, the glow shell must be rendered directly over and superimposed across the brush surfaces and graphics (rather than occluded or rendered behind them), enveloping the unit in a vibrant colored aura:
     * `func_healthcharger`: Vibrant Green glow (`RGB(32, 255, 32)`) and localized green dynamic light.
     * `func_recharge`: Golden-Amber / Orange glow (`RGB(255, 140, 20)`) and localized amber dynamic light.
   * **Depletion Feedback**: The instant the station's capacity is exhausted by player use (`frame == 1`), the glow shell and dynamic light immediately extinguish, providing clear visual feedback that the station is depleted until the next wave reset.
@@ -139,9 +139,9 @@ Each map supports its own configuration profile to dictate thematic and gameplay
 
 The mod provides mapper-friendly entities to simplify setting up any custom or existing map:
 * **Wave Start Staging Zone (Point A)**: Defines the player's initial spawn point and return destination. Level designers configure Point A as a secure staging area free of monster spawn grids, with manual initiation mechanisms (e.g., airlock doors, start line triggers) that fire wave commencement on demand.
-* **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, initiates an automatic screen fade-out to black, teleports the player back to Point A while the screen is completely obscured, and fades the screen back in to ensure a smooth, seamless transition.
+* **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, immediately snaps the screen to solid black (instant 100% black fade), teleports the player back to Point A while completely obscured, and fades the screen progressively back to 0% transparency to reveal the staging area.
 * **Wave State Relays**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
-* **End-Game Backdrop Camera**: Support for associating an in-map static camera entity (such as a designated `trigger_camera`) that provides the scenic background view during the post-game summary.
+* **End-Game Backdrop Cameras (`gladder_camera`)**: Support for placing multiple `gladder_camera` point entities (subclass of `trigger_camera`) across the map without requiring a specific `targetname`. During the post-game summary screen, the mod automatically and equitably cycles through all `gladder_camera` entities in the level in order, splitting view time equally among them to deliver dynamic scenic vistas of the arena. If none are placed, dynamic fallback cameras are generated overlooking the player.
 * **Area Definition Volumes**: Bounding box entities with designer parameters for indexing scope and zoning.
 * **Wall-Mounted Stations**: Mappers place standard `func_healthcharger` and `func_recharge` brush entities across the map or at staging areas; the mod engine automatically manages their recharge cycle and wave-based diminishing capacity.
 
@@ -224,9 +224,11 @@ A dedicated on-screen text overlay is rendered at all times (matching classic Ha
 ### 9.2 End-of-Run Summary, Score Calculation & Grading
 Upon match conclusion—whether through **time limit expiration** or **player death**—the mod overrides the standard engine reload/menu routine and immediately activates the summary screen over the static camera backdrop:
 
-* **Static Camera Backdrop**:
-  * The player's viewport switches immediately to an in-level static camera (activating a designated `trigger_camera` placed in the map).
+* **Multi-Camera Backdrop Rotation (`gladder_camera`)**:
+  * The player's viewport switches immediately to in-level cameras. The mod sequentially and equitably cycles through all `gladder_camera` entities placed in the map, holding on each camera for an equal duration to showcase multiple dynamic vantage points of the arena during the summary. If no `gladder_camera` entities are present, a dynamic fallback camera is used.
   * The living environment remains visible and active in the background while the statistical results, animated score tally, and final rank grade are rendered clearly overlaid on screen.
+* **Darkened Viewport Overlay**:
+  * While rendering the post-match summary screen or in-game leaderboard/scoreboard, the underlying 3D viewport is dimmed / darkened with a translucent dark overlay (rather than lightened/additive tinting), giving the distinct aesthetic feel of a focused modal HUD overlay while keeping the living 3D world visible behind.
 * **Match Outcome Status**:
   * Displays run conclusion state (e.g., `STATUS: SURVIVED - TIME EXPIRED` vs. `STATUS: KIA - FALLEN IN COMBAT`).
   * **Death Is Not a Failure**: Dying ends the run, but the player keeps all earned stats, frags, collectibles, and points. The full score is calculated and recorded in local leaderboards regardless of how the match ended.
@@ -276,6 +278,7 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 * **No Save Functionality**: All save mechanisms (quick-save, manual console/menu save, autosave triggers) are disabled at the root level.
 * **No Load Functionality**: Loading existing save files during a session (quick-load or menu load) is disabled.
 * **Session Finality & Seamless Death Transition**: Each session represents a single, self-contained run. Player death bypasses original save reload and main menu prompts, seamlessly launching the end-of-run summary screen with full score calculation and high score recording.
+* **Corpse Orientation Lock**: Upon player death, the orientation angles (yaw, pitch, roll) of the 3D player corpse model are permanently locked at the exact moment and position of death. Moving the mouse or looking around in third-person view / death cameras must not pivot or rotate the dead player model on the floor.
 
 ---
 
@@ -331,10 +334,10 @@ To provide immediate, unmissable feedback upon entering and completing a wave, c
 
 ### 12.2 Wave Completion Overlay
 * **Trigger Event**: Fired the instant the player enters the extraction zone at Point B (`trigger_gladder_end`).
-* **Wave Completion Text**: Renders `WAVE <N> COMPLETED` centered on screen directly before screen fade and Point A teleportation.
+* **Wave Completion Text**: Renders `WAVE <N> COMPLETED` centered on screen (where `<N>` corresponds strictly to the wave number just completed, e.g. `WAVE 1 COMPLETED` upon completing Wave 1, rather than the incremented incoming wave number) directly before screen fade and Point A teleportation.
 
 ### 12.3 Overlay Presentation & Timing
 * **Screen Placement**: Centered horizontally (`ScreenWidth() / 2`) and placed in the upper-middle third of the screen (`ScreenHeight() / 3`) to ensure high visibility without obstructing the player's primary weapon reticle.
-* **Display Duration**: 1.5 seconds solid hold, followed by a smooth 0.5-second alpha fade-out (total 2.0 seconds).
+* **Display Duration**: 3.0 seconds solid hold, followed by a smooth 1.0-second alpha fade-out (total 4.0 seconds), doubling the on-screen presentation time to ensure players have ample time to read wave numbers and mutator alerts during intense combat and movement.
 * **Aesthetic Consistency**: Rendered using classic Half-Life green/amber HUD typography, perfectly synchronized with the corresponding audio stings (Section 8).
 
