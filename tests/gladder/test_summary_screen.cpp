@@ -60,3 +60,16 @@ TEST_CASE( "CHudGladderSummary: Tab Switching and Dismissal (#16)", "[gladder][h
 	summary.Dismiss();
 	CHECK( summary.IsActive() == false );
 }
+
+TEST_CASE( "CHudGladderSummary: In-Game Leaderboard Peek Mode (#16)", "[gladder][hud][summary]" )
+{
+	CHudGladderSummary summary;
+	CHECK( summary.IsActive() == false );
+
+	summary.ShowLeaderboardOnly();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == true );
+
+	summary.Dismiss();
+	CHECK( summary.IsActive() == false );
+}

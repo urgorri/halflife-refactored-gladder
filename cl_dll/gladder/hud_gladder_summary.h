@@ -28,14 +28,18 @@ class CHudGladderSummary : public CHudBase
 	      m_bShowLeaderboard( false ),
 	      m_flActivationTime( 0.0f ),
 	      m_iQualifiedRank( -1 ),
-	      m_bIsNewHighScore( false )
+	      m_bIsNewHighScore( false ),
+	      m_bOldScoreDown( false ),
+	      m_bOldUseDown( false ),
+	      m_bHoldTabMode( false )
 	{
-		m_iFlags = HUD_ACTIVE;
+		m_iFlags = HUD_ACTIVE | HUD_INTERMISSION;
 	}
 
 	int Init( void ) override;
 	int VidInit( void ) override;
 	int Draw( float flTime ) override;
+	void Think( void ) override;
 	void Reset( void ) override
 	{
 		m_bActive          = false;
@@ -43,6 +47,9 @@ class CHudGladderSummary : public CHudBase
 		m_flActivationTime = 0.0f;
 		m_iQualifiedRank   = -1;
 		m_bIsNewHighScore  = false;
+		m_bOldScoreDown    = false;
+		m_bOldUseDown      = false;
+		m_bHoldTabMode     = false;
 		m_summaryData      = GladderSummaryMsg();
 		m_leaderboard.clear();
 	}
@@ -52,8 +59,11 @@ class CHudGladderSummary : public CHudBase
 
 	// Interaction controls
 	void ToggleDisplay( void ) { m_bActive = !m_bActive; }
-	void ToggleLeaderboardTab( void ) { m_bShowLeaderboard = !m_bShowLeaderboard; }
-	void Dismiss( void ) { m_bActive = false; }
+	void ToggleLeaderboardTab( void );
+	void ShowLeaderboardOnly( void );
+	void ReloadLeaderboard( void );
+	void Dismiss( void ) { m_bActive = false; m_bHoldTabMode = false; }
+	std::string GetCurrentMapName( void );
 
 	// Test/Simulation setters
 	void SetSummaryData( const GladderSummaryMsg &data, float flTime = 0.0f );
@@ -75,6 +85,9 @@ class CHudGladderSummary : public CHudBase
 	float m_flActivationTime;
 	int m_iQualifiedRank;
 	bool m_bIsNewHighScore;
+	bool m_bOldScoreDown;
+	bool m_bOldUseDown;
+	bool m_bHoldTabMode;
 	GladderSummaryMsg m_summaryData;
 	std::vector<GladderLeaderboardEntry> m_leaderboard;
 

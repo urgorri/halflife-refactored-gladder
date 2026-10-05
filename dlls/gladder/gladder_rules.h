@@ -101,6 +101,7 @@ class CGladderRules : public CHalfLifeRules
 
 	// Scoring & match conclusion (Issue #9)
 	void CalculateFinalScore( bool bSurvived );
+	void ShiftPlayerCamera( CBaseEntity *pPlr );
 
 	// Network telemetry broadcast
 	void BroadcastWaveUpdate( CBasePlayer *pPlayer = nullptr );

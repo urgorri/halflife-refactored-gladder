@@ -16,6 +16,7 @@
 #include "items/item_base.h"
 #include "weapons/weapon_base.h"
 #include "shake.h"
+#include "core/util_math.h"
 
 // Gladder gamemode cvar (1 enables Gladder mode).
 // NOTE: value MUST be initialized to 1.0f here. ConditionGladder() checks gladder.value
@@ -236,6 +237,21 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 	{
 		ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "Save/Load and Reload are disabled in Half-Life: Gladder.\n" );
 		return TRUE; // handled and suppressed
+	}
+
+	// Camera test commands for level designers and verification (Issue #16)
+	if ( FStrEq( pcmd, "gladder_test_camera" ) )
+	{
+		ShiftPlayerCamera( pPlayer );
+		ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "[Gladder] Switched view to camera.\n" );
+		return TRUE;
+	}
+
+	if ( FStrEq( pcmd, "gladder_reset_camera" ) )
+	{
+		SET_VIEW( pPlayer->edict(), pPlayer->edict() );
+		ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "[Gladder] View reset to first-person.\n" );
+		return TRUE;
 	}
 
 	return FALSE;
@@ -512,22 +528,69 @@ void CGladderRules::CalculateFinalScore( bool bSurvived )
 	const char *pszMap = ( gpGlobals && gpGlobals->mapname ) ? STRING( gpGlobals->mapname ) : "default";
 	GladderLeaderboard::SubmitScore( pszMap ? pszMap : "default", lbEntry, rank, isNewHigh );
 
-	// 2. Seamlessly shift player viewport to designated trigger_camera (SPEC §6, Issue #16)
-	CBaseEntity *pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
-	if ( pCamera && gpGlobals )
+	// 2. Seamlessly shift player viewport to designated trigger_camera or dynamic fallback (SPEC §6, Issue #16)
+	if ( gpGlobals )
 	{
 		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
 		{
 			CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
 			if ( pPlr && pPlr->edict() )
 			{
-				SET_VIEW( pPlr->edict(), pCamera->edict() );
+				ShiftPlayerCamera( pPlr );
 			}
 		}
 	}
 
 	// 3. Broadcast full summary payload to client HUD (SPEC §9.2, Issue #14, #16)
 	BroadcastSummaryUpdate( nullptr, m_lastScoreBreakdown, m_comboTracker.GetStats() );
+}
+
+void CGladderRules::ShiftPlayerCamera( CBaseEntity *pPlr )
+{
+	if ( !pPlr || !pPlr->edict() )
+		return;
+
+	CBaseEntity *pCamera = UTIL_FindEntityByTargetname( nullptr, "gladder_camera" );
+	if ( !pCamera )
+	{
+		pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
+	}
+
+	if ( pCamera && pCamera->edict() )
+	{
+		SET_VIEW( pPlr->edict(), pCamera->edict() );
+	}
+	else
+	{
+		// Dynamic fallback elevated camera overlooking player
+		UTIL_MakeVectors( pPlr->pev->v_angle );
+		Vector vecCamPos = pPlr->pev->origin + Vector( 0, 0, 90 ) - gpGlobals->v_forward * 140;
+		TraceResult tr;
+		UTIL_TraceLine( pPlr->pev->origin + Vector( 0, 0, 36 ), vecCamPos, ignore_monsters, pPlr->edict(), &tr );
+		vecCamPos = tr.vecEndPos + tr.vecPlaneNormal * 4;
+
+		Vector vecAngles = UTIL_VecToAngles( ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - vecCamPos );
+		vecAngles.x = -vecAngles.x;
+
+		CBaseEntity *pFallCam = UTIL_FindEntityByTargetname( nullptr, "gladder_dynamic_camera" );
+		if ( !pFallCam )
+		{
+			pFallCam = CBaseEntity::Create( "info_target", vecCamPos, vecAngles, nullptr );
+			if ( pFallCam )
+			{
+				pFallCam->pev->targetname = MAKE_STRING( "gladder_dynamic_camera" );
+			}
+		}
+		if ( pFallCam && pFallCam->edict() )
+		{
+			pFallCam->pev->origin = vecCamPos;
+			pFallCam->pev->angles = vecAngles;
+			pFallCam->pev->v_angle = vecAngles;
+			pFallCam->pev->solid = SOLID_NOT;
+			pFallCam->pev->movetype = MOVETYPE_NONE;
+			SET_VIEW( pPlr->edict(), pFallCam->edict() );
+		}
+	}
 }
 
 void CGladderRules::BroadcastWaveUpdate( CBasePlayer *pPlayer )

@@ -15,6 +15,9 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "in_buttons.h"
+
+void COM_FileBase( const char *in, char *out );
 
 static int MsgFunc_GladSumm_Dispatcher( const char *pszName, int iSize, void *pbuf )
 {
@@ -40,8 +43,9 @@ int CHudGladderSummary::Init( void )
 	gEngfuncs.pfnHookUserMsg( "GladSumm", MsgFunc_GladSumm_Dispatcher );
 	gEngfuncs.pfnAddCommand( "gladder_summary_toggle", Cmd_ToggleSummary );
 	gEngfuncs.pfnAddCommand( "gladder_leaderboard_toggle", Cmd_ToggleLeaderboard );
+	gEngfuncs.pfnAddCommand( "gladder_scores", Cmd_ToggleLeaderboard );
 #endif
-	m_iFlags |= HUD_ACTIVE;
+	m_iFlags |= ( HUD_ACTIVE | HUD_INTERMISSION );
 	return 1;
 }
 
@@ -51,27 +55,133 @@ int CHudGladderSummary::VidInit( void )
 	return 1;
 }
 
+std::string CHudGladderSummary::GetCurrentMapName( void )
+{
+	std::string mapname = "default";
+#ifdef CLIENT_DLL
+	const char *level = gEngfuncs.pfnGetLevelName();
+	if ( level && level[0] )
+	{
+		char baseName[64];
+		COM_FileBase( level, baseName );
+		baseName[sizeof( baseName ) - 1] = '\0';
+		if ( baseName[0] )
+		{
+			mapname = baseName;
+		}
+	}
+#endif
+	return mapname;
+}
+
+void CHudGladderSummary::ReloadLeaderboard( void )
+{
+	std::string mapname = GetCurrentMapName();
+	GladderLeaderboard::Load( mapname, m_leaderboard );
+}
+
+void CHudGladderSummary::ToggleLeaderboardTab( void )
+{
+	if ( !m_bActive )
+	{
+		m_bActive          = true;
+		m_bShowLeaderboard = true;
+		m_bHoldTabMode     = false;
+		ReloadLeaderboard();
+		return;
+	}
+
+	m_bShowLeaderboard = !m_bShowLeaderboard;
+	if ( m_bShowLeaderboard )
+	{
+		ReloadLeaderboard();
+	}
+}
+
+void CHudGladderSummary::ShowLeaderboardOnly( void )
+{
+	m_bActive          = true;
+	m_bShowLeaderboard = true;
+	m_bHoldTabMode     = true;
+	ReloadLeaderboard();
+}
+
+void CHudGladderSummary::Think( void )
+{
+#ifdef CLIENT_DLL
+	bool isScoreDown = ( gHUD.m_iKeyBits & IN_SCORE ) != 0;
+	bool isUseDown   = ( gHUD.m_iKeyBits & IN_USE ) != 0;
+
+	// Check Tab key transition
+	if ( isScoreDown && !m_bOldScoreDown )
+	{
+		if ( !m_bActive )
+		{
+			// In gameplay: holding TAB displays the leaderboard overlay
+			ShowLeaderboardOnly();
+		}
+		else
+		{
+			// Post-match summary active: TAB toggles between summary and leaderboard pages
+			m_bShowLeaderboard = !m_bShowLeaderboard;
+			if ( m_bShowLeaderboard )
+			{
+				ReloadLeaderboard();
+			}
+		}
+	}
+	else if ( !isScoreDown && m_bOldScoreDown )
+	{
+		if ( m_bActive && m_bHoldTabMode )
+		{
+			// If we opened the leaderboard by holding TAB in-game, release hides it
+			m_bActive          = false;
+			m_bShowLeaderboard = false;
+			m_bHoldTabMode     = false;
+		}
+	}
+
+	// Check Use (E) key transition to dismiss post-match screen
+	if ( isUseDown && !m_bOldUseDown )
+	{
+		if ( m_bActive && !m_bHoldTabMode )
+		{
+			Dismiss();
+		}
+	}
+
+	m_bOldScoreDown = isScoreDown;
+	m_bOldUseDown   = isUseDown;
+#endif
+}
+
 void CHudGladderSummary::SetSummaryData( const GladderSummaryMsg &data, float flTime )
 {
 	m_summaryData      = data;
 	m_flActivationTime = flTime;
 	m_bActive          = true;
 	m_bShowLeaderboard = false;
+	m_bHoldTabMode     = false;
 
-	// Populate leaderboard entry and load high scores
-	GladderLeaderboardEntry entry;
-	entry.score     = data.iFinalScore;
-	entry.waves     = data.iWavesCompleted;
-	entry.frags     = data.iTotalFrags;
-	entry.totalTime = data.flTotalMatchTime;
-	entry.grade     = data.cRankGrade;
-	entry.survived  = data.bSurvived;
-
-	std::string mapname = "default";
-#ifdef CLIENT_DLL
-	// Query current level name from engine if available
-#endif
+	std::string mapname = GetCurrentMapName();
 	GladderLeaderboard::Load( mapname, m_leaderboard );
+
+	m_iQualifiedRank  = -1;
+	m_bIsNewHighScore = false;
+	for ( size_t i = 0; i < m_leaderboard.size(); ++i )
+	{
+		if ( m_leaderboard[i].score == data.iFinalScore &&
+		     m_leaderboard[i].waves == data.iWavesCompleted &&
+		     m_leaderboard[i].frags == data.iTotalFrags )
+		{
+			m_iQualifiedRank = static_cast<int>( i + 1 );
+			if ( i == 0 )
+			{
+				m_bIsNewHighScore = true;
+			}
+			break;
+		}
+	}
 }
 
 void CHudGladderSummary::SetLeaderboard( const std::vector<GladderLeaderboardEntry> &entries, int rank, bool isNewHigh )
@@ -276,7 +386,7 @@ void CHudGladderSummary::DrawSummaryPage( float flTime, float tallyFrac )
 	}
 
 	gEngfuncs.pfnDrawSetTextColor( 0.7f, 0.7f, 0.7f );
-	snprintf( szBuf, sizeof( szBuf ), "[TAB] View High Scores   [USE / ENTER] Dismiss" );
+	snprintf( szBuf, sizeof( szBuf ), "[TAB] View High Scores   [USE / E] Dismiss" );
 	len = static_cast<int>( strlen( szBuf ) ) * 9;
 	DrawConsoleString( cx - ( len / 2 ), footerY, szBuf );
 #endif
@@ -342,7 +452,14 @@ void CHudGladderSummary::DrawLeaderboardPage( void )
 
 	int footerY = ScreenHeight - 48;
 	gEngfuncs.pfnDrawSetTextColor( 0.7f, 0.7f, 0.7f );
-	snprintf( szBuf, sizeof( szBuf ), "[TAB] Return to Summary   [USE / ENTER] Dismiss" );
+	if ( m_bHoldTabMode )
+	{
+		snprintf( szBuf, sizeof( szBuf ), "[TAB] Release to Dismiss Leaderboard" );
+	}
+	else
+	{
+		snprintf( szBuf, sizeof( szBuf ), "[TAB] Return to Summary   [USE / E] Dismiss" );
+	}
 	len = static_cast<int>( strlen( szBuf ) ) * 9;
 	DrawConsoleString( cx - ( len / 2 ), footerY, szBuf );
 #endif
