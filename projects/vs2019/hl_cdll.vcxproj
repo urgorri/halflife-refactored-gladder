@@ -215,6 +215,12 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_weapons.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_usermsg.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_combo.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp" />
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_knife.cpp" />
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_pipewrench.cpp" />
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_eagle.cpp" />
@@ -224,6 +230,12 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
   <ItemGroup>
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_overlay.h" />
     <ClInclude Include="..\..\cl_dll\gladder\gladder_visuals.h" />
+    <ClInclude Include="..\..\cl_dll\gladder\gladder_crosshair.h" />
+    <ClInclude Include="..\..\cl_dll\gladder\gladder_cl_usermsg.h" />
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_combo.h" />
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.h" />
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_summary.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_leaderboard.h" />
     <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h" />
     <ClInclude Include="..\..\dlls\gladder\weapons\weapon_knife.h" />
     <ClInclude Include="..\..\dlls\gladder\weapons\weapon_pipewrench.h" />

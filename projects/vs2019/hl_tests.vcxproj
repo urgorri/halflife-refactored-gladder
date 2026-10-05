@@ -187,12 +187,24 @@
     <ClCompile Include="..\..\tests\gladder\test_monster_modifiers.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_audio.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_items.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_usermsg.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_combo.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_items.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_visuals.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_weapons.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_rules.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_crosshair_fallback.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_leaderboard.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_usermsg.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_wave_notify_msg.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_hud.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_summary_screen.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

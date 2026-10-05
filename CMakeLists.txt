@@ -207,6 +207,7 @@ if(BUILD_CLIENT)
         game_shared/vgui_scrollbar2.cpp
         game_shared/vgui_slider2.cpp
         game_shared/voice_banmgr.cpp
+        dlls/gladder/gladder_leaderboard.cpp
     )
 
     set(CLIENT_ALL_SOURCES
@@ -374,8 +375,14 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_monster_modifiers.cpp
         dlls/gladder/gladder_audio.cpp
         dlls/gladder/gladder_items.cpp
+        dlls/gladder/gladder_leaderboard.cpp
         cl_dll/gladder/gladder_visuals.cpp
+        cl_dll/gladder/gladder_crosshair.cpp
+        cl_dll/gladder/gladder_cl_usermsg.cpp
         cl_dll/gladder/hud_gladder_overlay.cpp
+        cl_dll/gladder/hud_gladder_combo.cpp
+        cl_dll/gladder/hud_gladder_wave_notify.cpp
+        cl_dll/gladder/hud_gladder_summary.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
         tests/gladder/test_grid_indexer.cpp
@@ -388,6 +395,12 @@ if(BUILD_TESTS)
         tests/gladder/test_visuals.cpp
         tests/gladder/test_weapons.cpp
         tests/gladder/test_rules.cpp
+        tests/gladder/test_crosshair_fallback.cpp
+        tests/gladder/test_leaderboard.cpp
+        tests/gladder/test_usermsg.cpp
+        tests/gladder/test_wave_notify_msg.cpp
+        tests/gladder/test_hud.cpp
+        tests/gladder/test_summary_screen.cpp
         ${PM_SHARED_SOURCES}
     )
 

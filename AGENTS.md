@@ -56,6 +56,32 @@ The repository maintains multiple build systems that must remain strictly synchr
 * **Synchronize test suites**: Ensure all unit test files added under `tests/` are included in `CMakeLists.txt` (`TESTS_SOURCES`), `projects/vs2019/hl_tests.vcxproj`, and `linux/Makefile.tests`.
 * **Synchronize map editor definitions (`gladder.fgd`)**: Whenever an entity is added, modified, or removed in `dlls/gladder/` (via `LINK_ENTITY_TO_CLASS`), update `gladder.fgd` at the root of the repository so level designers can place and configure the entity in map editors (Valve Hammer Editor, J.A.C.K., TrenchBroom).
 
+### Cross-Platform Build Discipline & Pre-PR Verification (Windows & Linux):
+
+The codebase must compile and pass tests across both Windows and Linux CI environments. **Agents and developers do not need to install or run Docker, virtual machines, or local Linux toolchains.** Instead, code and build configurations must strictly adhere to static cross-platform discipline so that dual-platform compatibility is guaranteed by design:
+
+1. **Static Code Discipline (Guaranteed Dual-Platform Compilation)**:
+   - **C++11 Standard Compliance (`-std=gnu++11`)**: While Windows MSVC and CMake use C++14, the legacy Linux toolchains (`linux/Makefile.*`) compile with `-std=gnu++11`. Code must remain strictly compliant with C++11.
+   - **No C++14-only Aggregate Initialization**: Never use brace-enclosed aggregate initialization (`{...}`) on structs or classes that contain default member initializers (e.g. `int foo = 0;`). In C++11, default member initializers prevent a type from being an aggregate. Always provide explicit constructors (`Foo() : foo(0) {}`, `Foo(int f) : foo(f) {}`), or instantiate the struct and assign its fields explicitly.
+   - **Path Separators & Case Sensitivity**: Linux filesystems are strictly case-sensitive. All `#include` paths must match disk filename casing exactly (e.g. `#include "hud.h"`, not `#include "HUD.h"`). In source code and file operations, always use forward slashes (`/`), never Windows-only backslashes (`\`).
+   - **Platform-Specific Headers**: Never include Windows-specific headers (`<windows.h>`, `<direct.h>`) without appropriate `#ifdef _WIN32` preprocessor guards, providing POSIX equivalents (`<unistd.h>`, `<sys/stat.h>`) for Linux.
+
+2. **Linux Makefile Directory Hygiene (`linux/Makefile.*`)**:
+   - Whenever source or object files are added under a subfolder (e.g. `$(HL1_SERVER_OBJ_DIR)/gladder/...`), the makefile must ensure the directory exists before compilation:
+     1. Add the directory to the `dirs:` target with `mkdir -p <dir>`.
+     2. Declare an explicit target rule for the directory (e.g. `$(HL1_SERVER_OBJ_DIR)/gladder: \n\t mkdir -p $(HL1_SERVER_OBJ_DIR)/gladder`) when used as a prerequisite in pattern rules.
+     3. Ensure the top-level `all:` target depends on `dirs`.
+
+3. **Pre-PR Local Verification (Windows)**:
+   Before opening or updating a pull request, verify all local Windows targets:
+   - Build both `projects/vs2019/hl_cdll.vcxproj` and `hldll.vcxproj` in Release/Win32 configuration.
+   - Build CMake targets (`cmake -B build -A Win32` && `cmake --build build --config Release`).
+   - Run the full Catch2 test suite: `hl_tests.exe` (must pass 100% of assertions).
+   - Run the client smoke test: `smoke_test_client.exe <path/to/client.dll>`.
+   - Verify exported symbols against golden baselines (`verify_symbols.py`).
+
+By strictly enforcing these static code and makefile invariants, code is guaranteed to build cleanly in Linux CI without requiring local Linux simulation or container tooling.
+
 ---
 
 ## Level Design & Map Editor Compatibility (`gladder.fgd`)

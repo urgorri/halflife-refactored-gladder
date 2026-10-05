@@ -385,6 +385,7 @@ static void stub_SPR_DisableScissor( void )
 
 static client_sprite_t *s_customMockSprites = nullptr;
 static int s_customMockSpriteCount = 0;
+static std::unordered_map<std::string, std::pair<client_sprite_t *, int>> s_customNamedMockSprites;
 
 void SetMockSpriteList( client_sprite_t *pSprites, int count )
 {
@@ -392,15 +393,33 @@ void SetMockSpriteList( client_sprite_t *pSprites, int count )
 	s_customMockSpriteCount = count;
 }
 
+void SetMockNamedSpriteList( const char *pszName, client_sprite_t *pSprites, int count )
+{
+	if ( pszName )
+	{
+		s_customNamedMockSprites[pszName] = std::make_pair( pSprites, count );
+	}
+}
+
 void ResetMockSpriteList( void )
 {
 	s_customMockSprites = nullptr;
 	s_customMockSpriteCount = 0;
+	s_customNamedMockSprites.clear();
 }
 
 static struct client_sprite_s *stub_SPR_GetList( char *psz, int *piCount )
 {
-	(void)psz;
+	if ( psz )
+	{
+		auto it = s_customNamedMockSprites.find( psz );
+		if ( it != s_customNamedMockSprites.end() )
+		{
+			if ( piCount )
+				*piCount = it->second.second;
+			return it->second.first;
+		}
+	}
 	if ( s_customMockSprites )
 	{
 		if ( piCount )

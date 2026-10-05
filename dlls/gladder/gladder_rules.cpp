@@ -10,10 +10,13 @@
 #include "gladder_breakable.h"
 #include "gladder_usermsg.h"
 #include "gladder_audio.h"
+#include "gladder_leaderboard.h"
+#include <ctime>
 #include "core/skill_manager.h"
 #include "items/item_base.h"
 #include "weapons/weapon_base.h"
 #include "shake.h"
+#include "core/util_math.h"
 
 // Gladder gamemode cvar (1 enables Gladder mode).
 // NOTE: value MUST be initialized to 1.0f here. ConditionGladder() checks gladder.value
@@ -132,6 +135,7 @@ void CGladderRules::Think( void )
 		m_flLastTelemetryBroadcast = flTime;
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
+		BroadcastComboUpdate();
 	}
 
 	// Maintain wall charger active state and glow extinction upon depletion (SPEC §3, Issue #46)
@@ -235,6 +239,39 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 		return TRUE; // handled and suppressed
 	}
 
+	// Camera test commands for level designers and verification (Issue #16)
+	if ( FStrEq( pcmd, "gladder_test_camera" ) )
+	{
+		ShiftPlayerCamera( pPlayer );
+		CBaseEntity *pCamera = UTIL_FindEntityByTargetname( nullptr, "gladder_camera" );
+		if ( !pCamera )
+		{
+			pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
+		}
+
+		if ( pCamera )
+		{
+			const char *pszName = pCamera->pev->targetname ? STRING( pCamera->pev->targetname ) : STRING( pCamera->pev->classname );
+			ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE,
+				UTIL_VarArgs( "[Gladder] Switched view to map camera '%s' at (%.0f, %.0f, %.0f), angles (%.1f, %.1f, %.1f).\n",
+					pszName ? pszName : "unnamed",
+					pCamera->pev->origin.x, pCamera->pev->origin.y, pCamera->pev->origin.z,
+					pCamera->pev->angles.x, pCamera->pev->angles.y, pCamera->pev->angles.z ) );
+		}
+		else
+		{
+			ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "[Gladder] Switched view to dynamic fallback camera.\n" );
+		}
+		return TRUE;
+	}
+
+	if ( FStrEq( pcmd, "gladder_reset_camera" ) )
+	{
+		SET_VIEW( pPlayer->edict(), pPlayer->edict() );
+		ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "[Gladder] View reset to first-person.\n" );
+		return TRUE;
+	}
+
 	return FALSE;
 }
 
@@ -271,6 +308,7 @@ void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, en
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_comboTracker.OnMonsterKilled( pVictim, pKiller, pInflictor, flTime );
 	m_iTotalFrags = m_comboTracker.GetTotalFrags();
+	BroadcastComboUpdate();
 }
 
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
@@ -345,6 +383,7 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		// Fire start relays (event = 0)
 		Gladder_FireWaveRelays( 0, pActivator );
 
+		BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ) );
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
 	}
@@ -397,6 +436,8 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 
 	// Fire wave completion relays (event = 1)
 	Gladder_FireWaveRelays( 1, pActivator );
+
+	BroadcastWaveNotify( nullptr, 1, m_waveManager.GetWaveNumber(), 0 );
 
 	// Revert active mutators back to default
 	m_modifiers.RevertMutators();
@@ -489,6 +530,135 @@ void CGladderRules::CalculateFinalScore( bool bSurvived )
 	       m_lastScoreBreakdown.collectiblesCount,
 	       m_lastScoreBreakdown.totalDamageTaken );
 	ALERT( at_console, "[Gladder] ======================\n" );
+
+	// 1. Submit to persistent map leaderboards (SPEC §10.2, Issue #17)
+	GladderLeaderboardEntry lbEntry;
+	lbEntry.timestamp = static_cast<uint64_t>( time( nullptr ) );
+	lbEntry.score     = m_lastScoreBreakdown.finalCompositeScore;
+	lbEntry.waves     = m_lastScoreBreakdown.wavesCompleted;
+	lbEntry.frags     = m_lastScoreBreakdown.totalFrags;
+	lbEntry.totalTime = m_lastScoreBreakdown.totalMatchTime;
+	lbEntry.grade     = m_lastScoreBreakdown.rankGrade;
+	lbEntry.survived  = m_lastScoreBreakdown.bSurvived;
+
+	int rank = -1;
+	bool isNewHigh = false;
+	const char *pszMap = ( gpGlobals && gpGlobals->mapname ) ? STRING( gpGlobals->mapname ) : "default";
+	GladderLeaderboard::SubmitScore( pszMap ? pszMap : "default", lbEntry, rank, isNewHigh );
+
+	// 2. Seamlessly shift player viewport to designated trigger_camera or dynamic fallback (SPEC §6, Issue #16)
+	if ( gpGlobals )
+	{
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+			if ( pPlr && pPlr->edict() )
+			{
+				ShiftPlayerCamera( pPlr );
+			}
+		}
+	}
+
+	// 3. Broadcast full summary payload to client HUD (SPEC §9.2, Issue #14, #16)
+	BroadcastSummaryUpdate( nullptr, m_lastScoreBreakdown, m_comboTracker.GetStats() );
+}
+
+void CGladderRules::ShiftPlayerCamera( CBaseEntity *pPlr )
+{
+	if ( !pPlr || !pPlr->edict() )
+		return;
+
+	CBaseEntity *pCamera = UTIL_FindEntityByTargetname( nullptr, "gladder_camera" );
+	if ( !pCamera )
+	{
+		pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
+	}
+
+	const char *pszPlayerModel = ( pPlr->pev->model ) ? STRING( pPlr->pev->model ) : "models/player.mdl";
+
+	if ( pCamera && pCamera->edict() )
+	{
+		// Determine orientation: if targeting another entity (e.g. info_target), aim towards it
+		Vector vecCamAngles = pCamera->pev->angles;
+		if ( pCamera->pev->target )
+		{
+			const char *pszTarget = STRING( pCamera->pev->target );
+			if ( pszTarget && pszTarget[0] )
+			{
+				CBaseEntity *pTarget = UTIL_FindEntityByTargetname( nullptr, pszTarget );
+				if ( pTarget && pTarget->edict() )
+				{
+					Vector vecDir = pTarget->pev->origin - pCamera->pev->origin;
+					vecCamAngles = UTIL_VecToAngles( vecDir );
+					vecCamAngles.x = -vecCamAngles.x; // Pitch inversion for view angles in GoldSrc
+				}
+			}
+		}
+		else if ( vecCamAngles == g_vecZero )
+		{
+			// If no target and no explicit angles, look towards the player
+			Vector vecDir = ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - pCamera->pev->origin;
+			vecCamAngles = UTIL_VecToAngles( vecDir );
+			vecCamAngles.x = -vecCamAngles.x;
+		}
+
+		pCamera->pev->angles = vecCamAngles;
+		pCamera->pev->v_angle = vecCamAngles;
+
+		// CRITICAL FOR GOLDSRC ENGINE:
+		// Entities with modelindex == 0 are omitted from server delta packets (SV_WriteEntitiesToClient).
+		// Without a valid modelindex, the client never receives origin updates and defaults cl_entities[i].origin
+		// to (0, 0, 0) (the center of the map!). Assigning a precached model with renderamt=0 ensures the camera
+		// is correctly networked to the client while remaining completely invisible.
+		if ( pCamera->pev->modelindex == 0 )
+		{
+			SET_MODEL( pCamera->edict(), pszPlayerModel );
+		}
+		pCamera->pev->rendermode = kRenderTransTexture;
+		pCamera->pev->renderamt = 0;
+		pCamera->pev->solid = SOLID_NOT;
+		pCamera->pev->movetype = MOVETYPE_NONE;
+		UTIL_SetOrigin( pCamera->pev, pCamera->pev->origin );
+
+		SET_VIEW( pPlr->edict(), pCamera->edict() );
+	}
+	else
+	{
+		// Dynamic fallback elevated camera overlooking player
+		UTIL_MakeVectors( pPlr->pev->v_angle );
+		Vector vecCamPos = pPlr->pev->origin + Vector( 0, 0, 90 ) - gpGlobals->v_forward * 140;
+		TraceResult tr;
+		UTIL_TraceLine( pPlr->pev->origin + Vector( 0, 0, 36 ), vecCamPos, ignore_monsters, pPlr->edict(), &tr );
+		vecCamPos = tr.vecEndPos + tr.vecPlaneNormal * 4;
+
+		Vector vecAngles = UTIL_VecToAngles( ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - vecCamPos );
+		vecAngles.x = -vecAngles.x;
+
+		CBaseEntity *pFallCam = UTIL_FindEntityByTargetname( nullptr, "gladder_dynamic_camera" );
+		if ( !pFallCam )
+		{
+			pFallCam = CBaseEntity::Create( "info_target", vecCamPos, vecAngles, nullptr );
+			if ( pFallCam )
+			{
+				pFallCam->pev->targetname = MAKE_STRING( "gladder_dynamic_camera" );
+			}
+		}
+		if ( pFallCam && pFallCam->edict() )
+		{
+			if ( pFallCam->pev->modelindex == 0 )
+			{
+				SET_MODEL( pFallCam->edict(), pszPlayerModel );
+			}
+			pFallCam->pev->rendermode = kRenderTransTexture;
+			pFallCam->pev->renderamt = 0;
+			pFallCam->pev->solid = SOLID_NOT;
+			pFallCam->pev->movetype = MOVETYPE_NONE;
+			pFallCam->pev->angles = vecAngles;
+			pFallCam->pev->v_angle = vecAngles;
+			UTIL_SetOrigin( pFallCam->pev, vecCamPos );
+			SET_VIEW( pPlr->edict(), pFallCam->edict() );
+		}
+	}
 }
 
 void CGladderRules::BroadcastWaveUpdate( CBasePlayer *pPlayer )
@@ -522,6 +692,84 @@ void CGladderRules::BroadcastTelemetryUpdate( CBasePlayer *pPlayer )
 	WRITE_COORD( m_waveManager.GetAverageLapTime() );
 	WRITE_SHORT( m_waveManager.GetCompletedWavesCount() );
 	WRITE_SHORT( m_iTotalFrags );
+	WRITE_SHORT( m_iCollectiblesCount );
+	MESSAGE_END();
+}
+
+void CGladderRules::BroadcastComboUpdate( CBasePlayer *pPlayer )
+{
+	if ( !gmsgGladderCombo )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	int multiplier = m_comboTracker.GetCurrentMultiplier();
+	float gauge = m_comboTracker.GetNormalizedGauge();
+	uint8_t decayFraction255 = static_cast<uint8_t>( (std::max)( 0.0f, (std::min)( 1.0f, gauge ) ) * 255.0f );
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderCombo, nullptr, pTarget );
+	WRITE_BYTE( multiplier );
+	WRITE_BYTE( decayFraction255 );
+	MESSAGE_END();
+}
+
+void CGladderRules::BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iWaveNumber, int iMutatorType )
+{
+	if ( !gmsgGladderNotify )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderNotify, nullptr, pTarget );
+	WRITE_BYTE( iType );
+	WRITE_BYTE( iWaveNumber );
+	WRITE_BYTE( iMutatorType );
+	MESSAGE_END();
+}
+
+void CGladderRules::BroadcastSummaryUpdate( CBasePlayer *pPlayer, const GladderScoreBreakdown &score, const GladderKillStats &kills )
+{
+	if ( !gmsgGladderSummary )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderSummary, nullptr, pTarget );
+	WRITE_BYTE( score.bSurvived ? 1 : 0 );
+	WRITE_SHORT( score.wavesCompleted );
+	WRITE_LONG( score.finalCompositeScore );
+	WRITE_CHAR( score.rankGrade );
+	WRITE_SHORT( score.maxComboStreak );
+	WRITE_SHORT( score.totalFrags );
+	WRITE_SHORT( score.collectiblesCount );
+	WRITE_COORD( score.totalMatchTime );
+	WRITE_COORD( score.averageLapTime );
+	WRITE_COORD( score.fastestLapTime );
+	WRITE_COORD( score.slowestLapTime );
+	WRITE_COORD( score.totalDamageTaken );
+	WRITE_LONG( score.baseCombatPoints );
+	WRITE_LONG( score.comboBonusPoints );
+	WRITE_LONG( score.waveBonusPoints );
+	WRITE_LONG( score.lambdaBonusPoints );
+	WRITE_LONG( score.survivalBonusPoints );
+	WRITE_LONG( score.damagePenaltyPoints );
+
+	// Species kill pairs (capped at 255)
+	uint8_t speciesCount = static_cast<uint8_t>( (std::min)( size_t( 255 ), kills.speciesKills.size() ) );
+	WRITE_BYTE( speciesCount );
+	uint8_t written = 0;
+	for ( const auto &pair : kills.speciesKills )
+	{
+		if ( written >= speciesCount )
+			break;
+		std::string friendly = GladderComboTracker::GetFriendlySpeciesName( pair.first );
+		WRITE_STRING( friendly.c_str() );
+		WRITE_SHORT( pair.second );
+		written++;
+	}
 	MESSAGE_END();
 }
 
