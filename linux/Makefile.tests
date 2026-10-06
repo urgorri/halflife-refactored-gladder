@@ -73,6 +73,7 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/animation.o \
 	$(TESTS_OBJ_DIR)/buttons.o \
 	$(TESTS_OBJ_DIR)/func_break.o \
+	$(TESTS_OBJ_DIR)/explode.o \
 	$(TESTS_OBJ_DIR)/chargers.o \
 	$(TESTS_OBJ_DIR)/effects_beams.o \
 	$(TESTS_OBJ_DIR)/triggers_audio.o \
@@ -212,6 +213,9 @@ $(TESTS_OBJ_DIR)/buttons.o: $(HLDLL_SRC_DIR)/systems/buttons.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/func_break.o: $(HLDLL_SRC_DIR)/systems/func_break.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/explode.o: $(HLDLL_SRC_DIR)/systems/explode.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/chargers.o: $(HLDLL_SRC_DIR)/systems/chargers.cpp | dirs

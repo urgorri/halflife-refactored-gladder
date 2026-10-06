@@ -18,6 +18,18 @@ extern float g_mockMessageOrigin[3];
 extern edict_t *g_mockMessageEdict;
 extern TraceResult g_mockTraceResult;
 
+struct MockRadiusDamageCall
+{
+	Vector vecSrc;
+	entvars_t *pevInflictor;
+	entvars_t *pevAttacker;
+	float flDamage;
+	float flRadius;
+	int iClassIgnore;
+	int bitsDamageType;
+};
+extern std::vector<MockRadiusDamageCall> g_mockRadiusDamageCalls;
+
 void SetMockTraceLineResult( const TraceResult &tr );
 void ResetMockEngine();
 void InitMockEngine();

@@ -86,6 +86,7 @@ class CBreakable : public CBaseDelay
 	float m_angle;
 	int m_iszGibModel;
 	int m_iszSpawnObject;
+	EHANDLE m_hAttacker;
 };
 
 #endif // FUNC_BREAK_H

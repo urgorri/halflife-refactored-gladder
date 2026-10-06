@@ -21,6 +21,7 @@
 #include "hud/hud.h"
 #include "cl_util.h"
 #include "netadr.h"
+#include "studio/studio_death_angles.h"
 #undef INTERFACE_H
 #include "../public/interface.h"
 // #include "vgui_SchemeManager.h"
@@ -195,6 +196,7 @@ void CL_DLLEXPORT HUD_Init( void )
 	InitInput();
 	gHUD.Init();
 	Scheme_Init();
+	StudioResetDeadPlayerAngles();
 }
 
 /*

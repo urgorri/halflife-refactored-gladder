@@ -291,3 +291,186 @@ TEST_CASE( "StudioModel: Player remap color bounds clamping [0, 360]", "[studio]
 	CHECK( clampRemap( 400 ) == 360 );
 }
 
+TEST_CASE( "StudioModel: Dead player orientation latching and transform decoupling", "[studio][corpse][angles]" )
+{
+	// Client-side dead player latching state per player slot
+	float deathAngles[32][3] = {};
+	int latched[32]          = {};
+
+	auto resetAngles = [&]() {
+		std::memset( deathAngles, 0, sizeof( deathAngles ) );
+		std::memset( latched, 0, sizeof( latched ) );
+	};
+
+	auto updatePlayerRenderAngles = [&]( int playerIndex, bool isDead, const float entityAngles[3], float outAngles[3] ) {
+		if ( !isDead )
+		{
+			latched[playerIndex]          = 0;
+			deathAngles[playerIndex][0]   = 0.0f;
+			deathAngles[playerIndex][1]   = entityAngles[1];
+			deathAngles[playerIndex][2]   = 0.0f;
+
+			outAngles[0] = entityAngles[0];
+			outAngles[1] = entityAngles[1];
+			outAngles[2] = entityAngles[2];
+		}
+		else
+		{
+			if ( !latched[playerIndex] )
+			{
+				latched[playerIndex]          = 1;
+				deathAngles[playerIndex][0]   = 0.0f;
+				deathAngles[playerIndex][1]   = entityAngles[1];
+				deathAngles[playerIndex][2]   = 0.0f;
+			}
+
+			// Render transform is decoupled from mouse/view angles and locked to latched death yaw
+			outAngles[0] = deathAngles[playerIndex][0];
+			outAngles[1] = deathAngles[playerIndex][1];
+			outAngles[2] = deathAngles[playerIndex][2];
+		}
+	};
+
+	resetAngles();
+	int playerSlot = 0;
+	float renderAngles[3] = {};
+
+	SECTION( "Living player tracks orientation dynamically" )
+	{
+		float currentAngles[3] = { 10.0f, 45.0f, 0.0f };
+		updatePlayerRenderAngles( playerSlot, false, currentAngles, renderAngles );
+
+		CHECK( renderAngles[0] == Catch::Approx( 10.0f ) );
+		CHECK( renderAngles[1] == Catch::Approx( 45.0f ) );
+		CHECK( renderAngles[2] == Catch::Approx( 0.0f ) );
+
+		// Turning around to 120 degrees yaw
+		currentAngles[1] = 120.0f;
+		updatePlayerRenderAngles( playerSlot, false, currentAngles, renderAngles );
+		CHECK( renderAngles[1] == Catch::Approx( 120.0f ) );
+	}
+
+	SECTION( "Dead player corpse latches death yaw with zero pitch and roll" )
+	{
+		// Player was facing 75 degrees yaw at moment of death
+		float anglesAtDeath[3] = { -15.0f, 75.0f, 5.0f };
+		updatePlayerRenderAngles( playerSlot, true, anglesAtDeath, renderAngles );
+
+		// Pitch and roll must be 0, yaw latched to 75.0f
+		CHECK( renderAngles[0] == Catch::Approx( 0.0f ) );
+		CHECK( renderAngles[1] == Catch::Approx( 75.0f ) );
+		CHECK( renderAngles[2] == Catch::Approx( 0.0f ) );
+	}
+
+	SECTION( "Mouse view movements do NOT rotate the corpse model in third-person / death cam" )
+	{
+		// Player dies facing 135 degrees
+		float initialAngles[3] = { 0.0f, 135.0f, 0.0f };
+		updatePlayerRenderAngles( playerSlot, true, initialAngles, renderAngles );
+		CHECK( renderAngles[1] == Catch::Approx( 135.0f ) );
+
+		// Player moves mouse in third-person view to survey the map
+		for ( float mouseYaw : { -180.0f, -90.0f, 0.0f, 45.0f, 90.0f, 180.0f, 270.0f } )
+		{
+			float movingMouseAngles[3] = { 30.0f, mouseYaw, -10.0f };
+			updatePlayerRenderAngles( playerSlot, true, movingMouseAngles, renderAngles );
+
+			// Corpse model MUST remain static at 135.0 degrees, pitch 0, roll 0
+			CHECK( renderAngles[0] == Catch::Approx( 0.0f ) );
+			CHECK( renderAngles[1] == Catch::Approx( 135.0f ) );
+			CHECK( renderAngles[2] == Catch::Approx( 0.0f ) );
+		}
+	}
+
+	SECTION( "Respawn unlocks angle tracking for the revived player" )
+	{
+		// Die at 90 degrees
+		float deathAng[3] = { 0.0f, 90.0f, 0.0f };
+		updatePlayerRenderAngles( playerSlot, true, deathAng, renderAngles );
+		CHECK( renderAngles[1] == Catch::Approx( 90.0f ) );
+
+		// Respawn facing 0 degrees (e.g. spawn point orientation)
+		float spawnAng[3] = { 0.0f, 0.0f, 0.0f };
+		updatePlayerRenderAngles( playerSlot, false, spawnAng, renderAngles );
+		CHECK( renderAngles[1] == Catch::Approx( 0.0f ) );
+
+		// Move view to 180 degrees
+		float newAng[3] = { 0.0f, 180.0f, 0.0f };
+		updatePlayerRenderAngles( playerSlot, false, newAng, renderAngles );
+		CHECK( renderAngles[1] == Catch::Approx( 180.0f ) );
+	}
+}
+
+TEST_CASE( "Server: Dead player corpse angles locked against incoming user commands", "[server][player][corpse]" )
+{
+	struct MockPlayerPev
+	{
+		float angles[3];
+		int deadflag;
+	};
+
+	float vecDeathAngles[3] = {};
+	MockPlayerPev pev       = { { 0.0f, 0.0f, 0.0f }, 0 /* DEAD_NO */ };
+
+	auto onPlayerKilled = [&]( float deathYaw ) {
+		pev.deadflag     = 1; // DEAD_DYING
+		pev.angles[0]    = 0.0f;
+		pev.angles[1]    = deathYaw;
+		pev.angles[2]    = 0.0f;
+		vecDeathAngles[0] = 0.0f;
+		vecDeathAngles[1] = deathYaw;
+		vecDeathAngles[2] = 0.0f;
+	};
+
+	auto playerDeathThink = [&]() {
+		if ( pev.deadflag >= 1 /* DEAD_DYING */ )
+		{
+			pev.angles[0] = vecDeathAngles[0];
+			pev.angles[1] = vecDeathAngles[1];
+			pev.angles[2] = vecDeathAngles[2];
+		}
+	};
+
+	auto onPlayerSpawn = [&]() {
+		pev.deadflag     = 0; // DEAD_NO
+		vecDeathAngles[0] = 0.0f;
+		vecDeathAngles[1] = 0.0f;
+		vecDeathAngles[2] = 0.0f;
+	};
+
+	SECTION( "Killed sets pitch/roll to 0 and latches yaw" )
+	{
+		onPlayerKilled( 110.0f );
+		CHECK( pev.angles[0] == 0.0f );
+		CHECK( pev.angles[1] == 110.0f );
+		CHECK( pev.angles[2] == 0.0f );
+		CHECK( vecDeathAngles[1] == 110.0f );
+	}
+
+	SECTION( "PlayerDeathThink overrides incoming client usercmd viewangles to keep corpse static" )
+	{
+		onPlayerKilled( 60.0f );
+
+		// Engine receives user command packet with mouse yaw 240.0f
+		pev.angles[1] = 240.0f;
+
+		// PreThink -> PlayerDeathThink executes
+		playerDeathThink();
+
+		// Corpse angles must be restored to latched 60.0f
+		CHECK( pev.angles[0] == 0.0f );
+		CHECK( pev.angles[1] == 60.0f );
+		CHECK( pev.angles[2] == 0.0f );
+	}
+
+	SECTION( "Spawn resets death angles and restores living state" )
+	{
+		onPlayerKilled( 60.0f );
+		onPlayerSpawn();
+
+		CHECK( pev.deadflag == 0 );
+		CHECK( vecDeathAngles[0] == 0.0f );
+		CHECK( vecDeathAngles[1] == 0.0f );
+		CHECK( vecDeathAngles[2] == 0.0f );
+	}
+}

@@ -341,6 +341,7 @@ if(BUILD_TESTS)
         dlls/core/animation.cpp
         dlls/systems/buttons.cpp
         dlls/systems/func_break.cpp
+        dlls/systems/explode.cpp
         dlls/core/client_customization.cpp
         dlls/systems/effects_beams.cpp
         dlls/systems/chargers.cpp

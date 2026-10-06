@@ -677,8 +677,9 @@ void UpdateClientData( const edict_t *ent, int sendweapons, struct clientdata_s 
 		}
 	}
 
-	cd->flags  = pev->flags;
-	cd->health = pev->health;
+	cd->flags    = pev->flags;
+	cd->health   = pev->health;
+	cd->deadflag = pev->deadflag;
 
 	cd->viewmodel = MODEL_INDEX( STRING( pev->viewmodel ) );
 

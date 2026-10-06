@@ -57,9 +57,40 @@ void GladderComboTracker::Update( float flCurrentTime )
 	}
 }
 
+static bool ResolvesToClient( entvars_t *pev )
+{
+	if ( !pev )
+		return false;
+
+	if ( pev->flags & FL_CLIENT )
+		return true;
+
+	// Follow owner chain up to 4 levels to guard against circular references
+	edict_t *pOwner = pev->owner;
+	int depth = 0;
+	while ( pOwner && !FNullEnt( pOwner ) && !pOwner->free && depth < 4 )
+	{
+		if ( pOwner->v.flags & FL_CLIENT )
+			return true;
+		pOwner = pOwner->v.owner;
+		depth++;
+	}
+
+	return false;
+}
+
+bool GladderComboTracker::IsPlayerInstigated( entvars_t *pKiller, entvars_t *pInflictor )
+{
+	return ResolvesToClient( pKiller ) || ResolvesToClient( pInflictor );
+}
+
 void GladderComboTracker::OnMonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor, float flCurrentTime )
 {
 	if ( !pVictim || !pVictim->pev )
+		return;
+
+	// Combat kills and combo progression must be attributed strictly to direct and indirect player actions (SPEC §3, §9.1, Issue #60)
+	if ( !IsPlayerInstigated( pKiller, pInflictor ) )
 		return;
 
 	// Extract classname for itemized kill log

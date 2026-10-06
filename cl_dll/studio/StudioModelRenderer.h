@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2002, Valve LLC, All rights reserved. ============
+//========= Copyright (c) 1996-2002, Valve LLC, All rights reserved. ============
 //
 // Purpose:
 //
@@ -10,6 +10,8 @@
 #if defined( _WIN32 )
 #pragma once
 #endif
+
+#include "studio_death_angles.h"
 
 /*
 ====================

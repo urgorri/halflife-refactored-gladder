@@ -15,6 +15,7 @@
 #include "bench.h"
 #include "Exports.h"
 #include "entities/entity_visual_registry.h"
+#include "studio/studio_death_angles.h"
 
 #include "particleman.h"
 extern IParticleMan *g_pParticleMan;
@@ -24,6 +25,7 @@ void Game_AddObjects( void );
 extern vec3_t v_origin;
 
 int g_iAlive = 1;
+extern int CL_IsDead( void );
 
 /*
 ========================
@@ -46,6 +48,27 @@ int CL_DLLEXPORT HUD_AddEntity( int type, struct cl_entity_s *ent, const char *m
 		Bench_CheckEntity( type, ent, modelname );
 		break;
 	case ET_PLAYER:
+		if ( ent->index > 0 && ent->index <= 32 )
+		{
+			cl_entity_t *localPlayer = gEngfuncs.GetLocalPlayer();
+			bool bIsLocal = ( localPlayer != NULL && ( ent == localPlayer || ent->index == localPlayer->index ) );
+			bool bIsDead  = ( ent->curstate.health <= 0 );
+			if ( bIsLocal && ( !g_iAlive || CL_IsDead() ) )
+			{
+				bIsDead = true;
+			}
+
+			if ( bIsDead )
+			{
+				vec3_t deathAngles;
+				if ( StudioGetDeadPlayerAngles( ent->index - 1, deathAngles ) )
+				{
+					VectorCopy( deathAngles, ent->angles );
+					VectorCopy( deathAngles, ent->curstate.angles );
+				}
+			}
+		}
+		break;
 	case ET_BEAM:
 	case ET_TEMPENTITY:
 	case ET_FRAGMENTED:
@@ -93,6 +116,9 @@ void CL_DLLEXPORT HUD_TxferLocalOverrides( struct entity_state_s *state, const s
 
 	// Fire prevention
 	state->iuser4 = client->iuser4;
+
+	// Health status
+	state->health = (int)client->health;
 }
 
 /*
@@ -147,6 +173,7 @@ void CL_DLLEXPORT HUD_ProcessPlayerState( struct entity_state_s *dst, const stru
 	dst->playerclass  = src->playerclass;
 	dst->team         = src->team;
 	dst->colormap     = src->colormap;
+	dst->health       = src->health;
 
 #if defined( _TFC )
 	dst->fuser1 = src->fuser1;
