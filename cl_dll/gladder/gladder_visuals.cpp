@@ -503,9 +503,9 @@ void GladderDrawChargerGlowShells( void )
 #endif
 
 	gEngfuncs.pTriAPI->RenderMode( kRenderTransAdd );
-	// Cull back-facing triangles so only the front-facing shell towards the camera is drawn,
-	// preventing wall-facing geometry from rendering additively.
-	gEngfuncs.pTriAPI->CullFace( TRI_FRONT );
+	// Use TRI_NONE so front-facing triangles are never culled by the engine (SPEC §3, §7.2, Issue #54).
+	// Back-facing geometry facing away into the wall is culled in software below.
+	gEngfuncs.pTriAPI->CullFace( TRI_NONE );
 
 	// Lambda to emit vertex with reflection-mapped chrome UV coordinates and dynamic turbulence
 	auto EmitVertex = [&]( const Vector &pos, const Vector &norm, float timeOffset, float waveScale ) {
@@ -543,53 +543,88 @@ void GladderDrawChargerGlowShells( void )
 			EmitVertex( pos, norm, timeOffset, waveScale );
 		};
 
+		bool bHasViewOrigin = ( vRenderOrigin != Vector( 0.0f, 0.0f, 0.0f ) );
+
+		// Helper to check if a face faces towards the camera (cull back-facing geometry)
+		auto ShouldDrawFace = [&]( const Vector &faceCenter, const Vector &norm ) -> bool {
+			if ( !bHasViewOrigin )
+				return true;
+			Vector toFace = faceCenter - vRenderOrigin;
+			// DotProduct < 0 means the outward normal points towards the viewer
+			return ( DotProduct( toFace, norm ) < 0.0f );
+		};
+
 		// Face 1: Top (+Z)
 		Vector normTop( 0.0f, 0.0f, 1.0f );
-		DrawTessellatedFace( Vector( vecMins.x, vecMins.y, vecMaxs.z ),
-		                     Vector( vecMaxs.x, vecMins.y, vecMaxs.z ),
-		                     Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ),
-		                     Vector( vecMins.x, vecMaxs.y, vecMaxs.z ),
-		                     normTop, vecCenter, 4, EmitCur );
+		Vector centerTop( ( vecMins.x + vecMaxs.x ) * 0.5f, ( vecMins.y + vecMaxs.y ) * 0.5f, vecMaxs.z );
+		if ( ShouldDrawFace( centerTop, normTop ) )
+		{
+			DrawTessellatedFace( Vector( vecMins.x, vecMins.y, vecMaxs.z ),
+			                     Vector( vecMaxs.x, vecMins.y, vecMaxs.z ),
+			                     Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ),
+			                     Vector( vecMins.x, vecMaxs.y, vecMaxs.z ),
+			                     normTop, vecCenter, 4, EmitCur );
+		}
 
 		// Face 2: Bottom (-Z)
 		Vector normBottom( 0.0f, 0.0f, -1.0f );
-		DrawTessellatedFace( Vector( vecMins.x, vecMaxs.y, vecMins.z ),
-		                     Vector( vecMaxs.x, vecMaxs.y, vecMins.z ),
-		                     Vector( vecMaxs.x, vecMins.y, vecMins.z ),
-		                     Vector( vecMins.x, vecMins.y, vecMins.z ),
-		                     normBottom, vecCenter, 4, EmitCur );
+		Vector centerBottom( ( vecMins.x + vecMaxs.x ) * 0.5f, ( vecMins.y + vecMaxs.y ) * 0.5f, vecMins.z );
+		if ( ShouldDrawFace( centerBottom, normBottom ) )
+		{
+			DrawTessellatedFace( Vector( vecMins.x, vecMaxs.y, vecMins.z ),
+			                     Vector( vecMaxs.x, vecMaxs.y, vecMins.z ),
+			                     Vector( vecMaxs.x, vecMins.y, vecMins.z ),
+			                     Vector( vecMins.x, vecMins.y, vecMins.z ),
+			                     normBottom, vecCenter, 4, EmitCur );
+		}
 
 		// Face 3: Front (+X)
 		Vector normFrontX( 1.0f, 0.0f, 0.0f );
-		DrawTessellatedFace( Vector( vecMaxs.x, vecMins.y, vecMins.z ),
-		                     Vector( vecMaxs.x, vecMaxs.y, vecMins.z ),
-		                     Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ),
-		                     Vector( vecMaxs.x, vecMins.y, vecMaxs.z ),
-		                     normFrontX, vecCenter, 4, EmitCur );
+		Vector centerFrontX( vecMaxs.x, ( vecMins.y + vecMaxs.y ) * 0.5f, ( vecMins.z + vecMaxs.z ) * 0.5f );
+		if ( ShouldDrawFace( centerFrontX, normFrontX ) )
+		{
+			DrawTessellatedFace( Vector( vecMaxs.x, vecMins.y, vecMins.z ),
+			                     Vector( vecMaxs.x, vecMaxs.y, vecMins.z ),
+			                     Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ),
+			                     Vector( vecMaxs.x, vecMins.y, vecMaxs.z ),
+			                     normFrontX, vecCenter, 4, EmitCur );
+		}
 
 		// Face 4: Back (-X)
 		Vector normBackX( -1.0f, 0.0f, 0.0f );
-		DrawTessellatedFace( Vector( vecMins.x, vecMaxs.y, vecMins.z ),
-		                     Vector( vecMins.x, vecMins.y, vecMins.z ),
-		                     Vector( vecMins.x, vecMins.y, vecMaxs.z ),
-		                     Vector( vecMins.x, vecMaxs.y, vecMaxs.z ),
-		                     normBackX, vecCenter, 4, EmitCur );
+		Vector centerBackX( vecMins.x, ( vecMins.y + vecMaxs.y ) * 0.5f, ( vecMins.z + vecMaxs.z ) * 0.5f );
+		if ( ShouldDrawFace( centerBackX, normBackX ) )
+		{
+			DrawTessellatedFace( Vector( vecMins.x, vecMaxs.y, vecMins.z ),
+			                     Vector( vecMins.x, vecMins.y, vecMins.z ),
+			                     Vector( vecMins.x, vecMins.y, vecMaxs.z ),
+			                     Vector( vecMins.x, vecMaxs.y, vecMaxs.z ),
+			                     normBackX, vecCenter, 4, EmitCur );
+		}
 
 		// Face 5: Right (+Y)
 		Vector normRightY( 0.0f, 1.0f, 0.0f );
-		DrawTessellatedFace( Vector( vecMaxs.x, vecMaxs.y, vecMins.z ),
-		                     Vector( vecMins.x, vecMaxs.y, vecMins.z ),
-		                     Vector( vecMins.x, vecMaxs.y, vecMaxs.z ),
-		                     Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ),
-		                     normRightY, vecCenter, 4, EmitCur );
+		Vector centerRightY( ( vecMins.x + vecMaxs.x ) * 0.5f, vecMaxs.y, ( vecMins.z + vecMaxs.z ) * 0.5f );
+		if ( ShouldDrawFace( centerRightY, normRightY ) )
+		{
+			DrawTessellatedFace( Vector( vecMaxs.x, vecMaxs.y, vecMins.z ),
+			                     Vector( vecMins.x, vecMaxs.y, vecMins.z ),
+			                     Vector( vecMins.x, vecMaxs.y, vecMaxs.z ),
+			                     Vector( vecMaxs.x, vecMaxs.y, vecMaxs.z ),
+			                     normRightY, vecCenter, 4, EmitCur );
+		}
 
 		// Face 6: Left (-Y)
 		Vector normLeftY( 0.0f, -1.0f, 0.0f );
-		DrawTessellatedFace( Vector( vecMins.x, vecMins.y, vecMins.z ),
-		                     Vector( vecMaxs.x, vecMins.y, vecMins.z ),
-		                     Vector( vecMaxs.x, vecMins.y, vecMaxs.z ),
-		                     Vector( vecMins.x, vecMins.y, vecMaxs.z ),
-		                     normLeftY, vecCenter, 4, EmitCur );
+		Vector centerLeftY( ( vecMins.x + vecMaxs.x ) * 0.5f, vecMins.y, ( vecMins.z + vecMaxs.z ) * 0.5f );
+		if ( ShouldDrawFace( centerLeftY, normLeftY ) )
+		{
+			DrawTessellatedFace( Vector( vecMins.x, vecMins.y, vecMins.z ),
+			                     Vector( vecMaxs.x, vecMins.y, vecMins.z ),
+			                     Vector( vecMaxs.x, vecMins.y, vecMaxs.z ),
+			                     Vector( vecMins.x, vecMins.y, vecMaxs.z ),
+			                     normLeftY, vecCenter, 4, EmitCur );
+		}
 	};
 
 	for ( const auto &charger : s_activeWallChargers )
@@ -629,6 +664,66 @@ void GladderDrawChargerGlowShells( void )
 }
 
 REGISTER_TRANSPARENT_TRIANGLE_RENDERER( GladderDrawChargerGlowShells );
+
+extern int g_iAlive;
+
+static bool s_bCorpseAnglesLatched = false;
+static Vector s_vecLatchedCorpseAngles( 0, 0, 0 );
+
+void GladderResetCorpseVisualState( void )
+{
+	s_bCorpseAnglesLatched = false;
+	s_vecLatchedCorpseAngles = Vector( 0, 0, 0 );
+}
+
+bool GladderIsCorpseAnglesLatched( void )
+{
+	return s_bCorpseAnglesLatched;
+}
+
+Vector GladderGetLatchedCorpseAngles( void )
+{
+	return s_vecLatchedCorpseAngles;
+}
+
+void GladderPlayerCorpseVisualModifier( int type, struct cl_entity_s *ent, const char *modelname )
+{
+	if ( !ent )
+		return;
+
+	cl_entity_t *pLocal = gEngfuncs.GetLocalPlayer ? gEngfuncs.GetLocalPlayer() : nullptr;
+	if ( !pLocal )
+		return;
+
+	// Check if this entity represents the local player (or player's corpse)
+	bool bIsLocal = ( ent == pLocal ) || ( pLocal->index > 0 && ent->index == pLocal->index );
+	if ( !bIsLocal && ent->player == 0 && type != ET_PLAYER )
+		return;
+
+	if ( g_iAlive == 0 )
+	{
+		if ( !s_bCorpseAnglesLatched )
+		{
+			s_bCorpseAnglesLatched = true;
+			s_vecLatchedCorpseAngles = ent->curstate.angles;
+			if ( s_vecLatchedCorpseAngles == Vector( 0.0f, 0.0f, 0.0f ) )
+			{
+				s_vecLatchedCorpseAngles = ent->angles;
+			}
+		}
+
+		// Permanently lock corpse model angles so mouse movement in third person / summary cameras
+		// does not pivot the corpse model on the ground (SPEC §10.3, Issue #53)
+		ent->curstate.angles = s_vecLatchedCorpseAngles;
+		ent->angles          = s_vecLatchedCorpseAngles;
+	}
+	else
+	{
+		s_bCorpseAnglesLatched = false;
+	}
+}
+
+REGISTER_ENTITY_VISUAL_MODIFIER( GladderPlayerCorpseVisualModifier );
 #else
 void GladderDrawChargerGlowShells( void ) {}
 
@@ -691,6 +786,58 @@ void GladderChargerVisualModifier( int type, struct cl_entity_s *ent, const char
 		info.b = ent->curstate.rendercolor.b;
 		info.lastSeenTime = 0.0f;
 		s_activeWallChargers.push_back( info );
+	}
+}
+
+static bool s_bCorpseAnglesLatched = false;
+static Vector s_vecLatchedCorpseAngles( 0, 0, 0 );
+static bool s_bMockPlayerDead = false;
+
+void GladderSetMockPlayerDead( bool bDead )
+{
+	s_bMockPlayerDead = bDead;
+}
+
+void GladderResetCorpseVisualState( void )
+{
+	s_bCorpseAnglesLatched = false;
+	s_vecLatchedCorpseAngles = Vector( 0, 0, 0 );
+	s_bMockPlayerDead = false;
+}
+
+bool GladderIsCorpseAnglesLatched( void )
+{
+	return s_bCorpseAnglesLatched;
+}
+
+Vector GladderGetLatchedCorpseAngles( void )
+{
+	return s_vecLatchedCorpseAngles;
+}
+
+void GladderPlayerCorpseVisualModifier( int type, struct cl_entity_s *ent, const char *modelname )
+{
+	if ( !ent )
+		return;
+
+	if ( s_bMockPlayerDead )
+	{
+		if ( !s_bCorpseAnglesLatched )
+		{
+			s_bCorpseAnglesLatched = true;
+			s_vecLatchedCorpseAngles = ent->curstate.angles;
+			if ( s_vecLatchedCorpseAngles == Vector( 0.0f, 0.0f, 0.0f ) )
+			{
+				s_vecLatchedCorpseAngles = ent->angles;
+			}
+		}
+
+		ent->curstate.angles = s_vecLatchedCorpseAngles;
+		ent->angles          = s_vecLatchedCorpseAngles;
+	}
+	else
+	{
+		s_bCorpseAnglesLatched = false;
 	}
 }
 #endif

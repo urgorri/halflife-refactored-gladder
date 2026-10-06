@@ -100,6 +100,7 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/gameplay/gamerules_factory.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_rules.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_entities.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_camera.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_wave_manager.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_usermsg.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_breakable.o \

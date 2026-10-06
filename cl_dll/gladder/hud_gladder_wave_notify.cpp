@@ -101,10 +101,10 @@ int CHudGladderWaveNotify::Draw( float flTime )
 	float flElapsed = flTime - m_flStartTime;
 	if ( flElapsed < 0.0f || flElapsed >= DISPLAY_TOTAL_TIME )
 	{
-		return 1; // Hidden outside 2.0s display duration
+		return 1; // Hidden outside 4.0s display duration
 	}
 
-	// Alpha fade calculation (1.5s solid hold, 0.5s fade-out)
+	// Alpha fade calculation (3.0s solid hold, 1.0s fade-out)
 	float flAlpha = 1.0f;
 	if ( flElapsed > DISPLAY_HOLD_TIME )
 	{

@@ -70,4 +70,13 @@ void GladderClearActiveChargers( void );
 size_t GladderGetActiveChargerCount( void );
 bool GladderGetActiveChargerInfo( size_t index, GladderActiveChargerInfo &outInfo );
 
+// Dead player corpse model rotation locking modifier (SPEC §10.3, Issue #53)
+void GladderPlayerCorpseVisualModifier( int type, struct cl_entity_s *ent, const char *modelname );
+void GladderResetCorpseVisualState( void );
+bool GladderIsCorpseAnglesLatched( void );
+Vector GladderGetLatchedCorpseAngles( void );
+#ifndef CLIENT_DLL
+void GladderSetMockPlayerDead( bool bDead );
+#endif
+
 #endif // GLADDER_VISUALS_H

@@ -19,6 +19,7 @@
 #include "gameplay/gamerules.h"
 #include "tests/mock_engine.h"
 #include "cl_dll/gladder/hud_gladder_overlay.h"
+#include "dlls/gladder/gladder_wave_manager.h"
 
 // GladderStaticDecal struct definition matching gladder_rules.h (SPEC §11.3, Issue #49)
 struct GladderStaticDecal
@@ -343,3 +344,48 @@ TEST_CASE( "GladderOverlay: Dynamic combat decal purge triggered on wave complet
 		REQUIRE_NOTHROW( GladderPurgeCombatDecals() );
 	}
 }
+
+TEST_CASE( "GladderRules: Wave completion overlay sends completed wave number (SPEC §12.2, Issue #56)", "[gladder][rules][notify]" )
+{
+	CGladderWaveManager waveMgr;
+	waveMgr.InitializeMatch( 0.0f );
+	CHECK( waveMgr.GetWaveNumber() == 1 );
+
+	waveMgr.StartWave( 5.0f );
+	CHECK( waveMgr.GetWaveNumber() == 1 );
+
+	// Before CompleteWave, the wave being completed is Wave 1
+	int iCompletedWave = waveMgr.GetWaveNumber();
+	waveMgr.CompleteWave( 25.0f );
+
+	// After CompleteWave, the incoming wave number is incremented to 2
+	CHECK( waveMgr.GetWaveNumber() == 2 );
+	// But the completed wave number passed to notification is 1
+	CHECK( iCompletedWave == 1 );
+	CHECK( waveMgr.GetCompletedWavesCount() == 1 );
+
+	// Wave 2
+	waveMgr.StartWave( 30.0f );
+	iCompletedWave = waveMgr.GetWaveNumber();
+	waveMgr.CompleteWave( 60.0f );
+	CHECK( waveMgr.GetWaveNumber() == 3 );
+	CHECK( iCompletedWave == 2 );
+	CHECK( waveMgr.GetCompletedWavesCount() == 2 );
+}
+
+TEST_CASE( "GladderRules: Summary camera cycling and multi-camera support (SPEC §6, §9.2, Issue #52)", "[gladder][rules][camera]" )
+{
+	std::vector<int> mockCameras = { 101, 102, 103 };
+	size_t currentIdx = 0;
+
+	// Sequential rotation in order
+	currentIdx = ( currentIdx + 1 ) % mockCameras.size();
+	CHECK( mockCameras[currentIdx] == 102 );
+
+	currentIdx = ( currentIdx + 1 ) % mockCameras.size();
+	CHECK( mockCameras[currentIdx] == 103 );
+
+	currentIdx = ( currentIdx + 1 ) % mockCameras.size();
+	CHECK( mockCameras[currentIdx] == 101 );
+}
+

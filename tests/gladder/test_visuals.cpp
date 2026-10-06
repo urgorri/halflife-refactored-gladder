@@ -10,6 +10,7 @@
 #include "common/entity_state.h"
 #include "common/com_model.h"
 #include "common/cl_entity.h"
+#include "common/entity_types.h"
 #include "external/catch2/catch_amalgamated.hpp"
 #include "cl_dll/gladder/gladder_visuals.h"
 
@@ -322,3 +323,45 @@ TEST_CASE( "GladderVisuals: Charger glow shell tracking and depletion extinguish
 	GladderClearActiveChargers();
 }
 
+TEST_CASE( "GladderVisuals: Dead player corpse model orientation lock (SPEC §10.3, Issue #53)", "[gladder][visuals][corpse]" )
+{
+	GladderResetCorpseVisualState();
+	CHECK( GladderIsCorpseAnglesLatched() == false );
+
+	cl_entity_t entPlayer = {};
+	entPlayer.index = 1;
+	entPlayer.player = 1;
+	entPlayer.curstate.angles[0] = 10.0f; // Pitch
+	entPlayer.curstate.angles[1] = 45.0f; // Yaw at moment of death
+	entPlayer.curstate.angles[2] = 0.0f;  // Roll
+	entPlayer.angles[0] = entPlayer.curstate.angles[0];
+	entPlayer.angles[1] = entPlayer.curstate.angles[1];
+	entPlayer.angles[2] = entPlayer.curstate.angles[2];
+
+	// While player is alive, modifier does not latch angles
+	GladderSetMockPlayerDead( false );
+	GladderPlayerCorpseVisualModifier( ET_PLAYER, &entPlayer, "models/player.mdl" );
+	CHECK( GladderIsCorpseAnglesLatched() == false );
+
+	// Player dies: angles at death moment are latched
+	GladderSetMockPlayerDead( true );
+	GladderPlayerCorpseVisualModifier( ET_PLAYER, &entPlayer, "models/player.mdl" );
+	CHECK( GladderIsCorpseAnglesLatched() == true );
+	CHECK( GladderGetLatchedCorpseAngles().y == Catch::Approx( 45.0f ) );
+
+	// Subsequent frames: mouse moves around in 3rd person / summary camera, altering ent angles
+	entPlayer.curstate.angles[1] = 180.0f; // Mouse view rotated
+	entPlayer.angles[1] = 180.0f;
+
+	// Modifier enforces latched angles, freezing the corpse model on the ground
+	GladderPlayerCorpseVisualModifier( ET_PLAYER, &entPlayer, "models/player.mdl" );
+	CHECK( entPlayer.curstate.angles[1] == Catch::Approx( 45.0f ) );
+	CHECK( entPlayer.angles[1] == Catch::Approx( 45.0f ) );
+
+	// When a new match spawns and player is alive, latched state is cleared
+	GladderSetMockPlayerDead( false );
+	GladderPlayerCorpseVisualModifier( ET_PLAYER, &entPlayer, "models/player.mdl" );
+	CHECK( GladderIsCorpseAnglesLatched() == false );
+
+	GladderResetCorpseVisualState();
+}

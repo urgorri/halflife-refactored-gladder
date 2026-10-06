@@ -16,6 +16,7 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 #include "in_buttons.h"
+#include "triangleapi.h"
 
 void COM_FileBase( const char *in, char *out );
 
@@ -229,7 +230,25 @@ int CHudGladderSummary::Draw( float flTime )
 		return 1;
 
 	// Dark semi-transparent modal backdrop over viewport (preserves 3D map visibility behind)
-	FillRGBA( 0, 0, ScreenWidth, ScreenHeight, 10, 12, 16, 210 );
+	// In GoldSrc, FillRGBA uses additive OpenGL blending (GL_SRC_ALPHA, GL_ONE) which washes out/lightens dark backdrops.
+	// We use pTriAPI with kRenderTransAlpha (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) to authentically dim/darken the 3D viewport (SPEC §9.2, §10.2, Issue #58).
+	if ( gEngfuncs.pTriAPI )
+	{
+		gEngfuncs.pTriAPI->RenderMode( kRenderTransAlpha );
+		gEngfuncs.pTriAPI->CullFace( TRI_NONE );
+		gEngfuncs.pTriAPI->Color4f( 0.0f, 0.0f, 0.0f, 0.82f );
+		gEngfuncs.pTriAPI->Begin( TRI_QUADS );
+		gEngfuncs.pTriAPI->Vertex3f( 0.0f, 0.0f, 0.0f );
+		gEngfuncs.pTriAPI->Vertex3f( static_cast<float>( ScreenWidth ), 0.0f, 0.0f );
+		gEngfuncs.pTriAPI->Vertex3f( static_cast<float>( ScreenWidth ), static_cast<float>( ScreenHeight ), 0.0f );
+		gEngfuncs.pTriAPI->Vertex3f( 0.0f, static_cast<float>( ScreenHeight ), 0.0f );
+		gEngfuncs.pTriAPI->End();
+		gEngfuncs.pTriAPI->RenderMode( kRenderNormal );
+	}
+	else
+	{
+		FillRGBA( 0, 0, ScreenWidth, ScreenHeight, 0, 0, 0, 210 );
+	}
 
 	float tallyFrac = GetTallyFraction( flTime );
 

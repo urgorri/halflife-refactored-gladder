@@ -14,6 +14,7 @@
 #include "core/util.h"
 #include "core/cbase.h"
 #include "systems/triggers_brush.h"
+#include "systems/triggers_point.h"
 
 //
 // trigger_gladder_start
@@ -144,5 +145,17 @@ class CGladderWaveRelay : public CBaseDelay
 };
 
 void Gladder_FireWaveRelays( int iEvent, CBaseEntity *pActivator );
+
+//
+// gladder_camera
+// Mapper point entity (subclass of CTriggerCamera) providing
+// dynamic panoramic camera vantage points for the post-match summary screen (SPEC §6, §9.2).
+//
+class CGladderCamera : public CTriggerCamera
+{
+  public:
+	void Spawn( void ) override;
+	void Precache( void ) override;
+};
 
 #endif // GLADDER_ENTITIES_H

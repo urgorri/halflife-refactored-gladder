@@ -768,6 +768,9 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_entities.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_camera.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\gladder\gladder_wave_manager.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
