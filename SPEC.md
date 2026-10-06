@@ -43,6 +43,11 @@ Instead of progressing linearly through a series of maps, players run through a 
 * **Arcade Scoring & Combo Multiplier**:
   * **End-of-Match Score Calculation**: To preserve clean screen visibility and immersion, the cumulative score is **calculated and revealed exclusively at the end of the match** on the summary screen.
   * **In-Game Combo Meter**: During active combat, rapid consecutive kills within a decaying window build a streak multiplier (`x2`, `x3`, `x4`, etc.). The game logs every combo event, streak count, and the peak maximum combo attained for the final score calculation.
+  * **Direct & Indirect Player Kill Attribution**:
+    * Combat kills, frags, and combo progression MUST be strictly credited only when caused directly or indirectly by the player.
+    * **Direct Attribution**: Eliminations caused by player weapon discharges, bullets, projectiles, and placed explosives (satchels, tripmines, grenades).
+    * **Indirect Attribution**: Eliminations caused by environmental detonations instigated by the player (e.g. shooting or breaking an explosive crate or barrel, `func_breakable`). The fatal explosion inherits player ownership so that surrounding enemy casualties count toward player frags and combo chaining.
+    * **Non-Player Exclusion**: Any monster death resulting from environmental hazards (slime, pits, fall damage, trigger_hurt) or AI monster infighting / accidental friendly fire without player instigation is strictly excluded. These deaths do not increment `FRAGS`, do not advance or refresh the combo meter, and do not contribute to final combat score.
 * **Elite Monster Variants (Champions)**:
   * Enemies have a procedurally rolled chance to spawn as **Elite Champions**, with the spawn probability increasing as wave numbers climb.
   * **Visual Identification**: Rendered using GoldSrc's engine glow shell (`kRenderFxGlowShell` with red RGB color `RGB(255, 32, 32)`). The shell aura thickness (`renderamt`) must be kept compact and contouring closely to the monster's body (matching the subtle outline thickness used on weapon pickups, e.g. `renderamt = 16`), preventing oversized, blinding, or detached shell visual artifacts while preserving clear champion identification.
@@ -218,12 +223,16 @@ A dedicated on-screen text overlay is rendered at all times (matching classic Ha
 * **Current Wave Counter**: Displays the active wave number (e.g., `WAVE: 14`).
 * **Collectibles Counter**: Displays the total count of Lambda items collected during the match (`COLLECTIBLES: 08`).
 * **Current Wave Timer**: Stopwatch tracking elapsed time spent in the active wave (`WAVE TIME: 00:38`).
-* **Total Frags / Kills**: Real-time counter of total monsters eliminated during the match (`FRAGS: 187`).
+* **Total Frags / Kills**: Real-time counter of total monsters eliminated directly or indirectly by the player during the match (`FRAGS: 187`).
 * **Average Wave Duration**: Dynamically recalculated average completion time across all finished waves (`AVG WAVE: 00:46`).
 
 ### 9.2 End-of-Run Summary, Score Calculation & Grading
 Upon match conclusion—whether through **time limit expiration** or **player death**—the mod overrides the standard engine reload/menu routine and immediately activates the summary screen over the static camera backdrop:
 
+* **Undismissable Post-Match Summary Screen**:
+  * Upon match conclusion (whether via time expiration or player death), the match has definitively ended. The summary screen acts as a persistent end-of-run modal display and **cannot be dismissed** (i.e. `[USE / E]` or click dismiss inputs are disabled and removed).
+  * Players can freely toggle between the statistical summary view and the local leaderboard/high-scores view using `[TAB]`.
+  * The interface remains on screen until the player exits or restarts the level through standard engine commands (`restart`, `disconnect`, `map`). *(Note: During active gameplay, holding `[TAB]` allows peeking at the leaderboard and releasing `[TAB]` dismisses it).*
 * **Multi-Camera Backdrop Rotation (`gladder_camera`)**:
   * The player's viewport switches immediately to in-level cameras. The mod sequentially and equitably cycles through all `gladder_camera` entities placed in the map, holding on each camera for an equal duration to showcase multiple dynamic vantage points of the arena during the summary. If no `gladder_camera` entities are present, a dynamic fallback camera is used.
   * The living environment remains visible and active in the background while the statistical results, animated score tally, and final rank grade are rendered clearly overlaid on screen.
