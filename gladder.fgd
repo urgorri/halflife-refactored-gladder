@@ -86,6 +86,17 @@
 
 //=============================================================================
 //
+// Gladder Cameras & Cinematics
+//
+//=============================================================================
+
+@PointClass base(Targetname, Targetx) color(0 180 200) = gladder_camera : "Gladder End-of-Run Summary Camera"
+[
+	target(target_destination) : "Target Entity to Look At (optional)"
+]
+
+//=============================================================================
+//
 // Gladder Interactive World Entities
 //
 //=============================================================================

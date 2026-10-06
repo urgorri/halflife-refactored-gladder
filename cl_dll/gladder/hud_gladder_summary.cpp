@@ -16,6 +16,12 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 #include "in_buttons.h"
+#include "kbutton.h"
+#include "screenfade.h"
+#include "shake.h"
+
+extern kbutton_t in_score;
+extern kbutton_t in_use;
 
 void COM_FileBase( const char *in, char *out );
 
@@ -80,6 +86,22 @@ void CHudGladderSummary::ReloadLeaderboard( void )
 	GladderLeaderboard::Load( mapname, m_leaderboard );
 }
 
+void CHudGladderSummary::ToggleDisplay( void )
+{
+	m_bActive = !m_bActive;
+	if ( m_bActive )
+	{
+		m_bShowLeaderboard = false;
+		m_bHoldTabMode     = false;
+	}
+	else
+	{
+		m_bShowLeaderboard = false;
+		m_bHoldTabMode     = false;
+	}
+	UpdateScreenFade();
+}
+
 void CHudGladderSummary::ToggleLeaderboardTab( void )
 {
 	if ( !m_bActive )
@@ -88,6 +110,7 @@ void CHudGladderSummary::ToggleLeaderboardTab( void )
 		m_bShowLeaderboard = true;
 		m_bHoldTabMode     = false;
 		ReloadLeaderboard();
+		UpdateScreenFade();
 		return;
 	}
 
@@ -104,13 +127,57 @@ void CHudGladderSummary::ShowLeaderboardOnly( void )
 	m_bShowLeaderboard = true;
 	m_bHoldTabMode     = true;
 	ReloadLeaderboard();
+	UpdateScreenFade();
+}
+
+void CHudGladderSummary::Dismiss( void )
+{
+	m_bActive          = false;
+	m_bShowLeaderboard = false;
+	m_bHoldTabMode     = false;
+	UpdateScreenFade();
+}
+
+void CHudGladderSummary::UpdateScreenFade( void )
+{
+#ifdef CLIENT_DLL
+	if ( !gEngfuncs.pfnSetScreenFade )
+		return;
+
+	screenfade_t sf;
+	memset( &sf, 0, sizeof( sf ) );
+
+	if ( m_bActive )
+	{
+		// Authentically dim/darken the 3D viewport behind the summary/leaderboard (SPEC §9.2, §10.2)
+		sf.fader     = 0;
+		sf.fadeg     = 0;
+		sf.fadeb     = 0;
+		sf.fadealpha = 205; // ~80% opacity dark modal overlay
+		sf.fadeFlags = FFADE_STAYOUT;
+		sf.fadeReset = 99999.0f;
+	}
+	else
+	{
+		// Restore normal brightness
+		sf.fadeFlags = FFADE_IN;
+		sf.fadealpha = 0;
+	}
+
+	gEngfuncs.pfnSetScreenFade( &sf );
+#endif
 }
 
 void CHudGladderSummary::Think( void )
 {
 #ifdef CLIENT_DLL
-	bool isScoreDown = ( gHUD.m_iKeyBits & IN_SCORE ) != 0;
-	bool isUseDown   = ( gHUD.m_iKeyBits & IN_USE ) != 0;
+	// Query physical button states directly (in_score, in_use) instead of gHUD.m_iKeyBits.
+	// In the engine, CL_ButtonBits forcibly sets IN_SCORE on every frame whenever the player
+	// is dead (CL_IsDead()) or during intermission (gHUD.m_iIntermission).
+	// Querying in_score.state ensures we react only to the actual physical TAB key presses,
+	// allowing clean toggling between summary and leaderboard pages during post-match flow.
+	bool isScoreDown = ( in_score.state & 1 ) != 0;
+	bool isUseDown   = ( in_use.state & 1 ) != 0;
 
 	// Check Tab key transition
 	if ( isScoreDown && !m_bOldScoreDown )
@@ -135,9 +202,7 @@ void CHudGladderSummary::Think( void )
 		if ( m_bActive && m_bHoldTabMode )
 		{
 			// If we opened the leaderboard by holding TAB in-game, release hides it
-			m_bActive          = false;
-			m_bShowLeaderboard = false;
-			m_bHoldTabMode     = false;
+			Dismiss();
 		}
 	}
 
@@ -152,6 +217,11 @@ void CHudGladderSummary::Think( void )
 
 	m_bOldScoreDown = isScoreDown;
 	m_bOldUseDown   = isUseDown;
+
+	if ( m_bActive )
+	{
+		UpdateScreenFade();
+	}
 #endif
 }
 
@@ -182,6 +252,8 @@ void CHudGladderSummary::SetSummaryData( const GladderSummaryMsg &data, float fl
 			break;
 		}
 	}
+
+	UpdateScreenFade();
 }
 
 void CHudGladderSummary::SetLeaderboard( const std::vector<GladderLeaderboardEntry> &entries, int rank, bool isNewHigh )
@@ -228,8 +300,14 @@ int CHudGladderSummary::Draw( float flTime )
 	if ( !m_bActive )
 		return 1;
 
-	// Dark semi-transparent modal backdrop over viewport (preserves 3D map visibility behind)
-	FillRGBA( 0, 0, ScreenWidth, ScreenHeight, 10, 12, 16, 210 );
+	// Dark semi-transparent modal backdrop over viewport (preserves 3D map visibility behind).
+	// In GoldSrc, screen dimming is handled natively and statically by engine ScreenFade
+	// (applied in UpdateScreenFade via gEngfuncs.pfnSetScreenFade with FFADE_STAYOUT).
+	// If pfnSetScreenFade is unavailable, FillRGBA serves as a safe fallback.
+	if ( !gEngfuncs.pfnSetScreenFade )
+	{
+		FillRGBA( 0, 0, ScreenWidth, ScreenHeight, 0, 0, 0, 210 );
+	}
 
 	float tallyFrac = GetTallyFraction( flTime );
 

@@ -288,6 +288,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\world\rotating.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_rules.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_entities.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_camera.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_wave_manager.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_usermsg.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_breakable.cpp" />

@@ -103,6 +103,11 @@ class CGladderRules : public CHalfLifeRules
 	void CalculateFinalScore( bool bSurvived );
 	void ShiftPlayerCamera( CBaseEntity *pPlr );
 
+	// Multi-camera backdrop rotation during summary screen (SPEC §6, §9.2, Issue #52)
+	void CollectSummaryCameras( void );
+	void ActivateSummaryCamera( CBaseEntity *pCamera, CBaseEntity *pPlr );
+	void AdvanceSummaryCamera( void );
+
 	// Network telemetry broadcast
 	void BroadcastWaveUpdate( CBasePlayer *pPlayer = nullptr );
 	void BroadcastTelemetryUpdate( CBasePlayer *pPlayer = nullptr );
@@ -124,6 +129,10 @@ class CGladderRules : public CHalfLifeRules
 	void IncrementCollectibles( void ) { m_iCollectiblesCount++; }
 	bool IsRestoreAttempted( void ) const { return m_bRestoreAttempted; }
 	bool IsPendingSavePurge( void ) const { return m_bPendingSavePurge; }
+	const Vector &GetDeathAngles( void ) const { return m_vecDeathAngles; }
+	bool IsPlayerDead( void ) const { return m_bPlayerDead; }
+	size_t GetSummaryCameraCount( void ) const { return m_summaryCameras.size(); }
+	size_t GetCurrentSummaryCameraIndex( void ) const { return m_iCurrentSummaryCameraIndex; }
 
   private:
 	CGladderWaveManager m_waveManager;
@@ -134,6 +143,11 @@ class CGladderRules : public CHalfLifeRules
 	GladderModifiers m_modifiers;
 	GladderScoreBreakdown m_lastScoreBreakdown;
 	std::vector<GladderStaticDecal> m_staticDecals;
+	std::vector<EHANDLE> m_summaryCameras;
+	size_t m_iCurrentSummaryCameraIndex;
+	float m_flNextCameraSwitchTime;
+	Vector m_vecDeathAngles;
+	bool m_bPlayerDead;
 	bool m_bInitialSpawnDone;
 	bool m_bRestoreAttempted;
 	bool m_bPendingSavePurge;

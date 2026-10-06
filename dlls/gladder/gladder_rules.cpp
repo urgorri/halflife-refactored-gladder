@@ -51,7 +51,11 @@ CGladderRules::CGladderRules()
       m_flTotalDamageTaken( 0.0f ),
       m_flLastPlayerHealth( 100.0f ),
       m_flLastPlayerArmor( 0.0f ),
-      m_flLastTelemetryBroadcast( 0.0f )
+      m_flLastTelemetryBroadcast( 0.0f ),
+      m_iCurrentSummaryCameraIndex( 0 ),
+      m_flNextCameraSwitchTime( 0.0f ),
+      m_vecDeathAngles( 0, 0, 0 ),
+      m_bPlayerDead( false )
 {
 	m_comboTracker.Reset();
 	m_modifiers.Reset();
@@ -140,12 +144,37 @@ void CGladderRules::Think( void )
 
 	// Maintain wall charger active state and glow extinction upon depletion (SPEC §3, Issue #46)
 	GladderModifiers::UpdateWallStations();
+
+	// Multi-camera backdrop rotation during summary screen (SPEC §6, §9.2, Issue #52)
+	if ( m_waveManager.IsMatchOver() && m_summaryCameras.size() > 1 && flTime >= m_flNextCameraSwitchTime )
+	{
+		AdvanceSummaryCamera();
+	}
+
+	// Lock dead player corpse angles to prevent rotating with mouse view in third person (SPEC §10.3, Issue #53)
+	if ( m_bPlayerDead && gpGlobals )
+	{
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+			if ( pPlr && pPlr->edict() && !pPlr->IsAlive() )
+			{
+				pPlr->pev->angles = m_vecDeathAngles;
+			}
+		}
+	}
 }
 
 void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 {
 	if ( !pPlayer )
 		return;
+
+	m_bPlayerDead = false;
+	m_vecDeathAngles = g_vecZero;
+	m_summaryCameras.clear();
+	m_iCurrentSummaryCameraIndex = 0;
+	m_flNextCameraSwitchTime = 0.0f;
 
 	// Strictly reject player spawning if a savegame restore was attempted (SPEC §10.3)
 	if ( m_bRestoreAttempted )
@@ -239,27 +268,40 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 		return TRUE; // handled and suppressed
 	}
 
-	// Camera test commands for level designers and verification (Issue #16)
+	// Camera test commands for level designers and verification (Issue #16, #52)
 	if ( FStrEq( pcmd, "gladder_test_camera" ) )
 	{
-		ShiftPlayerCamera( pPlayer );
-		CBaseEntity *pCamera = UTIL_FindEntityByTargetname( nullptr, "gladder_camera" );
-		if ( !pCamera )
+		if ( m_summaryCameras.empty() )
 		{
-			pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
+			CollectSummaryCameras();
 		}
 
-		if ( pCamera )
+		if ( !m_summaryCameras.empty() )
 		{
-			const char *pszName = pCamera->pev->targetname ? STRING( pCamera->pev->targetname ) : STRING( pCamera->pev->classname );
-			ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE,
-				UTIL_VarArgs( "[Gladder] Switched view to map camera '%s' at (%.0f, %.0f, %.0f), angles (%.1f, %.1f, %.1f).\n",
-					pszName ? pszName : "unnamed",
-					pCamera->pev->origin.x, pCamera->pev->origin.y, pCamera->pev->origin.z,
-					pCamera->pev->angles.x, pCamera->pev->angles.y, pCamera->pev->angles.z ) );
+			if ( m_summaryCameras.size() > 1 )
+			{
+				AdvanceSummaryCamera();
+			}
+			else
+			{
+				ShiftPlayerCamera( pPlayer );
+			}
+			CBaseEntity *pCam = m_summaryCameras[m_iCurrentSummaryCameraIndex];
+			if ( pCam )
+			{
+				const char *pszName = pCam->pev->targetname ? STRING( pCam->pev->targetname ) : STRING( pCam->pev->classname );
+				ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE,
+					UTIL_VarArgs( "[Gladder] Switched view to camera %u/%u ('%s') at (%.0f, %.0f, %.0f), angles (%.1f, %.1f, %.1f).\n",
+						static_cast<unsigned int>( m_iCurrentSummaryCameraIndex + 1 ),
+						static_cast<unsigned int>( m_summaryCameras.size() ),
+						pszName ? pszName : "unnamed",
+						pCam->pev->origin.x, pCam->pev->origin.y, pCam->pev->origin.z,
+						pCam->pev->angles.x, pCam->pev->angles.y, pCam->pev->angles.z ) );
+			}
 		}
 		else
 		{
+			ShiftPlayerCamera( pPlayer );
 			ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "[Gladder] Switched view to dynamic fallback camera.\n" );
 		}
 		return TRUE;
@@ -291,6 +333,11 @@ void CGladderRules::OnRestoreDenied( void )
 void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
 {
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+	m_bPlayerDead = true;
+	if ( pVictim && pVictim->pev )
+	{
+		m_vecDeathAngles = pVictim->pev->angles;
+	}
 	m_waveManager.EndMatch( flTime, false );
 	m_modifiers.RevertMutators();
 	GladderAudio::PlayCue( GLADDER_CUE_MATCH_END, pVictim );
@@ -408,13 +455,14 @@ void CGladderRules::RestoreStaticDecals( void )
 void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 {
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+	int iCompletedWave = m_waveManager.GetWaveNumber();
 	m_waveManager.CompleteWave( flTime );
 
 #ifndef HL_TESTS
-	// Smooth screen fade-to-black transition before teleporting back to Point A (SPEC §11.3, Issue #49)
+	// Instant black screen before Point A teleportation with smooth fade-in reveal (SPEC §2, §6, Issue #57)
 	if ( pActivator && pActivator->IsPlayer() )
 	{
-		UTIL_ScreenFade( pActivator, Vector( 0, 0, 0 ), 0.5f, 0.5f, 255, FFADE_OUT );
+		UTIL_ScreenFade( pActivator, Vector( 0, 0, 0 ), 0.8f, 0.2f, 255, FFADE_IN );
 	}
 
 	// Explicitly broadcast decal purge client command to all connected players during transition (SPEC §11.3, Issue #49)
@@ -437,7 +485,8 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	// Fire wave completion relays (event = 1)
 	Gladder_FireWaveRelays( 1, pActivator );
 
-	BroadcastWaveNotify( nullptr, 1, m_waveManager.GetWaveNumber(), 0 );
+	// Transmit the exact completed wave number, not the incremented incoming wave (SPEC §12.2, Issue #56)
+	BroadcastWaveNotify( nullptr, 1, iCompletedWave, 0 );
 
 	// Revert active mutators back to default
 	m_modifiers.RevertMutators();
@@ -563,101 +612,177 @@ void CGladderRules::CalculateFinalScore( bool bSurvived )
 	BroadcastSummaryUpdate( nullptr, m_lastScoreBreakdown, m_comboTracker.GetStats() );
 }
 
+void CGladderRules::CollectSummaryCameras( void )
+{
+	m_summaryCameras.clear();
+	m_iCurrentSummaryCameraIndex = 0;
+
+	CBaseEntity *pCam = nullptr;
+	while ( ( pCam = UTIL_FindEntityByClassname( pCam, "gladder_camera" ) ) != nullptr )
+	{
+		if ( pCam->edict() && !FNullEnt( pCam->edict() ) )
+		{
+			EHANDLE hCam;
+			hCam = pCam;
+			m_summaryCameras.push_back( hCam );
+		}
+	}
+
+	if ( m_summaryCameras.empty() )
+	{
+		while ( ( pCam = UTIL_FindEntityByTargetname( pCam, "gladder_camera" ) ) != nullptr )
+		{
+			if ( pCam->edict() && !FNullEnt( pCam->edict() ) )
+			{
+				EHANDLE hCam;
+				hCam = pCam;
+				m_summaryCameras.push_back( hCam );
+			}
+		}
+	}
+
+	if ( m_summaryCameras.empty() )
+	{
+		while ( ( pCam = UTIL_FindEntityByClassname( pCam, "trigger_camera" ) ) != nullptr )
+		{
+			if ( pCam->edict() && !FNullEnt( pCam->edict() ) )
+			{
+				EHANDLE hCam;
+				hCam = pCam;
+				m_summaryCameras.push_back( hCam );
+			}
+		}
+	}
+}
+
+void CGladderRules::ActivateSummaryCamera( CBaseEntity *pCamera, CBaseEntity *pPlr )
+{
+	if ( !pCamera || !pCamera->edict() || !pPlr || !pPlr->edict() )
+		return;
+
+	const char *pszPlayerModel = ( pPlr->pev->model ) ? STRING( pPlr->pev->model ) : "models/player.mdl";
+
+	Vector vecCamAngles = pCamera->pev->angles;
+	if ( pCamera->pev->target )
+	{
+		const char *pszTarget = STRING( pCamera->pev->target );
+		if ( pszTarget && pszTarget[0] )
+		{
+			CBaseEntity *pTarget = UTIL_FindEntityByTargetname( nullptr, pszTarget );
+			if ( pTarget && pTarget->edict() )
+			{
+				Vector vecDir = pTarget->pev->origin - pCamera->pev->origin;
+				vecCamAngles = UTIL_VecToAngles( vecDir );
+				vecCamAngles.x = -vecCamAngles.x; // Pitch inversion for view angles in GoldSrc
+			}
+		}
+	}
+	else if ( vecCamAngles == g_vecZero )
+	{
+		Vector vecDir = ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - pCamera->pev->origin;
+		vecCamAngles = UTIL_VecToAngles( vecDir );
+		vecCamAngles.x = -vecCamAngles.x;
+	}
+
+	pCamera->pev->angles  = vecCamAngles;
+	pCamera->pev->v_angle = vecCamAngles;
+
+	// CRITICAL FOR GOLDSRC ENGINE:
+	// Entities with modelindex == 0 are omitted from server delta packets (SV_WriteEntitiesToClient).
+	// Without a valid modelindex, the client never receives origin updates and defaults cl_entities[i].origin
+	// to (0, 0, 0). Assigning a precached model with renderamt=0 ensures the camera is networked cleanly.
+	if ( pCamera->pev->modelindex == 0 )
+	{
+		SET_MODEL( pCamera->edict(), pszPlayerModel );
+	}
+	pCamera->pev->rendermode = kRenderTransTexture;
+	pCamera->pev->renderamt  = 0;
+	pCamera->pev->solid      = SOLID_NOT;
+	pCamera->pev->movetype   = MOVETYPE_NONE;
+	UTIL_SetOrigin( pCamera->pev, pCamera->pev->origin );
+
+	SET_VIEW( pPlr->edict(), pCamera->edict() );
+}
+
+void CGladderRules::AdvanceSummaryCamera( void )
+{
+	if ( m_summaryCameras.empty() )
+		return;
+
+	m_iCurrentSummaryCameraIndex = ( m_iCurrentSummaryCameraIndex + 1 ) % m_summaryCameras.size();
+	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+	m_flNextCameraSwitchTime = flTime + 5.0f;
+
+	CBaseEntity *pCam = m_summaryCameras[m_iCurrentSummaryCameraIndex];
+	if ( pCam && pCam->edict() && gpGlobals )
+	{
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+			if ( pPlr && pPlr->edict() )
+			{
+				ActivateSummaryCamera( pCam, pPlr );
+			}
+		}
+	}
+}
+
 void CGladderRules::ShiftPlayerCamera( CBaseEntity *pPlr )
 {
 	if ( !pPlr || !pPlr->edict() )
 		return;
 
-	CBaseEntity *pCamera = UTIL_FindEntityByTargetname( nullptr, "gladder_camera" );
-	if ( !pCamera )
+	if ( m_summaryCameras.empty() )
 	{
-		pCamera = UTIL_FindEntityByClassname( nullptr, "trigger_camera" );
+		CollectSummaryCameras();
 	}
 
+	if ( !m_summaryCameras.empty() )
+	{
+		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+		m_flNextCameraSwitchTime = flTime + 5.0f;
+		CBaseEntity *pCam = m_summaryCameras[m_iCurrentSummaryCameraIndex];
+		if ( pCam && pCam->edict() )
+		{
+			ActivateSummaryCamera( pCam, pPlr );
+			return;
+		}
+	}
+
+	// Dynamic fallback elevated camera overlooking player if no map cameras exist
 	const char *pszPlayerModel = ( pPlr->pev->model ) ? STRING( pPlr->pev->model ) : "models/player.mdl";
+	UTIL_MakeVectors( pPlr->pev->v_angle );
+	Vector vecCamPos = pPlr->pev->origin + Vector( 0, 0, 90 ) - gpGlobals->v_forward * 140;
+	TraceResult tr;
+	UTIL_TraceLine( pPlr->pev->origin + Vector( 0, 0, 36 ), vecCamPos, ignore_monsters, pPlr->edict(), &tr );
+	vecCamPos = tr.vecEndPos + tr.vecPlaneNormal * 4;
 
-	if ( pCamera && pCamera->edict() )
+	Vector vecAngles = UTIL_VecToAngles( ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - vecCamPos );
+	vecAngles.x = -vecAngles.x;
+
+	CBaseEntity *pFallCam = UTIL_FindEntityByTargetname( nullptr, "gladder_dynamic_camera" );
+	if ( !pFallCam )
 	{
-		// Determine orientation: if targeting another entity (e.g. info_target), aim towards it
-		Vector vecCamAngles = pCamera->pev->angles;
-		if ( pCamera->pev->target )
+		pFallCam = CBaseEntity::Create( "info_target", vecCamPos, vecAngles, nullptr );
+		if ( pFallCam )
 		{
-			const char *pszTarget = STRING( pCamera->pev->target );
-			if ( pszTarget && pszTarget[0] )
-			{
-				CBaseEntity *pTarget = UTIL_FindEntityByTargetname( nullptr, pszTarget );
-				if ( pTarget && pTarget->edict() )
-				{
-					Vector vecDir = pTarget->pev->origin - pCamera->pev->origin;
-					vecCamAngles = UTIL_VecToAngles( vecDir );
-					vecCamAngles.x = -vecCamAngles.x; // Pitch inversion for view angles in GoldSrc
-				}
-			}
+			pFallCam->pev->targetname = MAKE_STRING( "gladder_dynamic_camera" );
 		}
-		else if ( vecCamAngles == g_vecZero )
-		{
-			// If no target and no explicit angles, look towards the player
-			Vector vecDir = ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - pCamera->pev->origin;
-			vecCamAngles = UTIL_VecToAngles( vecDir );
-			vecCamAngles.x = -vecCamAngles.x;
-		}
-
-		pCamera->pev->angles = vecCamAngles;
-		pCamera->pev->v_angle = vecCamAngles;
-
-		// CRITICAL FOR GOLDSRC ENGINE:
-		// Entities with modelindex == 0 are omitted from server delta packets (SV_WriteEntitiesToClient).
-		// Without a valid modelindex, the client never receives origin updates and defaults cl_entities[i].origin
-		// to (0, 0, 0) (the center of the map!). Assigning a precached model with renderamt=0 ensures the camera
-		// is correctly networked to the client while remaining completely invisible.
-		if ( pCamera->pev->modelindex == 0 )
-		{
-			SET_MODEL( pCamera->edict(), pszPlayerModel );
-		}
-		pCamera->pev->rendermode = kRenderTransTexture;
-		pCamera->pev->renderamt = 0;
-		pCamera->pev->solid = SOLID_NOT;
-		pCamera->pev->movetype = MOVETYPE_NONE;
-		UTIL_SetOrigin( pCamera->pev, pCamera->pev->origin );
-
-		SET_VIEW( pPlr->edict(), pCamera->edict() );
 	}
-	else
+	if ( pFallCam && pFallCam->edict() )
 	{
-		// Dynamic fallback elevated camera overlooking player
-		UTIL_MakeVectors( pPlr->pev->v_angle );
-		Vector vecCamPos = pPlr->pev->origin + Vector( 0, 0, 90 ) - gpGlobals->v_forward * 140;
-		TraceResult tr;
-		UTIL_TraceLine( pPlr->pev->origin + Vector( 0, 0, 36 ), vecCamPos, ignore_monsters, pPlr->edict(), &tr );
-		vecCamPos = tr.vecEndPos + tr.vecPlaneNormal * 4;
-
-		Vector vecAngles = UTIL_VecToAngles( ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - vecCamPos );
-		vecAngles.x = -vecAngles.x;
-
-		CBaseEntity *pFallCam = UTIL_FindEntityByTargetname( nullptr, "gladder_dynamic_camera" );
-		if ( !pFallCam )
+		if ( pFallCam->pev->modelindex == 0 )
 		{
-			pFallCam = CBaseEntity::Create( "info_target", vecCamPos, vecAngles, nullptr );
-			if ( pFallCam )
-			{
-				pFallCam->pev->targetname = MAKE_STRING( "gladder_dynamic_camera" );
-			}
+			SET_MODEL( pFallCam->edict(), pszPlayerModel );
 		}
-		if ( pFallCam && pFallCam->edict() )
-		{
-			if ( pFallCam->pev->modelindex == 0 )
-			{
-				SET_MODEL( pFallCam->edict(), pszPlayerModel );
-			}
-			pFallCam->pev->rendermode = kRenderTransTexture;
-			pFallCam->pev->renderamt = 0;
-			pFallCam->pev->solid = SOLID_NOT;
-			pFallCam->pev->movetype = MOVETYPE_NONE;
-			pFallCam->pev->angles = vecAngles;
-			pFallCam->pev->v_angle = vecAngles;
-			UTIL_SetOrigin( pFallCam->pev, vecCamPos );
-			SET_VIEW( pPlr->edict(), pFallCam->edict() );
-		}
+		pFallCam->pev->rendermode = kRenderTransTexture;
+		pFallCam->pev->renderamt  = 0;
+		pFallCam->pev->solid      = SOLID_NOT;
+		pFallCam->pev->movetype   = MOVETYPE_NONE;
+		pFallCam->pev->angles     = vecAngles;
+		pFallCam->pev->v_angle    = vecAngles;
+		UTIL_SetOrigin( pFallCam->pev, vecCamPos );
+		SET_VIEW( pPlr->edict(), pFallCam->edict() );
 	}
 }
 

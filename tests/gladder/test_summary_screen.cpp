@@ -73,3 +73,43 @@ TEST_CASE( "CHudGladderSummary: In-Game Leaderboard Peek Mode (#16)", "[gladder]
 	summary.Dismiss();
 	CHECK( summary.IsActive() == false );
 }
+
+TEST_CASE( "CHudGladderSummary: Post-match summary overrides peek leaderboard and toggles cleanly (#58)", "[gladder][hud][summary]" )
+{
+	CHudGladderSummary summary;
+
+	// In-game peek mode active
+	summary.ShowLeaderboardOnly();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == true );
+
+	// Match ends: SetSummaryData arrives and MUST prioritize the summary page
+	GladderSummaryMsg msg;
+	msg.iFinalScore = 120000;
+	msg.bSurvived   = false;
+	summary.SetSummaryData( msg, 50.0f );
+
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == false );
+
+	// Pressing TAB toggles to leaderboard
+	summary.ToggleLeaderboardTab();
+	CHECK( summary.IsShowingLeaderboard() == true );
+
+	// Pressing TAB again returns to summary
+	summary.ToggleLeaderboardTab();
+	CHECK( summary.IsShowingLeaderboard() == false );
+
+	// Dismissing clears active state and resets leaderboard visibility
+	summary.Dismiss();
+	CHECK( summary.IsActive() == false );
+	CHECK( summary.IsShowingLeaderboard() == false );
+
+	// ToggleDisplay opens to summary page
+	summary.ToggleDisplay();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == false );
+	summary.ToggleDisplay();
+	CHECK( summary.IsActive() == false );
+}
+

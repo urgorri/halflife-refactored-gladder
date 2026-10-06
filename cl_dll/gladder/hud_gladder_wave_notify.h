@@ -16,9 +16,9 @@
 class CHudGladderWaveNotify : public CHudBase
 {
   public:
-	static constexpr float DISPLAY_HOLD_TIME  = 1.5f;
-	static constexpr float DISPLAY_FADE_TIME  = 0.5f;
-	static constexpr float DISPLAY_TOTAL_TIME = 2.0f;
+	static constexpr float DISPLAY_HOLD_TIME  = 3.0f;
+	static constexpr float DISPLAY_FADE_TIME  = 1.0f;
+	static constexpr float DISPLAY_TOTAL_TIME = 4.0f;
 
 	CHudGladderWaveNotify()
 	    : m_iType( 0 ),

@@ -53,15 +53,17 @@ TEST_CASE( "GladderWaveNotify: Display Timing and Visibility Window (#25)", "[gl
 	// Before start
 	CHECK( notify.IsDisplaying( 99.9f ) == false );
 
-	// Active hold window
+	// Active hold window (3.0s)
 	CHECK( notify.IsDisplaying( 100.0f ) == true );
 	CHECK( notify.IsDisplaying( 101.0f ) == true );
-	CHECK( notify.IsDisplaying( 101.5f ) == true );
+	CHECK( notify.IsDisplaying( 102.5f ) == true );
+	CHECK( notify.IsDisplaying( 103.0f ) == true );
 
-	// Fade-out window
-	CHECK( notify.IsDisplaying( 101.8f ) == true );
+	// Fade-out window (1.0s)
+	CHECK( notify.IsDisplaying( 103.5f ) == true );
+	CHECK( notify.IsDisplaying( 103.9f ) == true );
 
-	// Past 2.0s total display time
-	CHECK( notify.IsDisplaying( 102.0f ) == false );
+	// Past 4.0s total display time
+	CHECK( notify.IsDisplaying( 104.0f ) == false );
 	CHECK( notify.IsDisplaying( 105.0f ) == false );
 }
