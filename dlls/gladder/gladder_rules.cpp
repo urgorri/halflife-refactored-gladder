@@ -353,9 +353,13 @@ void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entv
 void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
 {
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+	int iFragsBefore = m_comboTracker.GetTotalFrags();
 	m_comboTracker.OnMonsterKilled( pVictim, pKiller, pInflictor, flTime );
 	m_iTotalFrags = m_comboTracker.GetTotalFrags();
-	BroadcastComboUpdate();
+	if ( m_iTotalFrags != iFragsBefore )
+	{
+		BroadcastComboUpdate();
+	}
 }
 
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )

@@ -40,6 +40,47 @@ engine_studio_api_t IEngineStudio;
 /////////////////////
 // Implementation of CStudioModelRenderer.h
 
+extern int g_iAlive;
+extern int CL_IsDead( void );
+
+// Static tracking for death orientation angles (per player slot 0..31)
+static vec3_t s_vecPlayerDeathAngles[32];
+static int s_bPlayerDeathAnglesLatched[32];
+
+void StudioResetDeadPlayerAngles( void )
+{
+	memset( s_vecPlayerDeathAngles, 0, sizeof( s_vecPlayerDeathAngles ) );
+	memset( s_bPlayerDeathAnglesLatched, 0, sizeof( s_bPlayerDeathAnglesLatched ) );
+}
+
+int StudioGetDeadPlayerAngles( int playerIndex, float *outAngles )
+{
+	if ( playerIndex < 0 || playerIndex >= 32 )
+		return 0;
+
+	if ( !s_bPlayerDeathAnglesLatched[playerIndex] )
+		return 0;
+
+	if ( outAngles )
+	{
+		outAngles[0] = s_vecPlayerDeathAngles[playerIndex][0];
+		outAngles[1] = s_vecPlayerDeathAngles[playerIndex][1];
+		outAngles[2] = s_vecPlayerDeathAngles[playerIndex][2];
+	}
+	return 1;
+}
+
+void StudioLatchDeadPlayerAngles( int playerIndex, const float *angles )
+{
+	if ( playerIndex < 0 || playerIndex >= 32 || !angles )
+		return;
+
+	s_vecPlayerDeathAngles[playerIndex][0] = 0.0f;
+	s_vecPlayerDeathAngles[playerIndex][1] = angles[1];
+	s_vecPlayerDeathAngles[playerIndex][2] = 0.0f;
+	s_bPlayerDeathAnglesLatched[playerIndex] = 1;
+}
+
 /*
 ====================
 Init
@@ -48,6 +89,8 @@ Init
 */
 void CStudioModelRenderer::Init( void )
 {
+	StudioResetDeadPlayerAngles();
+
 	// Set up some variables shared with engine
 	m_pCvarHiModels     = IEngineStudio.GetCvar( "cl_himodels" );
 	m_pCvarDeveloper    = IEngineStudio.GetCvar( "developer" );
@@ -1693,12 +1736,79 @@ int CStudioModelRenderer::StudioDrawPlayer( int flags, entity_state_t *pplayer )
 	IEngineStudio.StudioSetHeader( m_pStudioHeader );
 	IEngineStudio.SetRenderModel( m_pRenderModel );
 
-	if ( pplayer->gaitsequence )
-	{
-		vec3_t orig_angles;
-		m_pPlayerInfo = IEngineStudio.PlayerInfo( m_nPlayerIndex );
+	cl_entity_t *pLocal = gEngfuncs.GetLocalPlayer();
+	const bool bIsLocal = ( pLocal != NULL && ( m_pCurrentEntity == pLocal || ( m_nPlayerIndex == pLocal->index - 1 ) ) );
 
-		VectorCopy( m_pCurrentEntity->angles, orig_angles );
+	bool bIsDead = ( pplayer->health <= 0 ) ||
+	               ( m_pCurrentEntity->curstate.health <= 0 );
+
+	if ( bIsLocal && ( !g_iAlive || CL_IsDead() ) )
+	{
+		bIsDead = true;
+	}
+
+	if ( !bIsDead )
+	{
+		s_bPlayerDeathAnglesLatched[m_nPlayerIndex] = 0;
+		s_vecPlayerDeathAngles[m_nPlayerIndex][0]   = 0.0f;
+		s_vecPlayerDeathAngles[m_nPlayerIndex][1]   = m_pCurrentEntity->angles[1];
+		s_vecPlayerDeathAngles[m_nPlayerIndex][2]   = 0.0f;
+	}
+	else
+	{
+		if ( !s_bPlayerDeathAnglesLatched[m_nPlayerIndex] )
+		{
+			s_bPlayerDeathAnglesLatched[m_nPlayerIndex] = 1;
+			if ( m_pCurrentEntity->curstate.renderfx == kRenderFxDeadPlayer )
+			{
+				s_vecPlayerDeathAngles[m_nPlayerIndex][0] = 0.0f;
+				s_vecPlayerDeathAngles[m_nPlayerIndex][1] = m_pCurrentEntity->curstate.angles[1];
+				s_vecPlayerDeathAngles[m_nPlayerIndex][2] = 0.0f;
+			}
+			else if ( !bIsLocal && pplayer->angles[1] != 0.0f )
+			{
+				s_vecPlayerDeathAngles[m_nPlayerIndex][0] = 0.0f;
+				s_vecPlayerDeathAngles[m_nPlayerIndex][1] = pplayer->angles[1];
+				s_vecPlayerDeathAngles[m_nPlayerIndex][2] = 0.0f;
+			}
+			else if ( s_vecPlayerDeathAngles[m_nPlayerIndex][1] == 0.0f && m_pCurrentEntity->angles[1] != 0.0f )
+			{
+				s_vecPlayerDeathAngles[m_nPlayerIndex][0] = 0.0f;
+				s_vecPlayerDeathAngles[m_nPlayerIndex][1] = m_pCurrentEntity->angles[1];
+				s_vecPlayerDeathAngles[m_nPlayerIndex][2] = 0.0f;
+			}
+			else if ( s_vecPlayerDeathAngles[m_nPlayerIndex][1] == 0.0f && m_pCurrentEntity->curstate.angles[1] != 0.0f )
+			{
+				s_vecPlayerDeathAngles[m_nPlayerIndex][0] = 0.0f;
+				s_vecPlayerDeathAngles[m_nPlayerIndex][1] = m_pCurrentEntity->curstate.angles[1];
+				s_vecPlayerDeathAngles[m_nPlayerIndex][2] = 0.0f;
+			}
+		}
+	}
+
+	vec3_t orig_angles;
+	vec3_t orig_curstate_angles;
+	vec3_t orig_prevangles;
+
+	VectorCopy( m_pCurrentEntity->angles, orig_angles );
+	VectorCopy( m_pCurrentEntity->curstate.angles, orig_curstate_angles );
+	VectorCopy( m_pCurrentEntity->latched.prevangles, orig_prevangles );
+
+	if ( bIsDead )
+	{
+		vec3_t deathAngles;
+		deathAngles[0] = 0.0f;
+		deathAngles[1] = s_vecPlayerDeathAngles[m_nPlayerIndex][1];
+		deathAngles[2] = 0.0f;
+
+		VectorCopy( deathAngles, m_pCurrentEntity->angles );
+		VectorCopy( deathAngles, m_pCurrentEntity->curstate.angles );
+		VectorCopy( deathAngles, m_pCurrentEntity->latched.prevangles );
+	}
+
+	if ( pplayer->gaitsequence && !bIsDead )
+	{
+		m_pPlayerInfo = IEngineStudio.PlayerInfo( m_nPlayerIndex );
 
 		StudioProcessGait( pplayer );
 
@@ -1706,7 +1816,6 @@ int CStudioModelRenderer::StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		m_pPlayerInfo               = NULL;
 
 		StudioSetUpTransform( 0 );
-		VectorCopy( orig_angles, m_pCurrentEntity->angles );
 	}
 	else
 	{
@@ -1724,6 +1833,10 @@ int CStudioModelRenderer::StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 		StudioSetUpTransform( 0 );
 	}
+
+	VectorCopy( orig_angles, m_pCurrentEntity->angles );
+	VectorCopy( orig_curstate_angles, m_pCurrentEntity->curstate.angles );
+	VectorCopy( orig_prevangles, m_pCurrentEntity->latched.prevangles );
 
 	if ( flags & STUDIO_RENDER )
 	{

@@ -167,6 +167,7 @@
     <ClCompile Include="..\..\dlls\core\animation.cpp" />
     <ClCompile Include="..\..\dlls\systems\buttons.cpp" />
     <ClCompile Include="..\..\dlls\systems\func_break.cpp" />
+    <ClCompile Include="..\..\dlls\systems\explode.cpp" />
     <ClCompile Include="..\..\dlls\core\client_customization.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_wave_manager.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_usermsg.cpp" />

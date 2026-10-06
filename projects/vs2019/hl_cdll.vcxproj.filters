@@ -623,6 +623,9 @@
     <ClInclude Include="..\..\cl_dll\studio\StudioModelRenderer.h">
       <Filter>Header Files\studio</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\cl_dll\studio\studio_death_angles.h">
+      <Filter>Header Files\studio</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\cl_dll\render\tri.h">
       <Filter>Header Files\cl_dll</Filter>
     </ClInclude>

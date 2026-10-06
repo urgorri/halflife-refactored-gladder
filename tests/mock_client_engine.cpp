@@ -21,6 +21,9 @@ TeamFortressViewport *gViewPort = nullptr;
 cl_enginefunc_t g_mockClientEngineFuncs;
 engine_studio_api_t g_mockStudioApi;
 
+kbutton_t in_score = {};
+kbutton_t in_use   = {};
+
 std::vector<std::string> g_mockServerCmds;
 std::vector<std::string> g_mockClientCmds;
 std::vector<std::string> g_mockHookedEvents;
@@ -763,6 +766,8 @@ void ResetMockClientEngine( void )
 	g_mockPlayerCount = 1;
 	g_mockClientTime  = 1.0f;
 	gViewPort         = nullptr;
+	memset( &in_score, 0, sizeof( in_score ) );
+	memset( &in_use, 0, sizeof( in_use ) );
 	ResetMockSpriteList();
 }
 

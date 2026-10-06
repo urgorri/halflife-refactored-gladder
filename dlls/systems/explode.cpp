@@ -81,21 +81,7 @@ void CShower::Touch( CBaseEntity *pOther )
 		pev->speed = 0;
 }
 
-class CEnvExplosion : public CBaseMonster
-{
-  public:
-	void Spawn();
-	void EXPORT Smoke( void );
-	void KeyValue( KeyValueData *pkvd );
-	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 
-	virtual int Save( CSave &save );
-	virtual int Restore( CRestore &restore );
-	static TYPEDESCRIPTION m_SaveData[];
-
-	int m_iMagnitude;  // how large is the fireball? how much damage?
-	int m_spriteScale; // what's the exact fireball sprite scale?
-};
 
 TYPEDESCRIPTION CEnvExplosion::m_SaveData[] =
     {
@@ -210,7 +196,21 @@ void CEnvExplosion::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE
 	// do damage
 	if ( !( pev->spawnflags & SF_ENVEXPLOSION_NODAMAGE ) )
 	{
-		RadiusDamage( pev, pev, m_iMagnitude, CLASS_NONE, DMG_BLAST );
+		entvars_t *pevAttacker = pev;
+		if ( !FNullEnt( pev->owner ) && !pev->owner->free )
+		{
+			pevAttacker = VARS( pev->owner );
+		}
+
+		edict_t *pentOwner = pev->owner;
+		pev->owner = NULL; // can't traceline attack owner if this is set
+
+		RadiusDamage( pev, pevAttacker, m_iMagnitude, CLASS_NONE, DMG_BLAST );
+
+		if ( pev->spawnflags & SF_ENVEXPLOSION_REPEATABLE )
+		{
+			pev->owner = pentOwner;
+		}
 	}
 
 	SetThink( &CEnvExplosion::Smoke );

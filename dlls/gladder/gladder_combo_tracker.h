@@ -57,8 +57,11 @@ class GladderComboTracker
 	// Frame update: ticks decay timer and computes normalized gauge
 	void Update( float flCurrentTime );
 
-	// Invoked when any monster is slain
+	// Invoked when any monster is slain (attributes frags strictly to player instigation)
 	void OnMonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor, float flCurrentTime );
+
+	// Validates whether damage or kill was directly or indirectly instigated by a player (SPEC §3, §9.1, Issue #60)
+	static bool IsPlayerInstigated( entvars_t *pKiller, entvars_t *pInflictor );
 
 	// Active streak & gauge queries (for HUD overlays and networking)
 	int GetCurrentStreak( void ) const { return m_iCurrentStreak; }

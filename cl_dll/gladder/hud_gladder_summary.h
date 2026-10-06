@@ -30,7 +30,6 @@ class CHudGladderSummary : public CHudBase
 	      m_iQualifiedRank( -1 ),
 	      m_bIsNewHighScore( false ),
 	      m_bOldScoreDown( false ),
-	      m_bOldUseDown( false ),
 	      m_bHoldTabMode( false )
 	{
 		m_iFlags = HUD_ACTIVE | HUD_INTERMISSION;
@@ -48,7 +47,6 @@ class CHudGladderSummary : public CHudBase
 		m_iQualifiedRank   = -1;
 		m_bIsNewHighScore  = false;
 		m_bOldScoreDown    = false;
-		m_bOldUseDown      = false;
 		m_bHoldTabMode     = false;
 		m_summaryData      = GladderSummaryMsg();
 		m_leaderboard.clear();
@@ -88,7 +86,6 @@ class CHudGladderSummary : public CHudBase
 	int m_iQualifiedRank;
 	bool m_bIsNewHighScore;
 	bool m_bOldScoreDown;
-	bool m_bOldUseDown;
 	bool m_bHoldTabMode;
 	GladderSummaryMsg m_summaryData;
 	std::vector<GladderLeaderboardEntry> m_leaderboard;

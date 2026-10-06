@@ -211,6 +211,9 @@
     <ClCompile Include="..\..\dlls\systems\func_break.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\systems\explode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\core\client_customization.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

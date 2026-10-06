@@ -19,6 +19,10 @@ typedef struct rect_s
 } wrect_t;
 #endif
 
+#include "cl_dll/input/kbutton.h"
+extern kbutton_t in_score;
+extern kbutton_t in_use;
+
 #include "common/const.h"
 #include "common/cvardef.h"
 #include "common/com_model.h"

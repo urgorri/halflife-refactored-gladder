@@ -21,7 +21,6 @@
 #include "shake.h"
 
 extern kbutton_t in_score;
-extern kbutton_t in_use;
 
 void COM_FileBase( const char *in, char *out );
 
@@ -39,6 +38,9 @@ static void Cmd_ToggleLeaderboard( void )
 {
 	g_HudGladderSummary.ToggleLeaderboardTab();
 }
+#elif defined( HL_TESTS )
+#include "cl_dll/input/kbutton.h"
+extern kbutton_t in_score;
 #endif
 
 CHudGladderSummary g_HudGladderSummary;
@@ -170,14 +172,13 @@ void CHudGladderSummary::UpdateScreenFade( void )
 
 void CHudGladderSummary::Think( void )
 {
-#ifdef CLIENT_DLL
-	// Query physical button states directly (in_score, in_use) instead of gHUD.m_iKeyBits.
+#if defined( CLIENT_DLL ) || defined( HL_TESTS )
+	// Query physical button states directly (in_score) instead of gHUD.m_iKeyBits.
 	// In the engine, CL_ButtonBits forcibly sets IN_SCORE on every frame whenever the player
 	// is dead (CL_IsDead()) or during intermission (gHUD.m_iIntermission).
 	// Querying in_score.state ensures we react only to the actual physical TAB key presses,
 	// allowing clean toggling between summary and leaderboard pages during post-match flow.
 	bool isScoreDown = ( in_score.state & 1 ) != 0;
-	bool isUseDown   = ( in_use.state & 1 ) != 0;
 
 	// Check Tab key transition
 	if ( isScoreDown && !m_bOldScoreDown )
@@ -206,17 +207,7 @@ void CHudGladderSummary::Think( void )
 		}
 	}
 
-	// Check Use (E) key transition to dismiss post-match screen
-	if ( isUseDown && !m_bOldUseDown )
-	{
-		if ( m_bActive && !m_bHoldTabMode )
-		{
-			Dismiss();
-		}
-	}
-
 	m_bOldScoreDown = isScoreDown;
-	m_bOldUseDown   = isUseDown;
 
 	if ( m_bActive )
 	{
@@ -464,7 +455,7 @@ void CHudGladderSummary::DrawSummaryPage( float flTime, float tallyFrac )
 	}
 
 	gEngfuncs.pfnDrawSetTextColor( 0.7f, 0.7f, 0.7f );
-	snprintf( szBuf, sizeof( szBuf ), "[TAB] View High Scores   [USE / E] Dismiss" );
+	snprintf( szBuf, sizeof( szBuf ), "[TAB] View High Scores" );
 	len = static_cast<int>( strlen( szBuf ) ) * 9;
 	DrawConsoleString( cx - ( len / 2 ), footerY, szBuf );
 #endif
@@ -536,7 +527,7 @@ void CHudGladderSummary::DrawLeaderboardPage( void )
 	}
 	else
 	{
-		snprintf( szBuf, sizeof( szBuf ), "[TAB] Return to Summary   [USE / E] Dismiss" );
+		snprintf( szBuf, sizeof( szBuf ), "[TAB] Return to Summary" );
 	}
 	len = static_cast<int>( strlen( szBuf ) ) * 9;
 	DrawConsoleString( cx - ( len / 2 ), footerY, szBuf );

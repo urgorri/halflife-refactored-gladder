@@ -127,6 +127,7 @@ TYPEDESCRIPTION CBreakable::m_SaveData[] =
     {
         DEFINE_FIELD( CBreakable, m_Material, FIELD_INTEGER ),
         DEFINE_FIELD( CBreakable, m_Explosion, FIELD_INTEGER ),
+        DEFINE_FIELD( CBreakable, m_hAttacker, FIELD_EHANDLE ),
 
         // Don't need to save/restore these because we precache after restore
         //	DEFINE_FIELD( CBreakable, m_idShard, FIELD_INTEGER ),
@@ -143,6 +144,7 @@ IMPLEMENT_SAVERESTORE( CBreakable, CBaseEntity );
 void CBreakable::Spawn( void )
 {
 	Precache();
+	m_hAttacker = NULL;
 
 	if ( FBitSet( pev->spawnflags, SF_BREAK_TRIGGER_ONLY ) )
 		pev->takedamage = DAMAGE_NO;
@@ -453,6 +455,11 @@ void CBreakable::BreakTouch( CBaseEntity *pOther )
 		// play creaking sound here.
 		DamageSound();
 
+		if ( pOther )
+		{
+			m_hAttacker = pOther;
+		}
+
 		SetThink( &CBreakable::Die );
 		SetTouch( NULL );
 
@@ -477,6 +484,11 @@ void CBreakable::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 		pev->angles.y = m_angle;
 		UTIL_MakeVectors( pev->angles );
 		g_vecAttackDir = gpGlobals->v_forward;
+
+		if ( pActivator )
+		{
+			m_hAttacker = pActivator;
+		}
 
 		Die();
 	}
@@ -559,6 +571,27 @@ int CBreakable ::TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, fl
 	pev->health -= flDamage;
 	if ( pev->health <= 0 )
 	{
+		if ( pevAttacker )
+		{
+			CBaseEntity *pAttacker = CBaseEntity::Instance( pevAttacker );
+			if ( pAttacker )
+			{
+				m_hAttacker = pAttacker;
+			}
+			else if ( pevAttacker->pContainingEntity )
+			{
+				m_hAttacker.Set( pevAttacker->pContainingEntity );
+			}
+			else
+			{
+				m_hAttacker = NULL;
+			}
+		}
+		else
+		{
+			m_hAttacker = NULL;
+		}
+
 		Killed( pevAttacker, GIB_NORMAL );
 		Die();
 		return 0;
@@ -751,7 +784,12 @@ void CBreakable::Die( void )
 
 	if ( Explodable() )
 	{
-		ExplosionCreate( Center(), pev->angles, edict(), ExplosionMagnitude(), TRUE );
+		edict_t *pentOwner = m_hAttacker.Get();
+		if ( FNullEnt( pentOwner ) || pentOwner->free )
+		{
+			pentOwner = edict();
+		}
+		ExplosionCreate( Center(), pev->angles, pentOwner, ExplosionMagnitude(), TRUE );
 	}
 }
 

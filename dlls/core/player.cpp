@@ -360,6 +360,15 @@ void CBasePlayer::PlayerDeathThink( void )
 {
 	float flForward;
 
+	if ( pev->deadflag >= DEAD_DYING )
+	{
+		if ( m_vecDeathAngles == g_vecZero && ( pev->angles.x != 0 || pev->angles.y != 0 || pev->angles.z != 0 ) )
+		{
+			m_vecDeathAngles = Vector( 0, pev->angles.y, 0 );
+		}
+		pev->angles = m_vecDeathAngles;
+	}
+
 	if ( FBitSet( pev->flags, FL_ONGROUND ) )
 	{
 		flForward = pev->velocity.Length() - 20;
@@ -973,6 +982,7 @@ void CBasePlayer::Spawn( void )
 	pev->dmg          = 2; // initial water damage
 	pev->effects      = 0;
 	pev->deadflag     = DEAD_NO;
+	m_vecDeathAngles  = g_vecZero;
 	pev->dmg_take     = 0;
 	pev->dmg_save     = 0;
 	pev->friction     = 1.0;

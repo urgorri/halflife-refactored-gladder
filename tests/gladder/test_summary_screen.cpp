@@ -6,6 +6,7 @@
  ****/
 
 #include "external/catch2/catch_amalgamated.hpp"
+#include "tests/mock_client_engine.h"
 #include "cl_dll/gladder/hud_gladder_summary.h"
 
 TEST_CASE( "CHudGladderSummary: Activation and Rolling Tally Calculation (#16)", "[gladder][hud][summary]" )
@@ -111,5 +112,78 @@ TEST_CASE( "CHudGladderSummary: Post-match summary overrides peek leaderboard an
 	CHECK( summary.IsShowingLeaderboard() == false );
 	summary.ToggleDisplay();
 	CHECK( summary.IsActive() == false );
+}
+
+TEST_CASE( "CHudGladderSummary: Undismissable post-match summary screen ignores dismiss inputs (SPEC §9.2, #61)", "[gladder][hud][summary]" )
+{
+	ResetMockClientEngine();
+	CHudGladderSummary summary;
+
+	GladderSummaryMsg msg;
+	msg.iFinalScore = 200000;
+	msg.bSurvived   = true;
+	msg.cRankGrade  = 'S';
+	summary.SetSummaryData( msg, 10.0f );
+
+	REQUIRE( summary.IsActive() == true );
+	REQUIRE( summary.IsShowingLeaderboard() == false );
+
+	// Simulate USE key down and up transitions through Think()
+	in_use.state = 1;
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+
+	in_use.state = 0;
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+
+	// Pressing TAB toggles to leaderboard
+	in_score.state = 1;
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == true );
+
+	in_score.state = 0;
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == true );
+
+	// Pressing TAB again returns to summary view
+	in_score.state = 1;
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == false );
+
+	in_score.state = 0;
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == false );
+
+	// Releasing TAB in post-match summary mode NEVER dismisses the screen
+	CHECK( summary.IsActive() == true );
+}
+
+TEST_CASE( "CHudGladderSummary: In-game peek mode dismisses on TAB key release (SPEC §9.2, #61)", "[gladder][hud][summary]" )
+{
+	ResetMockClientEngine();
+	CHudGladderSummary summary;
+	CHECK( summary.IsActive() == false );
+
+	// Alive during gameplay: player presses and holds TAB
+	in_score.state = 1;
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == true );
+
+	// Keeping TAB pressed maintains leaderboard peek
+	summary.Think();
+	CHECK( summary.IsActive() == true );
+	CHECK( summary.IsShowingLeaderboard() == true );
+
+	// Player releases TAB: immediately dismisses leaderboard peek
+	in_score.state = 0;
+	summary.Think();
+	CHECK( summary.IsActive() == false );
+	CHECK( summary.IsShowingLeaderboard() == false );
 }
 
