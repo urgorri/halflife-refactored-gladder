@@ -52,17 +52,19 @@ class CHudGladderSummary : public CHudBase
 		m_bHoldTabMode     = false;
 		m_summaryData      = GladderSummaryMsg();
 		m_leaderboard.clear();
+		UpdateScreenFade();
 	}
 
 	// User message dispatcher
 	int MsgFunc_GladderSummary( const char *pszName, int iSize, void *pbuf );
 
 	// Interaction controls
-	void ToggleDisplay( void ) { m_bActive = !m_bActive; }
+	void ToggleDisplay( void );
 	void ToggleLeaderboardTab( void );
 	void ShowLeaderboardOnly( void );
 	void ReloadLeaderboard( void );
-	void Dismiss( void ) { m_bActive = false; m_bHoldTabMode = false; }
+	void Dismiss( void );
+	void UpdateScreenFade( void );
 	std::string GetCurrentMapName( void );
 
 	// Test/Simulation setters
