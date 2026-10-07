@@ -320,7 +320,7 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 * **State Reset**: Reloading the match cleanly purges all accumulated session metrics, resets combo streaks, restores procedural spawner state, and returns the player to Point A with the default staging loadout (`item_suit` and `weapon_crowbar`).
 
 ### 10.5 New Game Gauntlet Map Selection (Map Selector vs. Legacy Difficulty)
-* **Map Selection Architecture**: Replaces the legacy Half-Life difficulty selection dialog (`#GameUI_Difficulty` ComboBox in `NewGameDialog`) with a Gauntlet Map Selector.
+* **Map Selection Architecture**: Configured via declarative GameUI resource scripts (`resource/GameMenu.res` and `Resource/NewGameDialog.res`). Replaces the legacy Half-Life difficulty selection dialog (`#GameUI_Difficulty` ComboBox in `NewGameDialog`) with a Gauntlet Map Selector.
 * **Obsolete Manual Difficulty**: Because Half-Life: Gladder enforces automatic wave-progressive engine skill scaling (`skill 1` -> `skill 2` -> `skill 3` as defined in Section 3), manual difficulty selection is obsolete.
 * **Gauntlet Arena Selection**: When selecting "New Game" from the main menu, the player is presented with a map list interface allowing selection among available gauntlet maps (e.g. `gladder_crossfire`, `gladder_bootcamp`, or custom community maps), initiating the chosen level directly.
 
