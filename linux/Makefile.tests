@@ -69,6 +69,7 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/test_entity_iteration.o \
 	$(TESTS_OBJ_DIR)/test_orphaned_effects.o \
 	$(TESTS_OBJ_DIR)/test_monster_drop_hook.o \
+	$(TESTS_OBJ_DIR)/test_chargers.o \
 	$(TESTS_OBJ_DIR)/client_customization.o \
 	$(TESTS_OBJ_DIR)/animation.o \
 	$(TESTS_OBJ_DIR)/buttons.o \

@@ -338,6 +338,7 @@ if(BUILD_TESTS)
         tests/test_orphaned_effects.cpp
         tests/test_monster_drop_hook.cpp
         tests/test_weapons_resource.cpp
+        tests/test_chargers.cpp
         dlls/core/animation.cpp
         dlls/systems/buttons.cpp
         dlls/systems/func_break.cpp

@@ -131,6 +131,23 @@ void CBaseWallCharger::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_T
 		return;
 	}
 
+	// If player is already at maximum capacity, terminate charging action and emit denial sound
+	if ( !CanGiveResource( pActivator ) )
+	{
+		if ( m_iOn > 0 )
+		{
+			Off();
+			m_flSoundTime = 0;
+		}
+
+		if ( m_flSoundTime <= gpGlobals->time )
+		{
+			m_flSoundTime = gpGlobals->time + 0.62;
+			EMIT_SOUND( ENT( pev ), CHAN_ITEM, (char *)GetDenySound(), GetSoundVolume(), ATTN_NORM );
+		}
+		return;
+	}
+
 	pev->nextthink = pev->ltime + 0.25;
 	SetThink( &CBaseWallCharger::Off );
 
@@ -154,6 +171,10 @@ void CBaseWallCharger::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_T
 	if ( GiveResource( pActivator ) )
 	{
 		m_iJuice--;
+	}
+	else
+	{
+		Off();
 	}
 
 	// govern the rate of charge
