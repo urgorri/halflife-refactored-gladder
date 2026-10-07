@@ -191,13 +191,29 @@ void CMP5::PrimaryAttack()
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + UTIL_SharedRandomFloat( m_pPlayer->random_seed, 10, 15 );
 }
 
+static inline BOOL FFixMP5UnderwaterDebounceEnabled( void )
+{
+#ifndef CLIENT_DLL
+	return g_pGameRules && g_pGameRules->FFixMP5UnderwaterDebounce();
+#else
+	return FALSE;
+#endif
+}
+
 void CMP5::SecondaryAttack( void )
 {
 	// don't fire underwater
 	if ( m_pPlayer->pev->waterlevel == 3 )
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = 0.15;
+		if ( FFixMP5UnderwaterDebounceEnabled() )
+		{
+			m_flNextSecondaryAttack = m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.15;
+		}
+		else
+		{
+			m_flNextPrimaryAttack = 0.15;
+		}
 		return;
 	}
 

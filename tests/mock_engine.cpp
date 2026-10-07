@@ -128,7 +128,20 @@ static void stub_SetOrigin( edict_t *e, const float *rgflOrigin ) {
 		e->v.origin[2] = rgflOrigin[2];
 	}
 }
-static void stub_EmitSound( edict_t *entity, int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch ) {}
+std::vector<MockSoundCall> g_mockEmittedSounds;
+
+static void stub_EmitSound( edict_t *entity, int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
+{
+	MockSoundCall call;
+	call.entity = entity;
+	call.channel = channel;
+	call.sample = sample ? sample : "";
+	call.volume = volume;
+	call.attenuation = attenuation;
+	call.flags = fFlags;
+	call.pitch = pitch;
+	g_mockEmittedSounds.push_back( call );
+}
 static void stub_EmitAmbientSound( edict_t *entity, float *pos, const char *samp, float vol, float attenuation, int fFlags, int pitch ) {}
 
 static void stub_TraceLine( const float *v1, const float *v2, int fNoMonsters, edict_t *pentToSkip, TraceResult *ptr ) {
@@ -471,6 +484,7 @@ void ResetMockEngine()
 	RegisterMockEntityFactory( "env_explosion", env_explosion );
 	RegisterMockEntityFactory( "spark_shower", spark_shower );
 	g_mockRadiusDamageCalls.clear();
+	g_mockEmittedSounds.clear();
 
 	g_teamplay = 0;
 	teamplay.value = 0.0f;
@@ -844,7 +858,18 @@ CBaseEntity *EHANDLE::operator=( CBaseEntity *pEntity )
 
 void CBaseEntity::SUB_DoNothing( void ) {}
 
-void EMIT_SOUND_DYN( edict_t *entity, int channel, const char *sample, float volume, float attenuation, int flags, int pitch ) {}
+void EMIT_SOUND_DYN( edict_t *entity, int channel, const char *sample, float volume, float attenuation, int flags, int pitch )
+{
+	MockSoundCall call;
+	call.entity = entity;
+	call.channel = channel;
+	call.sample = sample ? sample : "";
+	call.volume = volume;
+	call.attenuation = attenuation;
+	call.flags = flags;
+	call.pitch = pitch;
+	g_mockEmittedSounds.push_back( call );
+}
 
 int CSave::WriteFields( const char *pname, void *pBaseData, TYPEDESCRIPTION *pFields, int fieldCount )
 {
@@ -1066,6 +1091,41 @@ void CBaseMonster::GibMonster( void ) {}
 int CBaseMonster::HasHumanGibs( void ) { return 0; }
 int CBaseMonster::HasAlienGibs( void ) { return 0; }
 void CBaseMonster::FadeMonster( void ) {}
+int CBaseMonster::IScheduleFlags( void )
+{
+	if ( !m_pSchedule )
+	{
+		return 0;
+	}
+
+	int iInterruptMask = m_pSchedule->iInterruptMask;
+	if ( g_pGameRules )
+	{
+		iInterruptMask = g_pGameRules->FlMonsterScheduleInterruptMask( this, m_pSchedule, iInterruptMask );
+	}
+
+	return m_afConditions & iInterruptMask;
+}
+BOOL CBaseMonster::FScheduleValid( void )
+{
+	if ( m_pSchedule == NULL )
+	{
+		return FALSE;
+	}
+
+	int iInterruptMask = m_pSchedule->iInterruptMask;
+	if ( g_pGameRules )
+	{
+		iInterruptMask = g_pGameRules->FlMonsterScheduleInterruptMask( this, m_pSchedule, iInterruptMask );
+	}
+
+	if ( HasConditions( iInterruptMask | bits_COND_SCHEDULE_DONE | bits_COND_TASK_FAILED ) )
+	{
+		return FALSE;
+	}
+
+	return TRUE;
+}
 Vector CBaseMonster::GetGunPosition( void ) { return pev ? pev->origin : g_vecZero; }
 int CBaseMonster::TakeHealth( float flHealth, int bitsDamageType ) { return 0; }
 int CBaseMonster::TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType ) { return 0; }

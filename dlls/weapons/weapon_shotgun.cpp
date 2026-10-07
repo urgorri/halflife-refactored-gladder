@@ -112,9 +112,28 @@ int CShotgun::GetItemInfo( ItemInfo *p )
 	return 1;
 }
 
+static inline BOOL FFixShotgunReloadDesyncEnabled( void )
+{
+#ifndef CLIENT_DLL
+	return g_pGameRules && g_pGameRules->FFixShotgunReloadDesync();
+#else
+	return FALSE;
+#endif
+}
+
 BOOL CShotgun::Deploy()
 {
 	return DefaultDeploy( "models/v_shotgun.mdl", "models/p_shotgun.mdl", SHOTGUN_DRAW, "shotgun" );
+}
+
+void CShotgun::Holster( int skiplocal /* = 0 */ )
+{
+	if ( FFixShotgunReloadDesyncEnabled() )
+	{
+		m_fInSpecialReload = 0;
+		m_flPumpTime       = 0;
+	}
+	CBasePlayerWeapon::Holster( skiplocal );
 }
 
 void CShotgun::PrimaryAttack()
@@ -124,6 +143,11 @@ void CShotgun::PrimaryAttack()
 	{
 		PlayEmptySound();
 		m_flNextPrimaryAttack = GetNextAttackDelay( 0.15 );
+		if ( FFixShotgunReloadDesyncEnabled() )
+		{
+			m_fInSpecialReload = 0;
+			m_flPumpTime       = 0;
+		}
 		return;
 	}
 
@@ -133,6 +157,15 @@ void CShotgun::PrimaryAttack()
 		if ( m_iClip == 0 )
 			PlayEmptySound();
 		return;
+	}
+
+	if ( FFixShotgunReloadDesyncEnabled() )
+	{
+		if ( m_fInSpecialReload != 0 )
+		{
+			m_flPumpTime       = 0;
+			m_fInSpecialReload = 0;
+		}
 	}
 
 	m_pPlayer->m_iWeaponVolume = LOUD_GUN_VOLUME;
@@ -192,6 +225,11 @@ void CShotgun::SecondaryAttack( void )
 	{
 		PlayEmptySound();
 		m_flNextPrimaryAttack = GetNextAttackDelay( 0.15 );
+		if ( FFixShotgunReloadDesyncEnabled() )
+		{
+			m_fInSpecialReload = 0;
+			m_flPumpTime       = 0;
+		}
 		return;
 	}
 
@@ -200,6 +238,15 @@ void CShotgun::SecondaryAttack( void )
 		Reload();
 		PlayEmptySound();
 		return;
+	}
+
+	if ( FFixShotgunReloadDesyncEnabled() )
+	{
+		if ( m_fInSpecialReload != 0 )
+		{
+			m_flPumpTime       = 0;
+			m_fInSpecialReload = 0;
+		}
 	}
 
 	m_pPlayer->m_iWeaponVolume = LOUD_GUN_VOLUME;
@@ -269,6 +316,10 @@ void CShotgun::Reload( void )
 	// check to see if we're ready to reload
 	if ( m_fInSpecialReload == 0 )
 	{
+		if ( FFixShotgunReloadDesyncEnabled() )
+		{
+			m_flPumpTime = 0;
+		}
 		SendWeaponAnim( SHOTGUN_START_RELOAD );
 		m_fInSpecialReload        = 1;
 		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.6;

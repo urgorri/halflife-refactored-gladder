@@ -142,6 +142,37 @@ class CTestHookRules : public CGameRules
 		m_flLastDefaultYawSpeed = flDefaultYawSpeed;
 		return flDefaultYawSpeed * m_flCustomYawMultiplier;
 	}
+	bool m_bMonsterInterruptMaskCalled = false;
+	int m_iMonsterInterruptMaskAugment = 0;
+	int FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask ) override
+	{
+		m_bMonsterInterruptMaskCalled = true;
+		return iDefaultMask | m_iMonsterInterruptMaskAugment;
+	}
+
+	bool m_bFixMeleeCorpseAttackDelay = false;
+	BOOL FFixMeleeCorpseAttackDelay( void ) override
+	{
+		return m_bFixMeleeCorpseAttackDelay ? TRUE : FALSE;
+	}
+
+	bool m_bSilenceLoopingSoundsOnDeath = false;
+	BOOL FSilenceLoopingWeaponSoundsOnDeath( void ) override
+	{
+		return m_bSilenceLoopingSoundsOnDeath ? TRUE : FALSE;
+	}
+
+	bool m_bFixShotgunReloadDesync = false;
+	BOOL FFixShotgunReloadDesync( void ) override
+	{
+		return m_bFixShotgunReloadDesync ? TRUE : FALSE;
+	}
+
+	bool m_bFixMP5UnderwaterDebounce = false;
+	BOOL FFixMP5UnderwaterDebounce( void ) override
+	{
+		return m_bFixMP5UnderwaterDebounce ? TRUE : FALSE;
+	}
 };
 
 class CTestMonster : public CBaseMonster
@@ -154,6 +185,8 @@ class CTestMonster : public CBaseMonster
 		std::memset( &m_pevData, 0, sizeof( m_pevData ) );
 		pev = &m_pevData;
 		m_flLastYawTime = 0.0f;
+		ClearConditions( 0xFFFFFFFF );
+		m_pSchedule = nullptr;
 	}
 };
 
@@ -731,4 +764,377 @@ TEST_CASE( "GameplayHooks: OnStaticDecal lifecycle notification (#180)", "[gamep
 
 		g_pGameRules = nullptr;
 	}
+}
+
+TEST_CASE( "GameplayHooks: FlMonsterScheduleInterruptMask modifies monster interruptibility (#186)", "[gameplay][gamerules][hooks][ai]" )
+{
+	ResetMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	SECTION( "Default CHalfLifeRules returns iDefaultMask unchanged" )
+	{
+		CHECK( pVanillaRules->FlMonsterScheduleInterruptMask( nullptr, nullptr, 0x1234 ) == 0x1234 );
+		CHECK( pVanillaRules->FlMonsterScheduleInterruptMask( nullptr, nullptr, 0 ) == 0 );
+		CHECK( pVanillaRules->FlMonsterScheduleInterruptMask( nullptr, nullptr, bits_COND_LIGHT_DAMAGE | bits_COND_HEAVY_DAMAGE ) == ( bits_COND_LIGHT_DAMAGE | bits_COND_HEAVY_DAMAGE ) );
+
+		CTestMonster monster;
+		Schedule_t sched;
+		std::memset( &sched, 0, sizeof( sched ) );
+		sched.iInterruptMask = bits_COND_NEW_ENEMY;
+		sched.pName = "SCHED_CHASE_ENEMY_TEST";
+
+		monster.m_pSchedule = &sched;
+		monster.SetConditions( bits_COND_LIGHT_DAMAGE );
+
+		g_pGameRules = pVanillaRules;
+
+		// With vanilla rules, chase schedule does not include damage bits, so IScheduleFlags() yields 0
+		CHECK( monster.IScheduleFlags() == 0 );
+		CHECK( monster.FScheduleValid() == TRUE );
+
+		g_pGameRules = nullptr;
+	}
+
+	SECTION( "Custom rules augments interrupt mask to allow damage interruption during movement" )
+	{
+		CTestHookRules customRules;
+		customRules.m_iMonsterInterruptMaskAugment = bits_COND_LIGHT_DAMAGE | bits_COND_HEAVY_DAMAGE;
+		g_pGameRules = &customRules;
+
+		CTestMonster monster;
+		Schedule_t sched;
+		std::memset( &sched, 0, sizeof( sched ) );
+		sched.iInterruptMask = bits_COND_NEW_ENEMY;
+		sched.pName = "SCHED_CHASE_ENEMY_TEST";
+
+		monster.m_pSchedule = &sched;
+		monster.SetConditions( bits_COND_LIGHT_DAMAGE );
+
+		// Custom rules augments interrupt mask with damage bits, so monster is interruptible
+		CHECK( monster.IScheduleFlags() == bits_COND_LIGHT_DAMAGE );
+		CHECK( monster.FScheduleValid() == FALSE );
+		CHECK( customRules.m_bMonsterInterruptMaskCalled );
+
+		g_pGameRules = nullptr;
+	}
+
+	SECTION( "Null g_pGameRules safely falls back to default schedule interrupt mask" )
+	{
+		g_pGameRules = nullptr;
+
+		CTestMonster monster;
+		Schedule_t sched;
+		std::memset( &sched, 0, sizeof( sched ) );
+		sched.iInterruptMask = bits_COND_NEW_ENEMY;
+		sched.pName = "SCHED_TEST";
+
+		monster.m_pSchedule = &sched;
+		monster.SetConditions( bits_COND_LIGHT_DAMAGE );
+
+		CHECK( monster.IScheduleFlags() == 0 );
+		CHECK( monster.FScheduleValid() == TRUE );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GameplayHooks: FFixMeleeCorpseAttackDelay lifecycle and attack timing (#187)", "[gameplay][gamerules][hooks][weapons]" )
+{
+	ResetMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	SECTION( "Vanilla CHalfLifeRules returns FALSE preserving baseline GoldSrc behavior" )
+	{
+		CHECK( pVanillaRules->FFixMeleeCorpseAttackDelay() == FALSE );
+	}
+
+	SECTION( "Custom rules can enable corpse hit delay fix" )
+	{
+		CTestHookRules customRules;
+		CHECK( customRules.FFixMeleeCorpseAttackDelay() == FALSE );
+
+		customRules.m_bFixMeleeCorpseAttackDelay = true;
+		CHECK( customRules.FFixMeleeCorpseAttackDelay() == TRUE );
+	}
+
+	SECTION( "Simulation of corpse hit attack delay branching" )
+	{
+		// Simulate weapon state logic from CCrowbar::Swing
+		gpGlobals->time = 10.0f;
+		float flNextPrimaryAttack = 0.0f;
+		float flNextThink = 0.0f;
+		bool bHitHandled = false;
+
+		auto SimulateSwingOnCorpse = [&]( CGameRules *pRules ) -> bool {
+			// In CCrowbar::Swing(): if ( !pEntity->IsAlive() )
+			if ( pRules && pRules->FFixMeleeCorpseAttackDelay() )
+			{
+				// Modern gamemodes: set normal attack delay and schedule smack think
+				flNextPrimaryAttack = gpGlobals->time + 0.25f;
+				flNextThink = gpGlobals->time + 0.2f;
+				return true;
+			}
+			else
+			{
+				// Vanilla: return TRUE early without updating flNextPrimaryAttack or scheduling Smack think
+				return true;
+			}
+		};
+
+		// Vanilla: next attack delay not updated
+		flNextPrimaryAttack = 0.0f;
+		flNextThink = 0.0f;
+		bHitHandled = SimulateSwingOnCorpse( pVanillaRules );
+		CHECK( bHitHandled == true );
+		CHECK( flNextPrimaryAttack == 0.0f );
+		CHECK( flNextThink == 0.0f );
+
+		// Custom rules: attack delay advanced, smack think scheduled
+		CTestHookRules customRules;
+		customRules.m_bFixMeleeCorpseAttackDelay = true;
+		flNextPrimaryAttack = 0.0f;
+		flNextThink = 0.0f;
+		bHitHandled = SimulateSwingOnCorpse( &customRules );
+		CHECK( bHitHandled == true );
+		CHECK( flNextPrimaryAttack == Catch::Approx( 10.25f ) );
+		CHECK( flNextThink == Catch::Approx( 10.20f ) );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GameplayHooks: FSilenceLoopingWeaponSoundsOnDeath lifecycle and sound suppression (#188)", "[gameplay][gamerules][hooks][player][audio]" )
+{
+	ResetMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	SECTION( "Vanilla CHalfLifeRules returns FALSE preserving classic audio lifecycle" )
+	{
+		CHECK( pVanillaRules->FSilenceLoopingWeaponSoundsOnDeath() == FALSE );
+	}
+
+	SECTION( "Custom rules enables sound silence on player death" )
+	{
+		CTestHookRules customRules;
+		CHECK( customRules.FSilenceLoopingWeaponSoundsOnDeath() == FALSE );
+
+		customRules.m_bSilenceLoopingSoundsOnDeath = true;
+		CHECK( customRules.FSilenceLoopingWeaponSoundsOnDeath() == TRUE );
+	}
+
+	SECTION( "Player death sound cleanup emits common/null.wav on CHAN_WEAPON when hook enabled" )
+	{
+		edict_t playerEdict;
+		std::memset( &playerEdict, 0, sizeof( playerEdict ) );
+		playerEdict.v.pContainingEntity = &playerEdict;
+
+		auto SimulatePlayerDeathSoundCleanup = [&]( CGameRules *pRules ) {
+			if ( pRules && pRules->FSilenceLoopingWeaponSoundsOnDeath() )
+			{
+				EMIT_SOUND( ENT( &playerEdict.v ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
+			}
+		};
+
+		// Under vanilla rules: no sound cleanup emitted
+		g_mockEmittedSounds.clear();
+		SimulatePlayerDeathSoundCleanup( pVanillaRules );
+		CHECK( g_mockEmittedSounds.empty() );
+
+		// Under custom rules: common/null.wav emitted on CHAN_WEAPON
+		CTestHookRules customRules;
+		customRules.m_bSilenceLoopingSoundsOnDeath = true;
+		g_mockEmittedSounds.clear();
+		SimulatePlayerDeathSoundCleanup( &customRules );
+		REQUIRE( g_mockEmittedSounds.size() == 1 );
+		CHECK( g_mockEmittedSounds[0].channel == CHAN_WEAPON );
+		CHECK( g_mockEmittedSounds[0].sample == "common/null.wav" );
+		CHECK( g_mockEmittedSounds[0].volume == Catch::Approx( 1.0f ) );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GameplayHooks: FFixShotgunReloadDesync lifecycle and reload state transitions (#189)", "[gameplay][gamerules][hooks][weapons][shotgun]" )
+{
+	ResetMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	SECTION( "Vanilla rules returns FALSE by default" )
+	{
+		CHECK( pVanillaRules->FFixShotgunReloadDesync() == FALSE );
+	}
+
+	SECTION( "Custom rules returns TRUE when enabled" )
+	{
+		CTestHookRules customRules;
+		CHECK( customRules.FFixShotgunReloadDesync() == FALSE );
+
+		customRules.m_bFixShotgunReloadDesync = true;
+		CHECK( customRules.FFixShotgunReloadDesync() == TRUE );
+	}
+
+	SECTION( "Reload state transitions and pump timer clearing under fix" )
+	{
+		struct ShotgunState
+		{
+			int m_fInSpecialReload = 1;
+			float m_flPumpTime = 5.0f;
+
+			void Holster( CGameRules *pRules )
+			{
+				if ( pRules && pRules->FFixShotgunReloadDesync() )
+				{
+					m_fInSpecialReload = 0;
+					m_flPumpTime = 0.0f;
+				}
+			}
+
+			void PrimaryAttack( CGameRules *pRules, bool underwater )
+			{
+				if ( underwater )
+				{
+					if ( pRules && pRules->FFixShotgunReloadDesync() )
+					{
+						m_fInSpecialReload = 0;
+						m_flPumpTime = 0.0f;
+					}
+					return;
+				}
+
+				if ( pRules && pRules->FFixShotgunReloadDesync() )
+				{
+					if ( m_fInSpecialReload != 0 )
+					{
+						m_flPumpTime = 0.0f;
+						m_fInSpecialReload = 0;
+					}
+				}
+				m_flPumpTime = gpGlobals->time + 0.5f;
+				m_fInSpecialReload = 0;
+			}
+
+			void StartReload( CGameRules *pRules )
+			{
+				if ( m_fInSpecialReload == 0 )
+				{
+					if ( pRules && pRules->FFixShotgunReloadDesync() )
+					{
+						m_flPumpTime = 0.0f;
+					}
+					m_fInSpecialReload = 1;
+				}
+			}
+		};
+
+		// Vanilla: Holster does not clear special reload or pump timer
+		ShotgunState vanillaState;
+		vanillaState.Holster( pVanillaRules );
+		CHECK( vanillaState.m_fInSpecialReload == 1 );
+		CHECK( vanillaState.m_flPumpTime == Catch::Approx( 5.0f ) );
+
+		// Custom rules: Holster cleanly clears special reload and pump timer
+		CTestHookRules customRules;
+		customRules.m_bFixShotgunReloadDesync = true;
+		ShotgunState fixedState;
+		fixedState.Holster( &customRules );
+		CHECK( fixedState.m_fInSpecialReload == 0 );
+		CHECK( fixedState.m_flPumpTime == 0.0f );
+
+		// Underwater interruption resets reload and pump timer under fix
+		ShotgunState underwaterState;
+		underwaterState.PrimaryAttack( &customRules, true );
+		CHECK( underwaterState.m_fInSpecialReload == 0 );
+		CHECK( underwaterState.m_flPumpTime == 0.0f );
+
+		// Starting a fresh reload resets any leftover pump timer
+		ShotgunState freshReloadState;
+		freshReloadState.m_fInSpecialReload = 0;
+		freshReloadState.m_flPumpTime = 2.5f;
+		freshReloadState.StartReload( &customRules );
+		CHECK( freshReloadState.m_fInSpecialReload == 1 );
+		CHECK( freshReloadState.m_flPumpTime == 0.0f );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GameplayHooks: FFixMP5UnderwaterDebounce lifecycle and attack delay timing (#190)", "[gameplay][gamerules][hooks][weapons][mp5]" )
+{
+	ResetMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	SECTION( "Vanilla rules returns FALSE preserving canonical SDK timing constants" )
+	{
+		CHECK( pVanillaRules->FFixMP5UnderwaterDebounce() == FALSE );
+	}
+
+	SECTION( "Custom rules returns TRUE when enabled" )
+	{
+		CTestHookRules customRules;
+		CHECK( customRules.FFixMP5UnderwaterDebounce() == FALSE );
+
+		customRules.m_bFixMP5UnderwaterDebounce = true;
+		CHECK( customRules.FFixMP5UnderwaterDebounce() == TRUE );
+	}
+
+	SECTION( "Underwater secondary attack debounce updates both attack channels with weapon time base" )
+	{
+		gpGlobals->time = 15.0f;
+		float flNextPrimaryAttack = 0.0f;
+		float flNextSecondaryAttack = 0.0f;
+
+		auto SimulateMP5SecondaryAttackUnderwater = [&]( CGameRules *pRules ) {
+			if ( pRules && pRules->FFixMP5UnderwaterDebounce() )
+			{
+				flNextSecondaryAttack = flNextPrimaryAttack = gpGlobals->time + 0.15f;
+			}
+			else
+			{
+				flNextPrimaryAttack = 0.15f;
+			}
+		};
+
+		// Vanilla: sets absolute 0.15s on primary, leaves secondary untouched (leading to tick-rate spam)
+		flNextPrimaryAttack = 0.0f;
+		flNextSecondaryAttack = 0.0f;
+		SimulateMP5SecondaryAttackUnderwater( pVanillaRules );
+		CHECK( flNextPrimaryAttack == Catch::Approx( 0.15f ) );
+		CHECK( flNextSecondaryAttack == 0.0f );
+
+		// Fixed: sets both channels to gpGlobals->time + 0.15s, properly debouncing secondary fire
+		CTestHookRules customRules;
+		customRules.m_bFixMP5UnderwaterDebounce = true;
+		flNextPrimaryAttack = 0.0f;
+		flNextSecondaryAttack = 0.0f;
+		SimulateMP5SecondaryAttackUnderwater( &customRules );
+		CHECK( flNextPrimaryAttack == Catch::Approx( 15.15f ) );
+		CHECK( flNextSecondaryAttack == Catch::Approx( 15.15f ) );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
 }

@@ -25,6 +25,7 @@
 #include "ai/nodes.h"
 #include "ai/defaultai.h"
 #include "ai/soundent.h"
+#include "gameplay/gamerules.h"
 #include "systems/crash_handler.h"
 
 extern CGraph WorldGraph;
@@ -137,8 +138,14 @@ int CBaseMonster ::IScheduleFlags( void )
 		return 0;
 	}
 
+	int iInterruptMask = m_pSchedule->iInterruptMask;
+	if ( g_pGameRules )
+	{
+		iInterruptMask = g_pGameRules->FlMonsterScheduleInterruptMask( this, m_pSchedule, iInterruptMask );
+	}
+
 	// strip off all bits excepts the ones capable of breaking this schedule.
-	return m_afConditions & m_pSchedule->iInterruptMask;
+	return m_afConditions & iInterruptMask;
 }
 
 //=========================================================
@@ -154,7 +161,13 @@ BOOL CBaseMonster ::FScheduleValid( void )
 		return FALSE;
 	}
 
-	if ( HasConditions( m_pSchedule->iInterruptMask | bits_COND_SCHEDULE_DONE | bits_COND_TASK_FAILED ) )
+	int iInterruptMask = m_pSchedule->iInterruptMask;
+	if ( g_pGameRules )
+	{
+		iInterruptMask = g_pGameRules->FlMonsterScheduleInterruptMask( this, m_pSchedule, iInterruptMask );
+	}
+
+	if ( HasConditions( iInterruptMask | bits_COND_SCHEDULE_DONE | bits_COND_TASK_FAILED ) )
 	{
 #ifdef DEBUG
 		if ( HasConditions( bits_COND_TASK_FAILED ) && m_failSchedule == SCHED_NONE )

@@ -265,7 +265,17 @@ int CCrowbar::Swing( int fFirst )
 				}
 				m_pPlayer->m_iWeaponVolume = CROWBAR_BODYHIT_VOLUME;
 				if ( !pEntity->IsAlive() )
-					return TRUE;
+				{
+					if ( g_pGameRules && g_pGameRules->FFixMeleeCorpseAttackDelay() )
+					{
+						flVol     = 0.1;
+						fHitWorld = FALSE;
+					}
+					else
+					{
+						return TRUE;
+					}
+				}
 				else
 					flVol = 0.1;
 

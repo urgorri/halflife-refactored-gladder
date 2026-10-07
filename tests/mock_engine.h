@@ -30,6 +30,17 @@ struct MockRadiusDamageCall
 };
 extern std::vector<MockRadiusDamageCall> g_mockRadiusDamageCalls;
 
+struct MockSoundCall
+{
+	edict_t *entity;
+	int channel;
+	std::string sample;
+	float volume;
+	float attenuation;
+	int flags;
+	int pitch;
+};
+extern std::vector<MockSoundCall> g_mockEmittedSounds;
 void SetMockTraceLineResult( const TraceResult &tr );
 void ResetMockEngine();
 void InitMockEngine();
