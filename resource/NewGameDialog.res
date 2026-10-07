@@ -288,6 +288,30 @@
 	}
 
 	// ==========================================
+	// Control Difficulty (necesario internamente para que CNewGameDialog
+	// sepa que la dificultad esta activa y lance startmap 'gl01' en lugar de trainmap 't0a0')
+	// ==========================================
+
+	"Difficulty"
+	{
+		"ControlName"		"ComboBox"
+		"fieldName"		"Difficulty"
+		"xpos"			"450"
+		"ypos"			"0"
+		"wide"			"1"
+		"tall"			"1"
+		"autoResize"		"0"
+		"pinCorner"		"0"
+		"visible"		"1"
+		"enabled"		"1"
+		"tabPosition"		"0"
+		"textHidden"		"0"
+		"editable"		"0"
+		"maxchars"		"-1"
+		"default"		"1"
+	}
+
+	// ==========================================
 	// Boton Training legacy oculto
 	// ==========================================
 
