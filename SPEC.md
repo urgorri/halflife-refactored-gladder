@@ -64,6 +64,7 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Blackout**: Level lights are extinguished into pitch darkness; navigation relies heavily on the HEV flashlight.
     * **Low Gravity**: Xen-like reduced gravity physics applied to both the player and physical debris.
     * **Swarm**: Standard enemy distribution is replaced by a massive horde composed exclusively of a single randomly selected monster species (e.g., all Houndeyes, all Headcrabs, or all Alien Grunts).
+    * **Mutator Siren Silencing on Wave Completion**: The ominous alert siren played when a special mutator starts (such as Blackout) must be explicitly stopped upon wave completion (`trigger_gladder_end`) or when mutators are reverted, preventing the audio loop from persisting indefinitely during subsequent waves.
 * **Modernized Monster Turning Speed (`yawspeed`)**:
   * Original Half-Life monsters feature sluggish turning rates (`m_flYawSpeed`), resulting in slow rotational reaction times that feel dated and allow players to easily bypass or stand behind monsters without being tracked.
   * In this mod, the default `yawspeed` across all monster species is increased globally to deliver snappy, modern arcade responsiveness.
@@ -79,6 +80,7 @@ Instead of progressing linearly through a series of maps, players run through a 
     * `func_healthcharger`: Vibrant Green glow (`RGB(32, 255, 32)`) and localized green dynamic light.
     * `func_recharge`: Golden-Amber / Orange glow (`RGB(255, 140, 20)`) and localized amber dynamic light.
   * **Depletion Feedback**: The instant the station's capacity is exhausted by player use (`frame == 1`), the glow shell and dynamic light immediately extinguish, providing clear visual feedback that the station is depleted until the next wave reset.
+  * **Healing & Charging Sound Termination at Maximum Capacity**: When a player interacts with a wall charger (`func_healthcharger` or `func_recharge`), continuous charging must terminate immediately once the player reaches full health or armor capacity (100). If the player continues holding `+USE` while fully saturated, the charger stops the continuous looping charging sound, shuts off, and emits the denial acoustic cue (`GetDenySound()`), preventing the historic GoldSrc bug where chargers loop their charging sound indefinitely while remaining juice is present.
 
 
 
@@ -150,7 +152,7 @@ The mod provides mapper-friendly entities to simplify setting up any custom or e
 * **Wave Start Staging Zone (Point A)**: Defines the player's initial spawn point and return destination. Level designers configure Point A as a secure staging area free of monster spawn grids, with manual initiation mechanisms (e.g., airlock doors, start line triggers) that fire wave commencement on demand.
 * **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, immediately snaps the screen to solid black (instant 100% black fade), teleports the player back to Point A while completely obscured, and fades the screen progressively back to 0% transparency to reveal the staging area.
 * **Wave State Relays**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
-* **End-Game Backdrop Cameras (`gladder_camera`)**: Support for placing multiple `gladder_camera` point entities (subclass of `trigger_camera`) across the map without requiring a specific `targetname`. During the post-game summary screen, the mod automatically and equitably cycles through all `gladder_camera` entities in the level in order, splitting view time equally among them to deliver dynamic scenic vistas of the arena. If none are placed, dynamic fallback cameras are generated overlooking the player.
+* **End-Game Backdrop Cameras (`gladder_camera`)**: Support for placing multiple `gladder_camera` point entities (subclass of `trigger_camera`) across the map without requiring a specific `targetname`. During the post-game summary screen, the mod automatically cycles through backdrop cameras. The sequence ALWAYS begins with the dynamic third-person camera overlooking the player first. If map-placed `gladder_camera` entities exist in the level, the view then smoothly transitions sequentially through each of them in order, splitting view time equally among them, before looping back to the third-person camera and repeating the sequence indefinitely.
 * **Area Definition Volumes**: Bounding box entities with designer parameters for indexing scope and zoning.
 * **Wall-Mounted Stations**: Mappers place standard `func_healthcharger` and `func_recharge` brush entities across the map or at staging areas; the mod engine automatically manages their recharge cycle and wave-based diminishing capacity.
 
@@ -228,7 +230,7 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 Distinct audio cues provide immediate acoustic feedback for critical match state transitions (specific sound asset files to be designated during implementation):
 * **Wave Start Cue**: A punchy, energizing audio sting triggered when the wave commences from Point A.
 * **Wave Completion Cue**: A rewarding, triumphant sound effect played the instant Point B is touched and the wave loop finishes.
-* **Special Wave / Mutator Alert Cue**: An ominous, siren-like warning sound indicating that a special wave modifier (Blackout, Low Gravity, Swarm) is active.
+* **Special Wave / Mutator Alert Cue**: An ominous, siren-like warning sound indicating that a special wave modifier (Blackout, Low Gravity, Swarm) is active. The cue is explicitly terminated and silenced upon wave completion at Point B, preventing continuous looping into subsequent waves.
 * **Collectible Pickup Cue**: A bright, distinctive chime played when collecting the wave's hidden Lambda insignia item.
 * **Match End Cue**: A dramatic, definitive sound effect played upon run termination (clock expiration or player death) before transitioning to the summary screen.
 
@@ -256,7 +258,7 @@ Upon match conclusion—whether through **time limit expiration** or **player de
   * Players can freely toggle between the statistical summary view and the local leaderboard/high-scores view using `[TAB]`.
   * The interface remains on screen until the player exits or restarts the level through standard engine commands (`restart`, `disconnect`, `map`). *(Note: During active gameplay, holding `[TAB]` allows peeking at the leaderboard and releasing `[TAB]` dismisses it).*
 * **Multi-Camera Backdrop Rotation (`gladder_camera`)**:
-  * The player's viewport switches immediately to in-level cameras. The mod sequentially and equitably cycles through all `gladder_camera` entities placed in the map, holding on each camera for an equal duration to showcase multiple dynamic vantage points of the arena during the summary. If no `gladder_camera` entities are present, a dynamic fallback camera is used.
+  * The player's viewport switches immediately to end-game backdrop cameras. The rotation sequence ALWAYS begins with the dynamic third-person view overlooking the player. It then sequentially and equitably cycles through all `gladder_camera` entities placed in the map, holding on each camera for an equal duration to showcase multiple dynamic vantage points of the arena, before looping back to the third-person view and repeating cyclically.
   * The living environment remains visible and active in the background while the statistical results, animated score tally, and final rank grade are rendered clearly overlaid on screen.
 * **Darkened Viewport Overlay**:
   * While rendering the post-match summary screen or in-game leaderboard/scoreboard, the underlying 3D viewport is dimmed / darkened with a translucent dark overlay (rather than lightened/additive tinting), giving the distinct aesthetic feel of a focused modal HUD overlay while keeping the living 3D world visible behind.
@@ -302,6 +304,7 @@ Upon match conclusion—whether through **time limit expiration** or **player de
 ### 10.2 Local Map Leaderboards (High Scores)
 * **Persistent Records**: Each map retains a local high-score record file on disk (`gladder/scores/<mapname>.dat` or JSON).
 * **Tracked Metrics**: Records the Top 10 runs per map, logging Date, Final Score, Waves Cleared, Total Frags, Total Time, and Earned Grade.
+* **Column-Aligned Tabular Grid**: The local leaderboard overlay is rendered as an orderly, column-aligned tabular grid centered in the viewport. Rather than drawing each run record as a single space-padded text line (which misaligns due to proportional character widths in engine fonts), each column (Rank, Score, Waves, Frags, Time, Grade, Status) renders its entries along dedicated vertical coordinate axes with fixed column offsets, ensuring clean, legible column alignment across all screen resolutions.
 * **Future-Proof Baseline**: Designed as the local data layer that can later interface with external web-based leaderboards.
 
 ### 10.3 Save / Load Restrictions & Death Flow
@@ -310,6 +313,16 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 * **No Load Functionality**: Loading existing save files during a session (quick-load or menu load) is disabled.
 * **Session Finality & Seamless Death Transition**: Each session represents a single, self-contained run. Player death bypasses original save reload and main menu prompts, seamlessly launching the end-of-run summary screen with full score calculation and high score recording.
 * **Corpse Orientation Lock**: Upon player death, the orientation angles (yaw, pitch, roll) of the 3D player corpse model are permanently locked at the exact moment and position of death. Moving the mouse or looking around in third-person view / death cameras must not pivot or rotate the dead player model on the floor.
+
+### 10.4 In-Game Match Restart (`GameMenu` Integration)
+* **On-Demand Match Restart**: Players can restart their active gauntlet run on demand via the in-game escape menu (`resource/GameMenu.res`).
+* **GameMenu Entry**: A dedicated "Restart Match" option (`#GameUI_GameMenu_RestartGame` / "Restart Match") executes an engine level reload (`engine restart` / `restart`), reloading the current map from Wave 1.
+* **State Reset**: Reloading the match cleanly purges all accumulated session metrics, resets combo streaks, restores procedural spawner state, and returns the player to Point A with the default staging loadout (`item_suit` and `weapon_crowbar`).
+
+### 10.5 New Game Gauntlet Map Selection (Map Selector vs. Legacy Difficulty)
+* **Map Selection Architecture**: Replaces the legacy Half-Life difficulty selection dialog (`#GameUI_Difficulty` ComboBox in `NewGameDialog`) with a Gauntlet Map Selector.
+* **Obsolete Manual Difficulty**: Because Half-Life: Gladder enforces automatic wave-progressive engine skill scaling (`skill 1` -> `skill 2` -> `skill 3` as defined in Section 3), manual difficulty selection is obsolete.
+* **Gauntlet Arena Selection**: When selecting "New Game" from the main menu, the player is presented with a map list interface allowing selection among available gauntlet maps (e.g. `gladder_crossfire`, `gladder_bootcamp`, or custom community maps), initiating the chosen level directly.
 
 ---
 
