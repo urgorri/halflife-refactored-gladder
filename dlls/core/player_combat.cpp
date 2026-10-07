@@ -344,6 +344,11 @@ void CBasePlayer::Killed( entvars_t *pevAttacker, int iGib )
 	if ( m_pActiveItem )
 		m_pActiveItem->Holster();
 
+	if ( g_pGameRules && g_pGameRules->FSilenceLoopingWeaponSoundsOnDeath() )
+	{
+		EMIT_SOUND( ENT( pev ), CHAN_WEAPON, "common/null.wav", 1.0, ATTN_NORM );
+	}
+
 	g_pGameRules->PlayerKilled( this, pevAttacker, g_pevLastInflictor );
 
 	if ( m_pTank != NULL )

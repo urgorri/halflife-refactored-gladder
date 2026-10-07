@@ -17,6 +17,8 @@
 #include "ai/basemonster.h"
 #include <string>
 
+struct Schedule_t;
+
 class GladderMonsterModifiers
 {
   public:
@@ -34,6 +36,12 @@ class GladderMonsterModifiers
 
 	// Check whether a monster is an airborne or stationary entity exempt from 2D yaw scaling
 	static bool IsExemptSpecies( const std::string &szClassname );
+
+	// Augment monster schedule interrupt masks for active movement and chase schedules (SPEC §3, Issue #64)
+	static int GetScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask );
+
+	// Determine if a schedule or monster represents an active movement/chase state
+	static bool IsMovementSchedule( Schedule_t *pSchedule, CBaseMonster *pMonster = nullptr );
 };
 
 #endif // GLADDER_MONSTER_MODIFIERS_H

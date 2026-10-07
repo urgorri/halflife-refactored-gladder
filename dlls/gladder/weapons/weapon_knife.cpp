@@ -245,9 +245,22 @@ int CKnife::Swing( int fFirst )
 				}
 				m_pPlayer->m_iWeaponVolume = KNIFE_BODYHIT_VOLUME;
 				if ( !pEntity->IsAlive() )
-					return TRUE;
-				flVol = 0.1f;
-				fHitWorld = FALSE;
+				{
+					if ( g_pGameRules && g_pGameRules->FFixMeleeCorpseAttackDelay() )
+					{
+						flVol     = 0.1f;
+						fHitWorld = FALSE;
+					}
+					else
+					{
+						return TRUE;
+					}
+				}
+				else
+				{
+					flVol     = 0.1f;
+					fHitWorld = FALSE;
+				}
 			}
 		}
 
@@ -263,9 +276,9 @@ int CKnife::Swing( int fFirst )
 				EMIT_SOUND_DYN( m_pPlayer->edict(), CHAN_ITEM, "weapons/knife_hit_wall2.wav", fvolbar, ATTN_NORM, 0, 98 + RANDOM_LONG( 0, 3 ) );
 				break;
 			}
-			m_trHit = tr;
 		}
 
+		m_trHit = tr;
 		m_pPlayer->m_iWeaponVolume = flVol * KNIFE_WALLHIT_VOLUME;
 
 		SetThink( &CKnife::Smack );

@@ -25,6 +25,7 @@ class CBasePlayer;
 class CItem;
 class CBasePlayerAmmo;
 class CBaseMonster;
+struct Schedule_t;
 
 // weapon respawning return codes
 enum
@@ -180,7 +181,14 @@ class CGameRules
 	virtual float FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed ) { return flDefaultYawSpeed; }
 	// Allows gamemodes to permit, filter, or suppress items dropped by monsters
 	virtual BOOL FCanMonsterDropItem( CBaseMonster *pMonster, const char *pszItemName ) { return TRUE; }
+	// Allows gamemodes to augment or override a monster's schedule interrupt mask
+	virtual int FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask ) { return iDefaultMask; }
 
+	// Weapons, audio, and combat lifecycle hooks
+	virtual BOOL FFixMeleeCorpseAttackDelay( void ) { return FALSE; }
+	virtual BOOL FSilenceLoopingWeaponSoundsOnDeath( void ) { return FALSE; }
+	virtual BOOL FFixShotgunReloadDesync( void ) { return FALSE; }
+	virtual BOOL FFixMP5UnderwaterDebounce( void ) { return FALSE; }
 
 	// Immediately end a multiplayer game
 	virtual void EndMultiplayerGame( void ) {}

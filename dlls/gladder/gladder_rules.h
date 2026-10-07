@@ -117,7 +117,24 @@ class CGladderRules : public CHalfLifeRules
 
 	// Accessors
 	CGladderWaveManager &GetWaveManager( void ) { return m_waveManager; }
+	// Arcade monster damage reactivity & path interruption (SPEC §3, Issue #64)
+	int FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask ) override;
+
+	// Melee combat cadence normalization & corpse impact decals (SPEC §7.6, Issue #65)
+	BOOL FFixMeleeCorpseAttackDelay( void ) override { return TRUE; }
+
+	// Looping weapon audio termination on player death (SPEC §7.7, Issue #66)
+	BOOL FSilenceLoopingWeaponSoundsOnDeath( void ) override { return TRUE; }
+
+	// Shotgun interrupted reload & pump state synchronization (SPEC §7.8, Issue #67)
+	BOOL FFixShotgunReloadDesync( void ) override { return TRUE; }
+
+	// Submerged weapon firing debounce normalization (SPEC §7.9, Issue #68)
+	BOOL FFixMP5UnderwaterDebounce( void ) override { return TRUE; }
+
 	GladderGridIndexer &GetGridIndexer( void ) { return m_gridIndexer; }
+	bool IsGridIndexAttempted( void ) const { return m_bGridIndexAttempted; }
+	void SetGridIndexAttempted( bool bAttempted ) { m_bGridIndexAttempted = bAttempted; }
 	GladderSpawner &GetSpawner( void ) { return m_spawner; }
 	GladderMapConfig &GetMapConfig( void ) { return m_mapConfig; }
 	GladderComboTracker &GetComboTracker( void ) { return m_comboTracker; }
@@ -137,6 +154,7 @@ class CGladderRules : public CHalfLifeRules
   private:
 	CGladderWaveManager m_waveManager;
 	GladderGridIndexer m_gridIndexer;
+	bool m_bGridIndexAttempted;
 	GladderSpawner m_spawner;
 	GladderMapConfig m_mapConfig;
 	GladderComboTracker m_comboTracker;

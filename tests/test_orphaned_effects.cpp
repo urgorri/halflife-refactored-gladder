@@ -143,9 +143,9 @@ TEST_CASE( "Effects: CBeam self-terminates when endpoint entity is removed or fr
 	memset( &beamEdict, 0, sizeof( beamEdict ) );
 
 	CBeam beam;
-	beam.pev = &beamEdict.v;
-	beam.m_pfnThink     = nullptr;
+	beam.pev            = &beamEdict.v;
 	beam.pev->classname = MAKE_STRING( "beam" );
+	beam.m_pfnThink     = nullptr;
 	gpGlobals->time     = 2.0f;
 
 	SECTION( "BEAM_ENTPOINT: Alive end entity preserves beam" )

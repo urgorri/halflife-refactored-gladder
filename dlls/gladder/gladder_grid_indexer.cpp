@@ -120,7 +120,7 @@ bool GladderGridIndexer::LoadOrCreate( const char *pszMapName )
 	}
 	else
 	{
-		ALERT( at_console, "[Gladder] WARNING: Spatial grid generation produced 0 valid cells for '%s'\n", pszMapName );
+		ALERT( at_console, "[Gladder] WARNING: Spatial grid generation produced 0 valid cells for '%s' (check trigger_gladder_area bounds and vertical floor clearances)\n", pszMapName );
 	}
 
 	return bBuilt;
@@ -555,6 +555,6 @@ void Gladder_ReindexGrid_Cmd( void )
 	}
 	else
 	{
-		ALERT( at_console, "[Gladder] Spatial grid reindex failed: no valid cells found.\n" );
+		ALERT( at_console, "[Gladder] Spatial grid reindex failed: no valid cells found (check trigger_gladder_area bounds and vertical floor clearances).\n" );
 	}
 }

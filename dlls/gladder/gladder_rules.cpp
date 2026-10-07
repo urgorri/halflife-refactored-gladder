@@ -46,6 +46,7 @@ CGladderRules::CGladderRules()
     : m_bInitialSpawnDone( false ),
       m_bRestoreAttempted( false ),
       m_bPendingSavePurge( false ),
+      m_bGridIndexAttempted( false ),
       m_iTotalFrags( 0 ),
       m_iCollectiblesCount( 0 ),
       m_flTotalDamageTaken( 0.0f ),
@@ -98,6 +99,7 @@ CGladderRules::CGladderRules()
 			std::string gridPath = GladderGridIndexer::GetGridFilePath( pszMap );
 			if ( m_gridIndexer.LoadFromFile( gridPath.c_str() ) )
 			{
+				m_bGridIndexAttempted = true;
 				ALERT( at_console, "[Gladder] Loaded %u spatial grid cells from '%s'\n",
 				       static_cast<unsigned int>( m_gridIndexer.GetCellCount() ), gridPath.c_str() );
 			}
@@ -122,12 +124,14 @@ void CGladderRules::Think( void )
 	m_waveManager.Tick( flTime );
 	m_comboTracker.Update( flTime );
 
-	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active
-	if ( !m_gridIndexer.IsLoaded() && gpGlobals && gpGlobals->mapname )
+	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active.
+	// Only attempt once per map to prevent per-tick console spam if map yields 0 cells (Issue #63).
+	if ( !m_bGridIndexAttempted && gpGlobals && gpGlobals->mapname )
 	{
 		const char *pszMap = STRING( gpGlobals->mapname );
 		if ( pszMap && *pszMap )
 		{
+			m_bGridIndexAttempted = true;
 			m_gridIndexer.LoadOrCreate( pszMap );
 		}
 	}
@@ -337,6 +341,8 @@ void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entv
 	if ( pVictim && pVictim->pev )
 	{
 		m_vecDeathAngles = pVictim->pev->angles;
+		// Terminate any active looping weapon audio on player death (SPEC §7.7, Issue #66)
+		EMIT_SOUND( ENT( pVictim->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
 	}
 	m_waveManager.EndMatch( flTime, false );
 	m_modifiers.RevertMutators();
@@ -365,6 +371,11 @@ void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, en
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
 {
 	return GladderMonsterModifiers::GetModernYawSpeed( pMonster, flDefaultYawSpeed );
+}
+
+int CGladderRules::FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask )
+{
+	return GladderMonsterModifiers::GetScheduleInterruptMask( pMonster, pSchedule, iDefaultMask );
 }
 
 BOOL CGladderRules::FCanMonsterDropItem( CBaseMonster *pMonster, const char *pszItemName )
