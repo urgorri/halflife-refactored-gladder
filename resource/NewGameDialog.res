@@ -90,10 +90,13 @@
 		"brighttext"		"0"
 	}
 
-	"LaunchButton1"
+	// PlayGame es la flecha de la Fila 1:
+	// 1. Elimina el boton Play de la esquina (0,0) porque CNewGameDialog lo posiciona aqui
+	// 2. Ejecuta el comando nativo "Play" que lanza map gl01 al hacer clic
+	"PlayGame"
 	{
 		"ControlName"		"Button"
-		"fieldName"		"LaunchButton1"
+		"fieldName"		"PlayGame"
 		"xpos"			"338"
 		"ypos"			"65"
 		"wide"			"38"
@@ -106,7 +109,7 @@
 		"labelText"		"➔"
 		"textAlignment"		"center"
 		"dulltext"		"0"
-		"command"		"engine map gl01"
+		"command"		"Play"
 		"default"		"1"
 	}
 
@@ -177,17 +180,16 @@
 		"autoResize"		"0"
 		"pinCorner"		"0"
 		"visible"		"1"
-		"enabled"		"1"
+		"enabled"		"0"
 		"tabPosition"		"2"
 		"labelText"		"➔"
 		"textAlignment"		"center"
 		"dulltext"		"0"
-		"command"		"engine map gl02"
 		"default"		"0"
 	}
 
 	// ==========================================
-	// Fila 3: gl03 (Almacén)
+	// Fila 3: gl03 (Almacen)
 	// ==========================================
 
 	"MapPic3"
@@ -236,7 +238,7 @@
 		"pinCorner"		"0"
 		"visible"		"1"
 		"enabled"		"1"
-		"labelText"		"Almacén - 12 jugadores"
+		"labelText"		"Almacen - 12 jugadores"
 		"textAlignment"		"west"
 		"dulltext"		"1"
 		"brighttext"		"0"
@@ -253,17 +255,16 @@
 		"autoResize"		"0"
 		"pinCorner"		"0"
 		"visible"		"1"
-		"enabled"		"1"
+		"enabled"		"0"
 		"tabPosition"		"3"
 		"labelText"		"➔"
 		"textAlignment"		"center"
 		"dulltext"		"0"
-		"command"		"engine map gl03"
 		"default"		"0"
 	}
 
 	// ==========================================
-	// Botón Cancelar (Abajo a la derecha)
+	// Boton Cancelar (Abajo a la derecha)
 	// ==========================================
 
 	"Cancel"
@@ -287,20 +288,8 @@
 	}
 
 	// ==========================================
-	// Botones obligatorios en C++ ocultados fuera de pantalla
+	// Boton Training legacy oculto
 	// ==========================================
-
-	"PlayGame"
-	{
-		"ControlName"		"Button"
-		"fieldName"		"PlayGame"
-		"xpos"			"-500"
-		"ypos"			"-500"
-		"wide"			"1"
-		"tall"			"1"
-		"visible"		"0"
-		"enabled"		"0"
-	}
 
 	"Training"
 	{
