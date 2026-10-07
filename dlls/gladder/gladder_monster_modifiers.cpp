@@ -7,7 +7,10 @@
  ****/
 
 #include "gladder_monster_modifiers.h"
+#include "ai/schedule.h"
+#include "ai/activity.h"
 #include <algorithm>
+#include <cstring>
 
 bool GladderMonsterModifiers::IsExemptSpecies( const std::string &szClassname )
 {
@@ -106,3 +109,71 @@ float GladderMonsterModifiers::GetModernYawSpeed( CBaseMonster *pMonster, float 
 
 	return speed;
 }
+
+bool GladderMonsterModifiers::IsMovementSchedule( Schedule_t *pSchedule, CBaseMonster *pMonster )
+{
+	if ( !pSchedule )
+		return false;
+
+	// Check if the schedule contains any movement or path navigation tasks
+	if ( pSchedule->pTasklist && pSchedule->cTasks > 0 )
+	{
+		for ( int i = 0; i < pSchedule->cTasks; ++i )
+		{
+			int task = pSchedule->pTasklist[i].iTask;
+			if ( task == TASK_RUN_PATH ||
+			     task == TASK_WALK_PATH ||
+			     task == TASK_STRAFE_PATH ||
+			     task == TASK_WAIT_FOR_MOVEMENT ||
+			     task == TASK_WALK_TO_TARGET ||
+			     task == TASK_RUN_TO_TARGET ||
+			     task == TASK_MOVE_TO_TARGET_RANGE ||
+			     task == TASK_GET_PATH_TO_ENEMY ||
+			     task == TASK_GET_PATH_TO_ENEMY_LKP ||
+			     task == TASK_GET_PATH_TO_TARGET ||
+			     task == TASK_GET_PATH_TO_SPOT )
+			{
+				return true;
+			}
+		}
+	}
+
+	// Name-based detection for custom, squad, or species-specific schedules
+	if ( pSchedule->pName )
+	{
+		const char *psz = pSchedule->pName;
+		if ( strstr( psz, "Chase" ) || strstr( psz, "chase" ) ||
+		     strstr( psz, "LineOfFire" ) || strstr( psz, "Route" ) ||
+		     strstr( psz, "Path" ) || strstr( psz, "Follow" ) ||
+		     strstr( psz, "Run" ) || strstr( psz, "Walk" ) ||
+		     strstr( psz, "Move" ) || strstr( psz, "Approach" ) ||
+		     strstr( psz, "Hunt" ) )
+		{
+			return true;
+		}
+	}
+
+	// Active locomotion state on the monster itself
+	if ( pMonster )
+	{
+		if ( pMonster->m_movementGoal != 0 /* MOVEGOAL_NONE */ ||
+		     pMonster->m_Activity == ACT_WALK ||
+		     pMonster->m_Activity == ACT_RUN )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+int GladderMonsterModifiers::GetScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask )
+{
+	if ( IsMovementSchedule( pSchedule, pMonster ) )
+	{
+		return iDefaultMask | bits_COND_LIGHT_DAMAGE | bits_COND_HEAVY_DAMAGE;
+	}
+
+	return iDefaultMask;
+}
+

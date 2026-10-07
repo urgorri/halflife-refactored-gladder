@@ -68,6 +68,10 @@ Instead of progressing linearly through a series of maps, players run through a 
   * Original Half-Life monsters feature sluggish turning rates (`m_flYawSpeed`), resulting in slow rotational reaction times that feel dated and allow players to easily bypass or stand behind monsters without being tracked.
   * In this mod, the default `yawspeed` across all monster species is increased globally to deliver snappy, modern arcade responsiveness.
   * Monsters turn and re-orient toward flanking or sprinting players significantly faster, eliminating exploitable blind spots and maintaining high-intensity combat pressure during fast runs.
+* **Arcade Monster Combat Reactivity & Damage Interruption During Movement**:
+  * **Elimination of Path-Marching Vulnerability**: In standard GoldSrc AI, monsters traversing movement routes, path corners, or pursuit goals (e.g. `SCHED_CHASE_ENEMY`, `slGruntEstablishLineOfFire`, `slSquidChaseEnemy`) omit damage conditions (`bits_COND_LIGHT_DAMAGE`, `bits_COND_HEAVY_DAMAGE`) from their schedule interrupt masks. Consequently, if a monster is attacked, whacked with the crowbar, or shot while walking between waypoints from Point A to Point B, it ignores the player's strikes, suppression, or flinches, continuing its march blindly until arriving at its destination before finally reacting. This creates a severe combat exploit where enemies are left completely defenseless during movement.
+  * **Immediate Schedule Damage Interruption**: In Half-Life: Gladder, monster routines are modernized to maintain aggressive combat challenge and eliminate vulnerability states. Any combat damage sustained during movement or route following immediately interrupts the active movement schedule via gamemode schedule interrupt augmentation (`FlMonsterScheduleInterruptMask` in `CGladderRules`).
+  * **Immediate Reorientation & Retaliation**: Upon receiving damage while moving, monsters immediately break their transit, play appropriate pain flinches or species-specific defensive evasions (such as Bullsquid hurt-hop turnarounds), snap their yaw orientation toward the attacker's last known position (`m_vecEnemyLKP`), re-acquire the player as their active enemy, and transition directly into offensive retaliation instead of finishing their march.
 * **Diminishing Wall Charger Capacity & Active State Glow**:
   * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
   * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.
@@ -199,6 +203,24 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * The mechanic is governed by a console variable (`gladder_autoswitch_on_pickup`, default `0`):
   * `gladder_autoswitch_on_pickup 0` (Default): Running over a new weapon silently adds it to the player's inventory/ammo pool without interrupting combat or switching the active weapon. (If the player has no weapon drawn, e.g. empty hands, it automatically equips).
   * `gladder_autoswitch_on_pickup 1`: Restores classic Half-Life autoswitch behavior on pickup.
+
+### 7.6 Melee Combat Cadence Normalization & Corpse Impact Decals
+* **Elimination of Rapid Corpse Hit Exploit**: In vanilla Half-Life, striking dead monster corpses or player bodies with melee weapons (`weapon_crowbar`, `weapon_knife`, `weapon_pipewrench`) bypasses the attack cooldown timer due to a premature return in the strike routine, enabling players to swing at supersonic frame rates and instantly shred corpses.
+* **Consistent 0.25s Cadence**: In Half-Life: Gladder, melee weapon strikes against dead entities maintain the identical standard attack delay (0.25 seconds) as living targets, preventing audio spam and unintended exploit speeds.
+* **Corpse Blood Decals**: Impact smack routines are properly scheduled so that melee strikes against flesh corpses consistently spawn blood impact decals (`DecalGunshot` with `BULLET_PLAYER_CROWBAR`).
+
+### 7.7 Looping Weapon Audio Termination on Player Death
+* In GoldSrc, weapons with continuous looping sound channels (most notably the Gauss gun `weapon_gauss` charging loop `weapons/electro4.wav` or Egon beam loops) fail to terminate their sound channel when the player dies, causing the audio loop to play indefinitely in 3D space at the corpse position.
+* In Half-Life: Gladder, player death immediately silences all looping weapon channels on `CHAN_WEAPON`, guaranteeing a clean acoustic transition to third-person death cameras and the post-match summary screen.
+
+### 7.8 Shotgun Interrupted Reload & Pump State Synchronization
+* In vanilla Half-Life, interrupting the multi-shell reload cycle (`weapon_shotgun`) by firing or quick-switching to another weapon leaves residual pump timers (`m_flPumpTime`) active, causing delayed pump sound triggers and animation desyncs between client prediction and the server.
+* In Half-Life: Gladder, interrupting a shotgun reload immediately and cleanly resets the reload state machine (`m_fInSpecialReload = 0`) and clears pending pump timers (`m_flPumpTime = 0`), guaranteeing seamless weapon swaps and instant responsiveness without phantom reload sounds.
+
+### 7.9 Submerged Weapon Firing Debounce Normalization (MP5 Grenades)
+* In standard GoldSrc, attempting to fire the MP5 grenade launcher (`weapon_mp5` secondary attack) underwater incorrectly updates the primary attack timer instead of secondary attack, using a hardcoded static float (`0.15`) rather than a relative timebase offset (`UTIL_WeaponTimeBase() + 0.15`). Holding down secondary fire while submerged causes the empty sound cue to spam uncontrollably on every frame.
+* In Half-Life: Gladder, secondary attack attempts underwater correctly debounce both attack channels (`m_flNextSecondaryAttack = m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.15`), preventing audio click storms and predicting properly on the client.
+
 ---
 
 ## 8. Arcade Audio Cues & Soundscapes

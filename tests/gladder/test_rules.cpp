@@ -389,3 +389,61 @@ TEST_CASE( "GladderRules: Summary camera cycling and multi-camera support (SPEC 
 	CHECK( mockCameras[currentIdx] == 101 );
 }
 
+TEST_CASE( "GladderRules: Spatial grid indexing retry prevention on empty grid (Issue #63)", "[gladder][grid][rules]" )
+{
+	ResetMockEngine();
+
+	struct MockGridRules : public CTestGladderRulesAutoswitch
+	{
+		bool m_bGridIndexAttempted = false;
+		int m_loadOrCreateCalls = 0;
+
+		void Think( void ) override
+		{
+			if ( !m_bGridIndexAttempted && gpGlobals && gpGlobals->mapname )
+			{
+				m_bGridIndexAttempted = true;
+				m_loadOrCreateCalls++;
+			}
+		}
+	};
+
+	MockGridRules rules;
+	gpGlobals->mapname = MAKE_STRING( "gl01" );
+
+	// Frame 1: first attempt is made
+	rules.Think();
+	CHECK( rules.m_loadOrCreateCalls == 1 );
+	CHECK( rules.m_bGridIndexAttempted == true );
+
+	// Subsequent frames: should NOT retry, preserving 1 call count
+	for ( int frame = 0; frame < 100; ++frame )
+	{
+		rules.Think();
+	}
+	CHECK( rules.m_loadOrCreateCalls == 1 );
+
+	// Manual reindex resets the flag to allow explicit retry
+	rules.m_bGridIndexAttempted = false;
+	rules.Think();
+	CHECK( rules.m_loadOrCreateCalls == 2 );
+}
+
+TEST_CASE( "GladderRules: Gamemode combat and weapon lifecycle hooks enabled (SPEC §3, §7.6-§7.9, Issues #64-#68)", "[gladder][rules][hooks]" )
+{
+	class CTestHookGladderRules : public CTestGladderRulesAutoswitch
+	{
+	  public:
+		BOOL FFixMeleeCorpseAttackDelay( void ) override { return TRUE; }
+		BOOL FSilenceLoopingWeaponSoundsOnDeath( void ) override { return TRUE; }
+		BOOL FFixShotgunReloadDesync( void ) override { return TRUE; }
+		BOOL FFixMP5UnderwaterDebounce( void ) override { return TRUE; }
+	};
+
+	CTestHookGladderRules gladderRules;
+	CHECK( gladderRules.FFixMeleeCorpseAttackDelay() == TRUE );
+	CHECK( gladderRules.FSilenceLoopingWeaponSoundsOnDeath() == TRUE );
+	CHECK( gladderRules.FFixShotgunReloadDesync() == TRUE );
+	CHECK( gladderRules.FFixMP5UnderwaterDebounce() == TRUE );
+}
+

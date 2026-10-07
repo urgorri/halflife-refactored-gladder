@@ -10,6 +10,7 @@
 #include "core/util.h"
 #include "core/cbase.h"
 #include "ai/basemonster.h"
+#include "ai/schedule.h"
 #include "tests/mock_engine.h"
 #include "dlls/gladder/gladder_monster_modifiers.h"
 #include "dlls/gladder/gladder_modifiers.h"
@@ -150,6 +151,11 @@ class CTestGladderRules : public CGameRules
 	{
 		return GladderMonsterModifiers::GetModernYawSpeed( pMonster, flDefaultYawSpeed );
 	}
+
+	int FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask ) override
+	{
+		return GladderMonsterModifiers::GetScheduleInterruptMask( pMonster, pSchedule, iDefaultMask );
+	}
 };
 
 TEST_CASE( "GladderMonsterModifiers: CGladderRules hook integration", "[gladder][yawspeed][gamerules]" )
@@ -160,4 +166,105 @@ TEST_CASE( "GladderMonsterModifiers: CGladderRules hook integration", "[gladder]
 	CTestYawMonster hound( "monster_houndeye" );
 	float speed = rules.FlMonsterYawSpeed( &hound, 30.0f );
 	CHECK( speed == Catch::Approx( 120.0f ) );
+}
+
+TEST_CASE( "GladderMonsterModifiers: Damage interruption during movement schedules (SPEC §3, Issue #64)", "[gladder][combat][interrupt]" )
+{
+	Task_t chaseTasks[] = {
+		{ TASK_GET_PATH_TO_ENEMY, 0.0f },
+		{ TASK_RUN_PATH, 0.0f },
+		{ TASK_WAIT_FOR_MOVEMENT, 0.0f }
+	};
+	Schedule_t chaseSched = {
+		chaseTasks,
+		3,
+		bits_COND_NEW_ENEMY | bits_COND_CAN_RANGE_ATTACK1,
+		0,
+		"Chase Enemy"
+	};
+
+	Task_t gruntElofTasks[] = {
+		{ TASK_GET_PATH_TO_ENEMY, 0.0f },
+		{ TASK_RUN_PATH, 0.0f },
+		{ TASK_WAIT_FOR_MOVEMENT, 0.0f }
+	};
+	Schedule_t gruntElofSched = {
+		gruntElofTasks,
+		3,
+		bits_COND_NEW_ENEMY | bits_COND_ENEMY_DEAD,
+		0,
+		"GruntEstablishLineOfFire"
+	};
+
+	Task_t squidChaseTasks[] = {
+		{ TASK_GET_PATH_TO_ENEMY, 0.0f },
+		{ TASK_RUN_PATH, 0.0f },
+		{ TASK_WAIT_FOR_MOVEMENT, 0.0f }
+	};
+	Schedule_t squidChaseSched = {
+		squidChaseTasks,
+		3,
+		bits_COND_NEW_ENEMY | bits_COND_CAN_MELEE_ATTACK1,
+		0,
+		"Squid Chase Enemy"
+	};
+
+	Task_t dieTasks[] = {
+		{ TASK_DIE, 0.0f }
+	};
+	Schedule_t dieSched = {
+		dieTasks,
+		1,
+		0,
+		0,
+		"Die"
+	};
+
+	Task_t flinchTasks[] = {
+		{ TASK_SMALL_FLINCH, 0.0f }
+	};
+	Schedule_t flinchSched = {
+		flinchTasks,
+		1,
+		0,
+		0,
+		"Small Flinch"
+	};
+
+	SECTION( "IsMovementSchedule correctly identifies movement and chase schedules" )
+	{
+		CHECK( GladderMonsterModifiers::IsMovementSchedule( &chaseSched ) == true );
+		CHECK( GladderMonsterModifiers::IsMovementSchedule( &gruntElofSched ) == true );
+		CHECK( GladderMonsterModifiers::IsMovementSchedule( &squidChaseSched ) == true );
+		CHECK( GladderMonsterModifiers::IsMovementSchedule( &dieSched ) == false );
+		CHECK( GladderMonsterModifiers::IsMovementSchedule( &flinchSched ) == false );
+	}
+
+	SECTION( "GetScheduleInterruptMask augments movement schedules with light and heavy damage bits" )
+	{
+		int chaseMask = GladderMonsterModifiers::GetScheduleInterruptMask( nullptr, &chaseSched, chaseSched.iInterruptMask );
+		CHECK( ( chaseMask & bits_COND_LIGHT_DAMAGE ) != 0 );
+		CHECK( ( chaseMask & bits_COND_HEAVY_DAMAGE ) != 0 );
+		CHECK( ( chaseMask & bits_COND_NEW_ENEMY ) != 0 );
+
+		int gruntMask = GladderMonsterModifiers::GetScheduleInterruptMask( nullptr, &gruntElofSched, gruntElofSched.iInterruptMask );
+		CHECK( ( gruntMask & bits_COND_LIGHT_DAMAGE ) != 0 );
+		CHECK( ( gruntMask & bits_COND_HEAVY_DAMAGE ) != 0 );
+
+		int squidMask = GladderMonsterModifiers::GetScheduleInterruptMask( nullptr, &squidChaseSched, squidChaseSched.iInterruptMask );
+		CHECK( ( squidMask & bits_COND_LIGHT_DAMAGE ) != 0 );
+		CHECK( ( squidMask & bits_COND_HEAVY_DAMAGE ) != 0 );
+
+		int dieMask = GladderMonsterModifiers::GetScheduleInterruptMask( nullptr, &dieSched, dieSched.iInterruptMask );
+		CHECK( ( dieMask & bits_COND_LIGHT_DAMAGE ) == 0 );
+		CHECK( ( dieMask & bits_COND_HEAVY_DAMAGE ) == 0 );
+	}
+
+	SECTION( "Gamemode hook FlMonsterScheduleInterruptMask delegates to GladderMonsterModifiers" )
+	{
+		CTestGladderRules rules;
+		int mask = rules.FlMonsterScheduleInterruptMask( nullptr, &chaseSched, chaseSched.iInterruptMask );
+		CHECK( ( mask & bits_COND_LIGHT_DAMAGE ) != 0 );
+		CHECK( ( mask & bits_COND_HEAVY_DAMAGE ) != 0 );
+	}
 }
