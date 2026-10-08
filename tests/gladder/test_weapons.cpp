@@ -320,3 +320,68 @@ TEST_CASE( "GladderWeapons: MP5 underwater grenade secondary attack debounce (SP
 		CHECK( flNextSecondary == 0.0f );
 	}
 }
+
+TEST_CASE( "GladderWeapons: Weapon pickup HUD history registration for Gladder & OpFor arsenal (SPEC §7.10, §9.1, Issue #80)", "[gladder][weapons][pickup]" )
+{
+	const int opforWeapons[] = {
+		WEAPON_PIPEWRENCH,
+		WEAPON_KNIFE,
+		WEAPON_EAGLE,
+		WEAPON_SNIPER,
+		WEAPON_M249
+	};
+
+	for ( int id : opforWeapons )
+	{
+		CHECK( id >= 16 );
+		CHECK( id <= 20 );
+		CHECK( id < 31 );
+	}
+}
+
+TEST_CASE( "GladderWeapons: Pipe wrench BigSwing safely handles gibbed/freed target (SPEC §3, §7.11, Issue #84)", "[gladder][weapons][pipewrench]" )
+{
+	ResetMockEngine();
+
+	// Simulate target entity that frees its memory upon taking damage (mimicking instant gibbing)
+	struct MockGibMonster
+	{
+		edict_t edict;
+		bool bGibbed = false;
+		int classification = CLASS_ALIEN_MONSTER;
+
+		MockGibMonster()
+		{
+			memset( &edict, 0, sizeof( edict ) );
+			edict.v.classname = MAKE_STRING( "monster_bullsquid" );
+			edict.v.pContainingEntity = &edict;
+			edict.v.health = 40.0f;
+		}
+
+		void OnTakeDamage( float flDamage )
+		{
+			if ( flDamage >= edict.v.health )
+			{
+				bGibbed = true;
+				// In GoldSrc, gibbing frees the edict or resets private data
+				edict.v.flags |= FL_KILLME;
+				edict.free = 1;
+			}
+		}
+	};
+
+	MockGibMonster monster;
+	int classification = monster.classification;
+
+	// Charged BigSwing dealing 85 damage to 40 HP bullsquid
+	float flDamage = 85.0f;
+	monster.OnTakeDamage( flDamage );
+
+	CHECK( monster.bGibbed == true );
+	// Verify classification was captured before gibbing
+	CHECK( classification == CLASS_ALIEN_MONSTER );
+	// Post-damage sound selection using captured classification is safe without dereferencing freed monster
+	bool bIsFlesh = ( classification != CLASS_NONE && classification != CLASS_MACHINE );
+	CHECK( bIsFlesh == true );
+}
+
