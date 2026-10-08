@@ -33,6 +33,7 @@ void CTriggerGladderStart::Spawn( void )
 
 	m_bPlayerCrossed = false;
 	m_hActivatingPlayer = nullptr;
+	m_vecEntryPos = g_vecZero;
 	CreateClipBrush();
 }
 
@@ -103,16 +104,19 @@ void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 			if ( pGladderRules )
 			{
 				int state = pGladderRules->GetWaveManager().GetState();
-				if ( state == GLADDER_STATE_WAITING_FOR_START || state == GLADDER_STATE_WAVE_COMPLETED )
+				if ( state != GLADDER_STATE_WAITING_FOR_START && state != GLADDER_STATE_WAVE_COMPLETED )
 				{
-					pGladderRules->OnWaveTriggerStart( pOther );
-					SUB_UseTargets( pOther, USE_TOGGLE, 0 );
+					return;
 				}
 
-				// Track activating player to monitor when they finish traversing the start threshold
-				m_hActivatingPlayer = pOther;
-				SetThink( &CTriggerGladderStart::CrossThink );
-				pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+				// Only record entry position and engage thinker when initially starting traversal
+				if ( m_hActivatingPlayer == nullptr )
+				{
+					m_hActivatingPlayer = pOther;
+					m_vecEntryPos = pOther->pev->origin;
+					SetThink( &CTriggerGladderStart::CrossThink );
+					pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+				}
 			}
 		}
 		return;
@@ -141,18 +145,76 @@ void CTriggerGladderStart::CrossThink( void )
 
 	CBaseEntity *pPlayer = m_hActivatingPlayer;
 	if ( !pPlayer || !pPlayer->IsAlive() )
-		return;
-
-	if ( !IsEntityInside( pPlayer ) )
 	{
-		// Player has finished crossing through the start volume into the gauntlet arena!
-		m_bPlayerCrossed = true;
-		SetSolidForPlayer( true );
+		m_hActivatingPlayer = nullptr;
+		SetThink( nullptr );
 		return;
 	}
 
-	// Player is still crossing through; check again on next frame
-	pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+	if ( IsEntityInside( pPlayer ) )
+	{
+		// Player is still traversing inside the start trigger volume; check again on next tick
+		pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+		return;
+	}
+
+	// Player is no longer inside the trigger volume!
+	// Determine whether the player actually crossed from one side through to the other,
+	// or merely backed out on the same side they entered.
+	Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+	Vector vecSize = pev->absmax - pev->absmin;
+	Vector vecExitPos = pPlayer->pev->origin;
+	Vector vecEntryDelta = m_vecEntryPos - vecCenter;
+	Vector vecExitDelta = vecExitPos - vecCenter;
+
+	bool bCrossed = false;
+
+	// Crossing requires starting on one side of center and exiting on the opposite side across an axis
+	// with a non-trivial traversal distance across the trigger.
+	if ( vecSize.x > 0.0f && ( vecEntryDelta.x * vecExitDelta.x < 0.0f ) && ( fabs( vecExitPos.x - m_vecEntryPos.x ) >= vecSize.x * 0.5f ) )
+	{
+		bCrossed = true;
+	}
+	else if ( vecSize.y > 0.0f && ( vecEntryDelta.y * vecExitDelta.y < 0.0f ) && ( fabs( vecExitPos.y - m_vecEntryPos.y ) >= vecSize.y * 0.5f ) )
+	{
+		bCrossed = true;
+	}
+	else if ( vecSize.z > 0.0f && ( vecEntryDelta.z * vecExitDelta.z < 0.0f ) && ( fabs( vecExitPos.z - m_vecEntryPos.z ) >= vecSize.z * 0.5f ) )
+	{
+		bCrossed = true;
+	}
+
+	if ( bCrossed )
+	{
+		// Player completely crossed through the start threshold into the gauntlet arena!
+		// Seal the passage solid for the player and trigger wave start.
+		m_bPlayerCrossed = true;
+		SetSolidForPlayer( true );
+
+		if ( g_pGameRules )
+		{
+			CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
+			if ( pGladderRules )
+			{
+				int state = pGladderRules->GetWaveManager().GetState();
+				if ( state == GLADDER_STATE_WAITING_FOR_START || state == GLADDER_STATE_WAVE_COMPLETED )
+				{
+					pGladderRules->OnWaveTriggerStart( pPlayer );
+					SUB_UseTargets( pPlayer, USE_TOGGLE, 0 );
+				}
+			}
+		}
+
+		m_hActivatingPlayer = nullptr;
+		SetThink( nullptr );
+	}
+	else
+	{
+		// Player retreated / backed out the same side they entered.
+		// Do NOT start wave, do NOT seal door. Reset tracking so they can try again.
+		m_hActivatingPlayer = nullptr;
+		SetThink( nullptr );
+	}
 }
 
 void CTriggerGladderStart::SetSolidForPlayer( bool bSolid )
@@ -171,7 +233,9 @@ void CTriggerGladderStart::ResetTrigger( void )
 {
 	m_bPlayerCrossed = false;
 	m_hActivatingPlayer = nullptr;
+	m_vecEntryPos = g_vecZero;
 	SetSolidForPlayer( false );
+	SetThink( nullptr );
 }
 
 void CTriggerGladderStart::StartUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )

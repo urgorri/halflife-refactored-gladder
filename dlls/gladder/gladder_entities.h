@@ -82,6 +82,7 @@ class CTriggerGladderStart : public CBaseTrigger
 
 	EHANDLE m_hClip;
 	EHANDLE m_hActivatingPlayer;
+	Vector m_vecEntryPos;
 	bool m_bPlayerCrossed;
 };
 

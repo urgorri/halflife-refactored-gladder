@@ -930,5 +930,58 @@ TEST_CASE( "Gladder Triggers: CGladderTriggerClip solidity and player passage to
 	CHECK( clip.IsSolidForPlayer() == false );
 }
 
+TEST_CASE( "Gladder Triggers: Wave start trigger requires complete crossing and ignores retreat", "[gladder][triggers][start]" )
+{
+	// Test the traversal logic: crossing requires opposite sign relative to center along an axis and distance >= half size
+	auto CheckCrossing = []( const Vector &mins, const Vector &maxs, const Vector &entryPos, const Vector &exitPos ) -> bool {
+		Vector vecCenter = ( mins + maxs ) * 0.5f;
+		Vector vecSize = maxs - mins;
+		Vector vecEntryDelta = entryPos - vecCenter;
+		Vector vecExitDelta = exitPos - vecCenter;
 
+		if ( vecSize.x > 0.0f && ( vecEntryDelta.x * vecExitDelta.x < 0.0f ) && ( fabs( exitPos.x - entryPos.x ) >= vecSize.x * 0.5f ) )
+			return true;
+		if ( vecSize.y > 0.0f && ( vecEntryDelta.y * vecExitDelta.y < 0.0f ) && ( fabs( exitPos.y - entryPos.y ) >= vecSize.y * 0.5f ) )
+			return true;
+		if ( vecSize.z > 0.0f && ( vecEntryDelta.z * vecExitDelta.z < 0.0f ) && ( fabs( exitPos.z - entryPos.z ) >= vecSize.z * 0.5f ) )
+			return true;
 
+		return false;
+	};
+
+	Vector triggerMins( -32.0f, -64.0f, 0.0f );
+	Vector triggerMaxs( 32.0f, 64.0f, 128.0f );
+
+	SECTION( "Player retreats out the same side they entered (does NOT cross)" )
+	{
+		// Player enters from staging area (X < 0)
+		Vector entryPos( -48.0f, 0.0f, 36.0f );
+		// Player steps inside, then turns around and retreats back out into staging (X < 0)
+		Vector exitPos( -52.0f, 10.0f, 36.0f );
+
+		CHECK_FALSE( CheckCrossing( triggerMins, triggerMaxs, entryPos, exitPos ) );
+	}
+
+	SECTION( "Player traverses through to opposite side (crosses into gauntlet arena)" )
+	{
+		// Player enters from staging area (X < 0)
+		Vector entryPos( -48.0f, 0.0f, 36.0f );
+		// Player walks through trigger and exits into arena on the opposite side (X > 0)
+		Vector exitPos( 48.0f, 0.0f, 36.0f );
+
+		CHECK( CheckCrossing( triggerMins, triggerMaxs, entryPos, exitPos ) );
+	}
+
+	SECTION( "Player traverses along Y axis doorway" )
+	{
+		Vector yMins( -64.0f, -32.0f, 0.0f );
+		Vector yMaxs( 64.0f, 32.0f, 128.0f );
+
+		Vector entryPos( 0.0f, -48.0f, 36.0f );
+		Vector retreatPos( 10.0f, -50.0f, 36.0f );
+		Vector crossPos( 0.0f, 48.0f, 36.0f );
+
+		CHECK_FALSE( CheckCrossing( yMins, yMaxs, entryPos, retreatPos ) );
+		CHECK( CheckCrossing( yMins, yMaxs, entryPos, crossPos ) );
+	}
+}
