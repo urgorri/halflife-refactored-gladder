@@ -15,6 +15,8 @@
 #include <unordered_map>
 #include "util.h"
 #include "cbase.h"
+#include "core/player.h"
+#include "weapons/weapon_base.h"
 #include "ai/soundent.h"
 #include <string>
 
@@ -1382,3 +1384,23 @@ edict_t *DBG_EntOfVars( const entvars_t *pev )
 }
 void DBG_AssertFunction( BOOL fExpr, const char *szExpr, const char *szFile, int szLine, const char *szMessage ) {}
 #endif
+
+BOOL CBasePlayer::HasNamedPlayerItem( const char *pszItemName )
+{
+	if ( !pszItemName || !*pszItemName )
+		return FALSE;
+
+	for ( int i = 0; i < MAX_ITEM_TYPES; i++ )
+	{
+		CBasePlayerItem *pItem = m_rgpPlayerItems[i];
+		while ( pItem )
+		{
+			if ( pItem->pev && pItem->pev->classname && !strcmp( pszItemName, STRING( pItem->pev->classname ) ) )
+			{
+				return TRUE;
+			}
+			pItem = pItem->m_pNext;
+		}
+	}
+	return FALSE;
+}

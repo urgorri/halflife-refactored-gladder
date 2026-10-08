@@ -8,6 +8,7 @@
 
 #include "gladder_spawner.h"
 #include "gladder_modifiers.h"
+#include "core/player.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -46,33 +47,39 @@ static const size_t s_monsterRosterCount = sizeof( s_monsterRoster ) / sizeof( s
 //
 static const GladderPickupDef s_pickupRoster[] = {
 	// Medical & Armor
-	{ "item_healthkit", 1, 1.0f, false, false, true },
-	{ "item_battery", 1, 1.0f, false, false, true },
+	{ "item_healthkit", 1, 1.0f, false, false, true, false },
+	{ "item_battery", 1, 1.0f, false, false, true, false },
 
 	// Ammunition
-	{ "ammo_9mmclip", 1, 1.0f, false, true, false },
-	{ "ammo_9mmAR", 1, 1.0f, false, true, false },
-	{ "ammo_buckshot", 1, 1.0f, false, true, false },
-	{ "ammo_357", 2, 0.8f, false, true, false },
-	{ "ammo_ARgrenades", 2, 0.6f, false, true, false },
-	{ "ammo_762", 2, 0.6f, false, true, false },
-	{ "ammo_556", 2, 0.7f, false, true, false },
-	{ "ammo_rpgclip", 3, 0.5f, false, true, false },
+	{ "ammo_9mmclip", 1, 1.0f, false, true, false, false },
+	{ "ammo_9mmAR", 1, 1.0f, false, true, false, false },
+	{ "ammo_buckshot", 1, 1.0f, false, true, false, false },
+	{ "ammo_357", 2, 0.8f, false, true, false, false },
+	{ "ammo_ARgrenades", 2, 0.6f, false, true, false, false },
+	{ "ammo_762", 2, 0.6f, false, true, false, false },
+	{ "ammo_556", 2, 0.7f, false, true, false, false },
+	{ "ammo_rpgclip", 3, 0.5f, false, true, false, false },
 
-	// Weapons
-	{ "weapon_knife", 1, 0.7f, true, false, false },
-	{ "weapon_pipewrench", 1, 0.6f, true, false, false },
-	{ "weapon_glock", 1, 0.8f, true, false, false },
-	{ "weapon_shotgun", 1, 0.7f, true, false, false },
-	{ "weapon_mp5", 2, 0.8f, true, false, false },
-	{ "weapon_357", 2, 0.6f, true, false, false },
-	{ "weapon_eagle", 2, 0.6f, true, false, false },
-	{ "weapon_crossbow", 3, 0.5f, true, false, false },
-	{ "weapon_sniper", 3, 0.4f, true, false, false },
-	{ "weapon_m249", 3, 0.35f, true, false, false },
-	{ "weapon_rpg", 3, 0.4f, true, false, false },
-	{ "weapon_gauss", 3, 0.4f, true, false, false },
-	{ "weapon_egon", 3, 0.3f, true, false, false },
+	// Fixed Weapons (SPEC §3)
+	{ "weapon_knife", 1, 0.7f, true, false, false, false },
+	{ "weapon_pipewrench", 1, 0.6f, true, false, false, false },
+	{ "weapon_glock", 1, 0.8f, true, false, false, false },
+	{ "weapon_shotgun", 1, 0.7f, true, false, false, false },
+	{ "weapon_mp5", 2, 0.8f, true, false, false, false },
+	{ "weapon_357", 2, 0.6f, true, false, false, false },
+	{ "weapon_eagle", 2, 0.6f, true, false, false, false },
+	{ "weapon_crossbow", 3, 0.5f, true, false, false, false },
+	{ "weapon_sniper", 3, 0.4f, true, false, false, false },
+	{ "weapon_m249", 3, 0.35f, true, false, false, false },
+	{ "weapon_rpg", 3, 0.4f, true, false, false, false },
+	{ "weapon_gauss", 3, 0.4f, true, false, false, false },
+	{ "weapon_egon", 3, 0.3f, true, false, false, false },
+
+	// Consumable Ordnance Weapons (SPEC §3, §7, Issue #78)
+	{ "weapon_handgrenade", 1, 0.8f, false, false, false, true },
+	{ "weapon_tripmine", 2, 0.6f, false, false, false, true },
+	{ "weapon_satchel", 2, 0.6f, false, false, false, true },
+	{ "weapon_snark", 3, 0.5f, false, false, false, true },
 };
 
 static const size_t s_pickupRosterCount = sizeof( s_pickupRoster ) / sizeof( s_pickupRoster[0] );
@@ -324,6 +331,26 @@ float GladderSpawner::GetWeaponTierWeight( int tier, int iWaveNumber )
 	}
 }
 
+float GladderSpawner::GetOrdnanceTierWeight( int tier, int iWaveNumber )
+{
+	float w = static_cast<float>( (std::max)( 1, iWaveNumber ) );
+
+	switch ( tier )
+	{
+		case 1:
+			// Hand grenades: available immediately across all waves, floor at 10.0f
+			return (std::max)( 10.0f, 25.0f - ( w - 1.0f ) * 2.0f );
+		case 2:
+			// Tripmines & Satchels: available from wave 2+, scales to 20.0f
+			return ( w < 2.0f ) ? 0.0f : (std::min)( 20.0f, 8.0f + ( w - 2.0f ) * 2.5f );
+		case 3:
+			// Snarks: available from wave 3+, scales to 15.0f
+			return ( w < 3.0f ) ? 0.0f : (std::min)( 15.0f, 5.0f + ( w - 3.0f ) * 2.5f );
+		default:
+			return 8.0f;
+	}
+}
+
 int GladderSpawner::GetActiveEdictCount()
 {
 	if ( !gpGlobals )
@@ -440,8 +467,13 @@ const char *GladderSpawner::RollMonsterSpecies( int iWaveNumber, const GladderMa
 	return s_monsterRoster[lastIdx].szClassname;
 }
 
-const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapConfig &config )
+const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer )
 {
+	if ( !pPlayer && gpGlobals )
+	{
+		pPlayer = (CBasePlayer *)UTIL_PlayerByIndex( 1 );
+	}
+
 	std::vector<float> weights;
 	std::vector<size_t> indices;
 	weights.reserve( s_pickupRosterCount );
@@ -456,9 +488,23 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 		if ( def.isWeapon && !config.IsWeaponAllowed( def.szClassname ) )
 			continue;
 
+		if ( def.isConsumableWeapon && !config.IsWeaponAllowed( def.szClassname ) )
+			continue;
+
+		// Restrict fixed weapon spawns to unacquired loadout items (SPEC §3, Issue #79)
+		if ( def.isWeapon && !def.isConsumableWeapon && pPlayer )
+		{
+			if ( pPlayer->HasNamedPlayerItem( def.szClassname ) )
+			{
+				continue;
+			}
+		}
+
 		float categoryW = 1.0f;
 		if ( def.isWeapon )
 			categoryW = GetWeaponTierWeight( def.tier, iWaveNumber );
+		else if ( def.isConsumableWeapon )
+			categoryW = GetOrdnanceTierWeight( def.tier, iWaveNumber );
 		else if ( def.isHealthArmor )
 			categoryW = 70.0f;
 		else if ( def.isAmmo )
@@ -819,7 +865,8 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 		}
 
 		const auto &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
-		const char *szPickup = RollPickupItem( iWaveNumber, config );
+		CBasePlayer *pLocalPlayer = gpGlobals ? (CBasePlayer *)UTIL_PlayerByIndex( 1 ) : nullptr;
+		const char *szPickup = RollPickupItem( iWaveNumber, config, pLocalPlayer );
 
 		Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
 		Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );

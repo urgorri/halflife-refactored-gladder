@@ -14,6 +14,8 @@
 #include "core/extdll.h"
 #include "core/util.h"
 #include "core/cbase.h"
+#include "core/player.h"
+#include "weapons/weapon_base.h"
 #include "tests/mock_engine.h"
 #include "dlls/gladder/gladder_spawner.h"
 #include "dlls/gladder/gladder_breakable.h"
@@ -152,6 +154,7 @@ TEST_CASE( "Gladder Spawner: Wave generation across grid indexer & Lambda item (
 		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_762", "ammo_556", "ammo_rpgclip",
 		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle",
 		"weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark",
 		"item_gladder_lambda"
 	};
 	for ( const char *szP : pickupsToRegister )
@@ -783,5 +786,183 @@ TEST_CASE( "Gladder Spawner: PurgeWaveEntities clears orphaned sprites, beams, p
 		if ( pSlot )
 			memset( pSlot, 0, sizeof( edict_t ) );
 	}
+}
+
+TEST_CASE( "Gladder Spawner: Consumable ordnance weapons have dedicated category and tier weights (SPEC §3, §7, Issue #78)", "[gladder][spawner][ordnance]" )
+{
+	ResetMockEngine();
+
+	// 1. Verify GetOrdnanceTierWeight curves
+	// Tier 1 (hand grenade): immediately available from Wave 1, decreasing towards floor of 10.0f
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 1, 1 ) == Catch::Approx( 25.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 1, 5 ) == Catch::Approx( 17.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 1, 10 ) == Catch::Approx( 10.0f ) );
+
+	// Tier 2 (tripmine, satchel): locked at Wave 1, unlocks at Wave 2, caps at 20.0f
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 1 ) == Catch::Approx( 0.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 2 ) == Catch::Approx( 8.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 6 ) == Catch::Approx( 18.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 10 ) == Catch::Approx( 20.0f ) );
+
+	// Tier 3 (snark): locked at Waves 1-2, unlocks at Wave 3, caps at 15.0f
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 3, 1 ) == Catch::Approx( 0.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 3, 2 ) == Catch::Approx( 0.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 3, 3 ) == Catch::Approx( 5.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 3, 7 ) == Catch::Approx( 15.0f ) );
+
+	// 2. Verify ordnance weapons appear in procedural supply rolls across waves
+	GladderMapConfig config;
+	bool foundGrenade = false;
+	bool foundTripmine = false;
+	bool foundSatchel = false;
+	bool foundSnark = false;
+
+	for ( int i = 0; i < 2000; ++i )
+	{
+		int wave = 1 + ( i % 10 );
+		const char *item = GladderSpawner::RollPickupItem( wave, config );
+		if ( !item ) continue;
+
+		if ( strcmp( item, "weapon_handgrenade" ) == 0 ) foundGrenade = true;
+		else if ( strcmp( item, "weapon_tripmine" ) == 0 ) foundTripmine = true;
+		else if ( strcmp( item, "weapon_satchel" ) == 0 ) foundSatchel = true;
+		else if ( strcmp( item, "weapon_snark" ) == 0 ) foundSnark = true;
+	}
+
+	CHECK( foundGrenade );
+	CHECK( foundTripmine );
+	CHECK( foundSatchel );
+	CHECK( foundSnark );
+}
+
+TEST_CASE( "Gladder Spawner: Restrict fixed weapon spawns to unacquired loadout items (SPEC §3, Issue #79)", "[gladder][spawner][loadout]" )
+{
+	ResetMockEngine();
+
+	struct MockPlayerHolder
+	{
+		alignas( CBasePlayer ) uint8_t storage[sizeof( CBasePlayer )];
+		MockPlayerHolder()
+		{
+			std::memset( storage, 0, sizeof( storage ) );
+		}
+		CBasePlayer *player()
+		{
+			return reinterpret_cast<CBasePlayer *>( storage );
+		}
+	};
+
+	struct MockOwnedItem
+	{
+		alignas( CBasePlayerItem ) uint8_t itemStorage[sizeof( CBasePlayerItem )];
+		edict_t edict;
+		MockOwnedItem( const char *name )
+		{
+			std::memset( itemStorage, 0, sizeof( itemStorage ) );
+			std::memset( &edict, 0, sizeof( edict ) );
+			edict.v.classname = MAKE_STRING( name );
+			edict.v.pContainingEntity = &edict;
+			item()->pev = &edict.v;
+			item()->m_pNext = nullptr;
+		}
+		CBasePlayerItem *item()
+		{
+			return reinterpret_cast<CBasePlayerItem *>( itemStorage );
+		}
+	};
+
+	// Setup a mock player entity with an inventory
+	edict_t playerEdict;
+	memset( &playerEdict, 0, sizeof( playerEdict ) );
+	playerEdict.v.flags = FL_CLIENT;
+	playerEdict.v.pContainingEntity = &playerEdict;
+
+	MockPlayerHolder playerHolder;
+	CBasePlayer *pPlayer = playerHolder.player();
+	playerEdict.pvPrivateData = pPlayer;
+	pPlayer->pev = &playerEdict.v;
+	memset( pPlayer->m_rgpPlayerItems, 0, sizeof( pPlayer->m_rgpPlayerItems ) );
+
+	MockOwnedItem ownedGlock( "weapon_glock" );
+	MockOwnedItem ownedShotgun( "weapon_shotgun" );
+	MockOwnedItem ownedCrowbar( "weapon_crowbar" );
+
+	pPlayer->m_rgpPlayerItems[1] = ownedCrowbar.item();
+	pPlayer->m_rgpPlayerItems[2] = ownedGlock.item();
+	pPlayer->m_rgpPlayerItems[3] = ownedShotgun.item();
+
+	CHECK( pPlayer->HasNamedPlayerItem( "weapon_glock" ) == TRUE );
+	CHECK( pPlayer->HasNamedPlayerItem( "weapon_shotgun" ) == TRUE );
+	CHECK( pPlayer->HasNamedPlayerItem( "weapon_mp5" ) == FALSE );
+
+	GladderMapConfig config;
+
+	// In 1,000 rolls at Wave 1 with player context, owned fixed weapons must NEVER be rolled
+	for ( int i = 0; i < 1000; ++i )
+	{
+		const char *item = GladderSpawner::RollPickupItem( 1, config, pPlayer );
+		REQUIRE( item != nullptr );
+		CHECK( strcmp( item, "weapon_glock" ) != 0 );
+		CHECK( strcmp( item, "weapon_shotgun" ) != 0 );
+	}
+
+	// Now equip ALL fixed weapons in player inventory
+	const char *allFixedWeapons[] = {
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun",
+		"weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow",
+		"weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon"
+	};
+
+	std::vector<MockOwnedItem *> allOwnedItems;
+	CBasePlayerItem *pHead = nullptr;
+	for ( const char *wepName : allFixedWeapons )
+	{
+		MockOwnedItem *pMock = new MockOwnedItem( wepName );
+		allOwnedItems.push_back( pMock );
+		pMock->item()->m_pNext = pHead;
+		pHead = pMock->item();
+	}
+	pPlayer->m_rgpPlayerItems[0] = pHead;
+
+	for ( const char *wepName : allFixedWeapons )
+	{
+		CHECK( pPlayer->HasNamedPlayerItem( wepName ) == TRUE );
+	}
+
+	// When all fixed weapons are owned, rolls must never produce ANY fixed weapon,
+	// but continue gracefully yielding ammo, ordnance, and health/armor
+	bool rolledAnyFixedWeapon = false;
+	bool rolledAmmoOrHealthOrOrdnance = false;
+
+	for ( int i = 0; i < 500; ++i )
+	{
+		const char *item = GladderSpawner::RollPickupItem( 3, config, pPlayer );
+		REQUIRE( item != nullptr );
+
+		for ( const char *fixedWep : allFixedWeapons )
+		{
+			if ( strcmp( item, fixedWep ) == 0 )
+			{
+				rolledAnyFixedWeapon = true;
+				break;
+			}
+		}
+
+		if ( strncmp( item, "ammo_", 5 ) == 0 ||
+		     strncmp( item, "item_", 5 ) == 0 ||
+		     strcmp( item, "weapon_handgrenade" ) == 0 ||
+		     strcmp( item, "weapon_tripmine" ) == 0 ||
+		     strcmp( item, "weapon_satchel" ) == 0 ||
+		     strcmp( item, "weapon_snark" ) == 0 )
+		{
+			rolledAmmoOrHealthOrOrdnance = true;
+		}
+	}
+
+	CHECK_FALSE( rolledAnyFixedWeapon );
+	CHECK( rolledAmmoOrHealthOrOrdnance );
+
+	for ( auto *p : allOwnedItems )
+		delete p;
 }
 
