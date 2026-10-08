@@ -28,6 +28,7 @@ std::vector<std::string> g_mockServerCmds;
 std::vector<std::string> g_mockClientCmds;
 std::vector<std::string> g_mockHookedEvents;
 std::unordered_map<std::string, cvar_t *> g_mockCvars;
+std::vector<MockConsoleStringCall> g_mockConsoleStrings;
 
 std::string g_mockMapName = "mock_test_map";
 int g_mockPlayerCount     = 1;
@@ -464,8 +465,7 @@ static void stub_DrawSetTextColor( float r, float g, float b )
 
 static int stub_DrawConsoleString( int x, int y, char *string )
 {
-	(void)x;
-	(void)y;
+	g_mockConsoleStrings.push_back( { x, y, string ? string : "" } );
 	return string ? (int)strlen( string ) * 8 : 0;
 }
 
@@ -748,6 +748,7 @@ void ResetMockClientEngine( void )
 	g_mockServerCmds.clear();
 	g_mockClientCmds.clear();
 	g_mockHookedEvents.clear();
+	g_mockConsoleStrings.clear();
 
 	for ( auto &pair : g_mockCvars )
 	{

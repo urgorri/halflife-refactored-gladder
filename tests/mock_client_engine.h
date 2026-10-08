@@ -43,6 +43,14 @@ extern TeamFortressViewport *gViewPort;
 extern cl_enginefunc_t g_mockClientEngineFuncs;
 extern engine_studio_api_t g_mockStudioApi;
 
+struct MockConsoleStringCall
+{
+	int x;
+	int y;
+	std::string text;
+};
+extern std::vector<MockConsoleStringCall> g_mockConsoleStrings;
+
 // Command and message recording buffers
 extern std::vector<std::string> g_mockServerCmds;
 extern std::vector<std::string> g_mockClientCmds;
