@@ -180,6 +180,10 @@ class HistoryResource
 
 	void CheckClearHistory( void );
 	int DrawAmmoHistory( float flTime );
+
+	int GetHistorySlotType( int slot ) const { return ( slot >= 0 && slot < MAX_HISTORY ) ? rgAmmoHistory[slot].type : 0; }
+	int GetHistorySlotId( int slot ) const { return ( slot >= 0 && slot < MAX_HISTORY ) ? rgAmmoHistory[slot].iId : 0; }
+	float GetHistorySlotDisplayTime( int slot ) const { return ( slot >= 0 && slot < MAX_HISTORY ) ? rgAmmoHistory[slot].DisplayTime : 0.0f; }
 };
 
 extern HistoryResource gHR;

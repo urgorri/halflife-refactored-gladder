@@ -54,7 +54,6 @@ int g_weaponselect = 0;
 
 int ScreenWidth = 640;
 int ScreenHeight = 480;
-HistoryResource gHR;
 #endif
 
 client_sprite_t *GetSpriteList( client_sprite_t *pList, const char *psz, int iRes, int iCount );
@@ -843,6 +842,7 @@ int CHudAmmoSecondary ::MsgFunc_SecAmmoVal( const char *pszName, int iSize, void
 
 	return 1;
 }
+#endif // !defined( HL_TESTS )
 
 //=========================================================
 // Ammo & Item Pickup History HUD Implementation
@@ -869,6 +869,17 @@ void HistoryResource ::AddToHistory( int iType, int iId, int iCount )
 {
 	if ( iType == HISTSLOT_AMMO && !iCount )
 		return; // no amount, so don't add
+
+	// Guard against duplicate weapon pickup dispatches in the same acquisition window
+	if ( iType == HISTSLOT_WEAP )
+	{
+		int iPrevSlot = ( iCurrentHistorySlot > 0 ) ? ( iCurrentHistorySlot - 1 ) : ( MAX_HISTORY - 1 );
+		HIST_ITEM *prev = &rgAmmoHistory[iPrevSlot];
+		if ( prev->type == HISTSLOT_WEAP && prev->iId == iId && prev->DisplayTime > gHUD.m_flTime )
+		{
+			return;
+		}
+	}
 
 	if ( ( ( ( AMMO_PICKUP_GAP * iCurrentHistorySlot ) + AMMO_PICKUP_PICK_HEIGHT ) > AMMO_PICKUP_HEIGHT_MAX ) || ( iCurrentHistorySlot >= MAX_HISTORY ) )
 	{ // the pic would have to be drawn too high
@@ -923,6 +934,7 @@ void HistoryResource ::CheckClearHistory( void )
 	iCurrentHistorySlot = 0;
 }
 
+#if !defined( HL_TESTS )
 //
 // Draw Ammo pickup history
 //

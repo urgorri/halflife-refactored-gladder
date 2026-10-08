@@ -56,8 +56,15 @@ void CBaseMonster ::Listen( void )
 	iSound             = CSoundEnt::ActiveList();
 	hearingSensitivity = HearingSensitivity();
 
+	int iLoopCount = 0;
 	while ( iSound != SOUNDLIST_EMPTY )
 	{
+		if ( ++iLoopCount > MAX_WORLD_SOUNDS )
+		{
+			ALERT( at_aiconsole, "Listen: Cycle detected in active sound list for %s!\n", STRING( pev->classname ) );
+			break;
+		}
+
 		pCurrentSound = CSoundEnt::SoundPointerForIndex( iSound );
 
 		if ( pCurrentSound &&
@@ -249,11 +256,22 @@ CSound *CBaseMonster ::PBestSound( void )
 		return NULL;
 	}
 
+	int iLoopCount = 0;
 	while ( iThisSound != SOUNDLIST_EMPTY )
 	{
-		pSound = CSoundEnt::SoundPointerForIndex( iThisSound );
+		if ( ++iLoopCount > MAX_WORLD_SOUNDS )
+		{
+			ALERT( at_aiconsole, "PBestSound: Cycle detected in sound list for %s!\n", STRING( pev->classname ) );
+			break;
+		}
 
-		if ( pSound && pSound->FIsSound() )
+		pSound = CSoundEnt::SoundPointerForIndex( iThisSound );
+		if ( !pSound )
+		{
+			break;
+		}
+
+		if ( pSound->FIsSound() )
 		{
 			flDist = ( pSound->m_vecOrigin - EarPosition() ).Length();
 
@@ -295,14 +313,25 @@ CSound *CBaseMonster ::PBestScent( void )
 	{
 		ALERT( at_aiconsole, "ERROR! PBestScent() has empty soundlist!\n" );
 #if _DEBUG
-		ALERT( at_error, "NULL Return from PBestSound\n" );
+		ALERT( at_error, "NULL Return from PBestScent\n" );
 #endif
 		return NULL;
 	}
 
+	int iLoopCount = 0;
 	while ( iThisScent != SOUNDLIST_EMPTY )
 	{
+		if ( ++iLoopCount > MAX_WORLD_SOUNDS )
+		{
+			ALERT( at_aiconsole, "PBestScent: Cycle detected in sound list for %s!\n", STRING( pev->classname ) );
+			break;
+		}
+
 		pSound = CSoundEnt::SoundPointerForIndex( iThisScent );
+		if ( !pSound )
+		{
+			break;
+		}
 
 		if ( pSound->FIsScent() )
 		{

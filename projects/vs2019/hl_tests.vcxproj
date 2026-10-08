@@ -136,6 +136,7 @@
     <ClCompile Include="..\..\tests\test_hud_registry.cpp" />
     <ClCompile Include="..\..\tests\test_triangle_render_registry.cpp" />
     <ClCompile Include="..\..\tests\test_weapons_resource.cpp" />
+    <ClCompile Include="..\..\tests\test_weapons_pickup.cpp" />
     <ClCompile Include="..\..\tests\test_client_lifecycle.cpp" />
     <ClCompile Include="..\..\tests\test_client_studio.cpp" />
     <ClCompile Include="..\..\tests\test_gamerules_skill.cpp" />
@@ -165,6 +166,8 @@
     <ClCompile Include="..\..\tests\test_orphaned_effects.cpp" />
     <ClCompile Include="..\..\tests\test_monster_drop_hook.cpp" />
     <ClCompile Include="..\..\tests\test_chargers.cpp" />
+    <ClCompile Include="..\..\tests\test_ai_soundent.cpp" />
+    <ClCompile Include="..\..\dlls\ai\soundent.cpp" />
     <ClCompile Include="..\..\dlls\core\animation.cpp" />
     <ClCompile Include="..\..\dlls\systems\buttons.cpp" />
     <ClCompile Include="..\..\dlls\systems\func_break.cpp" />
