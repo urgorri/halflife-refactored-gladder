@@ -272,6 +272,23 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 		return TRUE; // handled and suppressed
 	}
 
+	// Full map reload preserving brush entities (SPEC §10.4, Issue #82)
+	if ( FStrEq( pcmd, "gladder_restart" ) )
+	{
+		const char *pszMap = ( gpGlobals && gpGlobals->mapname ) ? STRING( gpGlobals->mapname ) : nullptr;
+		if ( pszMap && *pszMap )
+		{
+			char szCmd[128];
+			snprintf( szCmd, sizeof( szCmd ), "map %s\n", pszMap );
+			SERVER_COMMAND( szCmd );
+		}
+		else
+		{
+			SERVER_COMMAND( "restart\n" );
+		}
+		return TRUE;
+	}
+
 	// Camera test commands for level designers and verification (Issue #16, #52)
 	if ( FStrEq( pcmd, "gladder_test_camera" ) )
 	{

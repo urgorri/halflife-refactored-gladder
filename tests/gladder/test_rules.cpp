@@ -125,6 +125,29 @@ class CTestGladderRulesAutoswitch : public CGameRules
 	int PlayerRelationship( CBaseEntity *pPlayer, CBaseEntity *pTarget ) override { return 0; }
 	const char *GetTeamID( CBaseEntity *pEntity ) override { return ""; }
 	BOOL FAllowMonsters( void ) override { return TRUE; }
+	BOOL ClientCommand( CBasePlayer *pPlayer, const char *pcmd ) override
+	{
+		if ( !pcmd )
+			return FALSE;
+
+		if ( FStrEq( pcmd, "gladder_restart" ) )
+		{
+			const char *pszMap = ( gpGlobals && gpGlobals->mapname ) ? STRING( gpGlobals->mapname ) : nullptr;
+			if ( pszMap && *pszMap )
+			{
+				char szCmd[128];
+				snprintf( szCmd, sizeof( szCmd ), "map %s\n", pszMap );
+				SERVER_COMMAND( szCmd );
+			}
+			else
+			{
+				SERVER_COMMAND( "restart\n" );
+			}
+			return TRUE;
+		}
+
+		return CGameRules::ClientCommand( pPlayer, pcmd );
+	}
 };
 
 class CTestDropMonster : public CBaseMonster
@@ -483,5 +506,30 @@ TEST_CASE( "GladderRules: Gamemode combat and weapon lifecycle hooks enabled (SP
 	CHECK( gladderRules.FSilenceLoopingWeaponSoundsOnDeath() == TRUE );
 	CHECK( gladderRules.FFixShotgunReloadDesync() == TRUE );
 	CHECK( gladderRules.FFixMP5UnderwaterDebounce() == TRUE );
+}
+
+TEST_CASE( "GladderRules: gladder_restart executes full map reload command preserving brush entities (SPEC §10.4, Issue #82)", "[gladder][rules][restart]" )
+{
+	ResetMockEngine();
+	CTestGladderRulesAutoswitch rules;
+	g_mockServerCommands.clear();
+
+	SECTION( "Reloads current map when gpGlobals->mapname is populated" )
+	{
+		gpGlobals->mapname = MAKE_STRING( "gl02" );
+		BOOL bHandled = rules.ClientCommand( nullptr, "gladder_restart" );
+		CHECK( bHandled == TRUE );
+		REQUIRE_FALSE( g_mockServerCommands.empty() );
+		CHECK( g_mockServerCommands.back() == "map gl02\n" );
+	}
+
+	SECTION( "Falls back to restart command if mapname is unassigned" )
+	{
+		gpGlobals->mapname = 0;
+		BOOL bHandled = rules.ClientCommand( nullptr, "gladder_restart" );
+		CHECK( bHandled == TRUE );
+		REQUIRE_FALSE( g_mockServerCommands.empty() );
+		CHECK( g_mockServerCommands.back() == "restart\n" );
+	}
 }
 

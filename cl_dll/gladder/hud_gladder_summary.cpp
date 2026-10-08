@@ -38,12 +38,22 @@ static void Cmd_ToggleLeaderboard( void )
 {
 	g_HudGladderSummary.ToggleLeaderboardTab();
 }
+
+static void Cmd_GladderRestart( void )
+{
+	CHudGladderSummary::RestartMatch();
+}
 #elif defined( HL_TESTS )
 #include "cl_dll/input/kbutton.h"
 #include "tests/mock_client_engine.h"
 #define gEngfuncs g_mockClientEngineFuncs
 static const int ScreenWidth = 640;
 static const int ScreenHeight = 480;
+
+static void Cmd_GladderRestart( void )
+{
+	CHudGladderSummary::RestartMatch();
+}
 
 static inline int DrawConsoleString( int x, int y, const char *string )
 {
@@ -68,6 +78,12 @@ int CHudGladderSummary::Init( void )
 	gEngfuncs.pfnAddCommand( "gladder_summary_toggle", Cmd_ToggleSummary );
 	gEngfuncs.pfnAddCommand( "gladder_leaderboard_toggle", Cmd_ToggleLeaderboard );
 	gEngfuncs.pfnAddCommand( "gladder_scores", Cmd_ToggleLeaderboard );
+	gEngfuncs.pfnAddCommand( "gladder_restart", Cmd_GladderRestart );
+#elif defined( HL_TESTS )
+	if ( gEngfuncs.pfnAddCommand )
+	{
+		gEngfuncs.pfnAddCommand( "gladder_restart", Cmd_GladderRestart );
+	}
 #endif
 	m_iFlags |= ( HUD_ACTIVE | HUD_INTERMISSION );
 	return 1;
@@ -82,12 +98,21 @@ int CHudGladderSummary::VidInit( void )
 std::string CHudGladderSummary::GetCurrentMapName( void )
 {
 	std::string mapname = "default";
-#ifdef CLIENT_DLL
-	const char *level = gEngfuncs.pfnGetLevelName();
+#if defined( CLIENT_DLL ) || defined( HL_TESTS )
+	const char *level = gEngfuncs.pfnGetLevelName ? gEngfuncs.pfnGetLevelName() : nullptr;
 	if ( level && level[0] )
 	{
 		char baseName[64];
+#if defined( CLIENT_DLL )
 		COM_FileBase( level, baseName );
+#else
+		const char *s = level + strlen( level );
+		while ( s > level && s[-1] != '/' && s[-1] != '\\' )
+			s--;
+		snprintf( baseName, sizeof( baseName ), "%s", s );
+		char *dot = strrchr( baseName, '.' );
+		if ( dot ) *dot = '\0';
+#endif
 		baseName[sizeof( baseName ) - 1] = '\0';
 		if ( baseName[0] )
 		{
@@ -96,6 +121,23 @@ std::string CHudGladderSummary::GetCurrentMapName( void )
 	}
 #endif
 	return mapname;
+}
+
+void CHudGladderSummary::RestartMatch( void )
+{
+	std::string mapname = g_HudGladderSummary.GetCurrentMapName();
+	if ( mapname.empty() || mapname == "default" )
+	{
+		if ( gEngfuncs.pfnClientCmd )
+			gEngfuncs.pfnClientCmd( "restart\n" );
+	}
+	else
+	{
+		char szCmd[128];
+		snprintf( szCmd, sizeof( szCmd ), "map %s\n", mapname.c_str() );
+		if ( gEngfuncs.pfnClientCmd )
+			gEngfuncs.pfnClientCmd( szCmd );
+	}
 }
 
 void CHudGladderSummary::ReloadLeaderboard( void )
