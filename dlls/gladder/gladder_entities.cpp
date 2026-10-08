@@ -76,8 +76,50 @@ void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 	if ( !pOther )
 		return;
 
-	// 1. Monsters and pushables are NEVER allowed to enter or cross the start area
-	if ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) )
+	// 1. Players can freely traverse into the gauntlet arena until they completely cross it
+	if ( pOther->IsPlayer() )
+	{
+		// If the player has already crossed and the wave started, prevent retreating back to staging area
+		if ( m_bPlayerCrossed )
+		{
+			Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+			Vector vecDir = pOther->pev->origin - vecCenter;
+			vecDir.z = 0.0f;
+			if ( vecDir.Length() > 0.001f )
+				vecDir = vecDir.Normalize();
+			else
+				vecDir = Vector( 1.0f, 0.0f, 0.0f );
+
+			pOther->pev->velocity = vecDir * 200.0f;
+			return;
+		}
+
+		if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
+			return;
+
+		if ( g_pGameRules )
+		{
+			CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
+			if ( pGladderRules )
+			{
+				int state = pGladderRules->GetWaveManager().GetState();
+				if ( state == GLADDER_STATE_WAITING_FOR_START || state == GLADDER_STATE_WAVE_COMPLETED )
+				{
+					pGladderRules->OnWaveTriggerStart( pOther );
+					SUB_UseTargets( pOther, USE_TOGGLE, 0 );
+				}
+
+				// Track activating player to monitor when they finish traversing the start threshold
+				m_hActivatingPlayer = pOther;
+				SetThink( &CTriggerGladderStart::CrossThink );
+				pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+			}
+		}
+		return;
+	}
+
+	// 2. Monsters and pushables are NEVER allowed to enter or cross the start area
+	if ( ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) ) && !pOther->IsPlayer() )
 	{
 		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
 		Vector vecDir = pOther->pev->origin - vecCenter;
@@ -90,46 +132,6 @@ void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 		pOther->pev->velocity = vecDir * 250.0f;
 		return;
 	}
-
-	if ( !pOther->IsPlayer() )
-		return;
-
-	// 2. If the player has already crossed and the wave started, prevent retreating back to staging area
-	if ( m_bPlayerCrossed )
-	{
-		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
-		Vector vecDir = pOther->pev->origin - vecCenter;
-		vecDir.z = 0.0f;
-		if ( vecDir.Length() > 0.001f )
-			vecDir = vecDir.Normalize();
-		else
-			vecDir = Vector( 1.0f, 0.0f, 0.0f );
-
-		pOther->pev->velocity = vecDir * 200.0f;
-		return;
-	}
-
-	if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
-		return;
-
-	if ( g_pGameRules )
-	{
-		CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
-		if ( pGladderRules )
-		{
-			// Only trigger if waiting for wave start
-			if ( pGladderRules->GetWaveManager().GetState() != GLADDER_STATE_WAITING_FOR_START )
-				return;
-
-			pGladderRules->OnWaveTriggerStart( pOther );
-			SUB_UseTargets( pOther, USE_TOGGLE, 0 );
-
-			// Track activating player to monitor when they finish traversing the start threshold
-			m_hActivatingPlayer = pOther;
-			SetThink( &CTriggerGladderStart::CrossThink );
-			pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
-		}
-	}
 }
 
 void CTriggerGladderStart::CrossThink( void )
@@ -138,7 +140,10 @@ void CTriggerGladderStart::CrossThink( void )
 		return;
 
 	CBaseEntity *pPlayer = m_hActivatingPlayer;
-	if ( !pPlayer || !IsEntityInside( pPlayer ) )
+	if ( !pPlayer || !pPlayer->IsAlive() )
+		return;
+
+	if ( !IsEntityInside( pPlayer ) )
 	{
 		// Player has finished crossing through the start volume into the gauntlet arena!
 		m_bPlayerCrossed = true;
@@ -221,8 +226,18 @@ void CTriggerGladderFinish::FinishTouch( CBaseEntity *pOther )
 	if ( !pOther )
 		return;
 
-	// 1. Monsters and pushables are NEVER allowed to enter or cross the finish area
-	if ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) )
+	// 1. Players can touch finish trigger to complete wave and teleport to staging
+	if ( pOther->IsPlayer() )
+	{
+		if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
+			return;
+
+		DoFinish( pOther );
+		return;
+	}
+
+	// 2. Monsters and pushables are NEVER allowed to enter or cross the finish area
+	if ( ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) ) && !pOther->IsPlayer() )
 	{
 		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
 		Vector vecDir = pOther->pev->origin - vecCenter;
@@ -235,14 +250,6 @@ void CTriggerGladderFinish::FinishTouch( CBaseEntity *pOther )
 		pOther->pev->velocity = vecDir * 250.0f;
 		return;
 	}
-
-	if ( !pOther->IsPlayer() )
-		return;
-
-	if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
-		return;
-
-	DoFinish( pOther );
 }
 
 void CTriggerGladderFinish::FinishUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )

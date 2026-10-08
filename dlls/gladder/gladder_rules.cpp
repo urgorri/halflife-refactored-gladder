@@ -57,8 +57,13 @@ CGladderRules::CGladderRules()
       m_flNextCameraSwitchTime( 0.0f ),
       m_vecDeathAngles( 0, 0, 0 ),
       m_bPlayerDead( false ),
+      m_bPlayerFrozen( false ),
+      m_iFrozenPlayerSequence( 0 ),
+      m_flFrozenPlayerFrame( 0.0f ),
+      m_iFrozenPlayerGaitSequence( 0 ),
       m_bMatchConcluded( false )
 {
+	g_fGameOver = FALSE;
 	m_comboTracker.Reset();
 	m_modifiers.Reset();
 
@@ -133,6 +138,38 @@ void CGladderRules::Think( void )
 	else if ( m_bMatchConcluded )
 	{
 		FreezeMatchWorld();
+
+		if ( m_bPlayerFrozen && gpGlobals )
+		{
+			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			{
+				CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+				if ( pPlr && pPlr->edict() && pPlr->pev )
+				{
+					pPlr->pev->sequence = m_iFrozenPlayerSequence;
+					pPlr->pev->frame = m_flFrozenPlayerFrame;
+					pPlr->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
+					pPlr->pev->framerate = 0.0f;
+					pPlr->pev->velocity = g_vecZero;
+					pPlr->pev->avelocity = g_vecZero;
+				}
+			}
+		}
+		else if ( m_bPlayerDead && !g_fGameOver && gpGlobals )
+		{
+			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			{
+				CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+				if ( pPlr && pPlr->edict() )
+				{
+					CBasePlayer *pDeadPlayer = dynamic_cast<CBasePlayer *>( pPlr );
+					if ( pDeadPlayer && ( pDeadPlayer->m_fSequenceFinished || pDeadPlayer->pev->deadflag == DEAD_DEAD ) )
+					{
+						g_fGameOver = TRUE;
+					}
+				}
+			}
+		}
 	}
 
 	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active.
@@ -187,6 +224,11 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 
 	m_bPlayerDead = false;
 	m_bMatchConcluded = false;
+	m_bPlayerFrozen = false;
+	m_iFrozenPlayerSequence = 0;
+	m_flFrozenPlayerFrame = 0.0f;
+	m_iFrozenPlayerGaitSequence = 0;
+	g_fGameOver = FALSE;
 	m_vecDeathAngles = g_vecZero;
 	m_summaryCameras.clear();
 	m_iCurrentSummaryCameraIndex = 0;
@@ -194,6 +236,7 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 	if ( pPlayer->pev )
 	{
 		pPlayer->pev->flags &= ~FL_FROZEN;
+		pPlayer->pev->flags &= ~FL_MONSTERCLIP;
 	}
 
 	// Strictly reject player spawning if a savegame restore was attempted (SPEC §10.3)
@@ -248,6 +291,16 @@ void CGladderRules::PlayerThink( CBasePlayer *pPlayer )
 {
 	if ( !pPlayer || !pPlayer->pev )
 		return;
+
+	if ( m_bPlayerFrozen )
+	{
+		pPlayer->pev->sequence = m_iFrozenPlayerSequence;
+		pPlayer->pev->frame = m_flFrozenPlayerFrame;
+		pPlayer->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
+		pPlayer->pev->framerate = 0.0f;
+		pPlayer->pev->velocity = g_vecZero;
+		pPlayer->pev->avelocity = g_vecZero;
+	}
 
 	float curHealth = pPlayer->pev->health;
 	float curArmor  = pPlayer->pev->armorvalue;
@@ -369,6 +422,7 @@ void CGladderRules::OnRestoreDenied( void )
 
 void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
 {
+	m_bPlayerDead = true;
 	HandleMatchConclusion( false, pVictim );
 }
 
@@ -396,17 +450,30 @@ void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer 
 
 	if ( pPlayer && pPlayer->pev )
 	{
-		// Freeze player upon match conclusion so they cannot move or fire (SPEC §2, §3, Issue #85)
-		pPlayer->pev->flags |= FL_FROZEN;
 		pPlayer->pev->velocity = g_vecZero;
 		pPlayer->pev->avelocity = g_vecZero;
 		pPlayer->EnableControl( FALSE );
 		// Terminate any active looping weapon audio (SPEC §7.7, Issue #66)
 		EMIT_SOUND( ENT( pPlayer->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
-		if ( !bSurvived )
+
+		if ( m_bPlayerDead )
 		{
-			m_bPlayerDead = true;
 			m_vecDeathAngles = pPlayer->pev->angles;
+			// Note: Do NOT set FL_FROZEN or freeze sequence/frame on dying player so
+			// CBasePlayer::Killed can properly execute SetAnimation( PLAYER_DIE ) and let the
+			// corpse animate and settle naturally into the floor death pose.
+		}
+		else
+		{
+			// Match concluded while player alive (e.g. timeout expiration or victory):
+			// Freeze player in place preserving their exact animation sequence and frame.
+			pPlayer->pev->flags |= FL_FROZEN;
+			pPlayer->pev->framerate = 0.0f;
+			m_bPlayerFrozen = true;
+			m_iFrozenPlayerSequence = pPlayer->pev->sequence;
+			m_flFrozenPlayerFrame = pPlayer->pev->frame;
+			m_iFrozenPlayerGaitSequence = pPlayer->pev->gaitsequence;
+			g_fGameOver = TRUE;
 		}
 	}
 
@@ -460,7 +527,7 @@ void CGladderRules::FreezeMatchWorld( void )
 			pMonster->m_pSchedule = nullptr;
 			pMonster->m_iTaskStatus = TASKSTATUS_NEW;
 			pMonster->m_iScheduleIndex = 0;
-			pMonster->m_Activity = ACT_RESET;
+			// Note: Do NOT reset m_Activity or sequence so monster remains in exact frozen pose!
 			EMIT_SOUND( pMonster->edict(), CHAN_VOICE, "common/null.wav", 1.0f, ATTN_NORM );
 			EMIT_SOUND( pMonster->edict(), CHAN_BODY, "common/null.wav", 1.0f, ATTN_NORM );
 			continue;
@@ -691,10 +758,11 @@ void CGladderRules::ResetStartTriggers( void )
 void CGladderRules::EnsureMonsterClipFlags( void )
 {
 	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
-		if ( !pEnt || !pEnt->pev )
+		if ( !pEnt || !pEnt->pev || ( pEnt->pev->flags & FL_CLIENT ) || pEnt->IsPlayer() )
 			return;
 
-		if ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) )
+		if ( ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) ) &&
+		     !( pEnt->pev->flags & FL_CLIENT ) && !pEnt->IsPlayer() )
 		{
 			pEnt->pev->flags |= FL_MONSTERCLIP;
 		}

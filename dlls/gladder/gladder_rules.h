@@ -155,6 +155,9 @@ class CGladderRules : public CHalfLifeRules
 	const Vector &GetDeathAngles( void ) const { return m_vecDeathAngles; }
 	bool IsPlayerDead( void ) const { return m_bPlayerDead; }
 	bool IsMatchConcluded( void ) const { return m_bMatchConcluded; }
+	bool IsPlayerFrozen( void ) const { return m_bPlayerFrozen; }
+	int GetFrozenPlayerSequence( void ) const { return m_iFrozenPlayerSequence; }
+	float GetFrozenPlayerFrame( void ) const { return m_flFrozenPlayerFrame; }
 	size_t GetSummaryCameraCount( void ) const { return m_summaryCameras.size(); }
 	size_t GetCurrentSummaryCameraIndex( void ) const { return m_iCurrentSummaryCameraIndex; }
 
@@ -173,6 +176,10 @@ class CGladderRules : public CHalfLifeRules
 	float m_flNextCameraSwitchTime;
 	Vector m_vecDeathAngles;
 	bool m_bPlayerDead;
+	bool m_bPlayerFrozen;
+	int m_iFrozenPlayerSequence;
+	float m_flFrozenPlayerFrame;
+	int m_iFrozenPlayerGaitSequence;
 	bool m_bMatchConcluded;
 	bool m_bInitialSpawnDone;
 	bool m_bRestoreAttempted;

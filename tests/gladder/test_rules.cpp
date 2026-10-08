@@ -169,6 +169,7 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 {
   public:
 	bool m_bMatchConcluded = false;
+	bool m_bPlayerDead = false;
 	bool m_bSurvived = false;
 	int m_firedRelayEvent = -1;
 	CBaseEntity *m_pTrackedPlayer = nullptr;
@@ -211,7 +212,7 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 				pMonster->m_pSchedule = nullptr;
 				pMonster->m_iTaskStatus = TASKSTATUS_NEW;
 				pMonster->m_iScheduleIndex = 0;
-				pMonster->m_Activity = ACT_RESET;
+				// Monster sequence, frame, and activity preserved
 				continue;
 			}
 
@@ -253,8 +254,16 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 
 		if ( pPlayer && pPlayer->pev )
 		{
-			pPlayer->pev->flags |= FL_FROZEN;
-			pPlayer->pev->velocity = g_vecZero;
+			if ( m_bPlayerDead )
+			{
+				// player is dead
+			}
+			else
+			{
+				pPlayer->pev->flags |= FL_FROZEN;
+				pPlayer->pev->framerate = 0.0f;
+				pPlayer->pev->velocity = g_vecZero;
+			}
 		}
 
 		FreezeMatchWorld();
@@ -273,10 +282,11 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 				continue;
 
 			CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
-			if ( !pEnt )
+			if ( !pEnt || !pEnt->pev || ( pEnt->pev->flags & FL_CLIENT ) || pEnt->IsPlayer() )
 				continue;
 
-			if ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) )
+			if ( ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) ) &&
+			     !( pEnt->pev->flags & FL_CLIENT ) && !pEnt->IsPlayer() )
 			{
 				pEnt->pev->flags |= FL_MONSTERCLIP;
 			}
@@ -829,16 +839,64 @@ TEST_CASE( "Gladder Rules: EnsureMonsterClipFlags enforces FL_MONSTERCLIP across
 	pPushableSlot->pvPrivateData = &pushable;
 	pushable.pev = &pPushableSlot->v;
 
+	// Mock player in slot 1
+	edict_t *pPlayerSlot = GetMockClientEntity( 1 );
+	REQUIRE( pPlayerSlot != nullptr );
+	pPlayerSlot->free = 0;
+	pPlayerSlot->v.flags = FL_CLIENT;
+	pPlayerSlot->v.classname = MAKE_STRING( "player" );
+	pPlayerSlot->v.pContainingEntity = pPlayerSlot;
+
+	CBaseEntity player;
+	pPlayerSlot->pvPrivateData = &player;
+	player.pev = &pPlayerSlot->v;
+
 	// Verify before: FL_MONSTERCLIP is not set
 	CHECK( ( monster.pev->flags & FL_MONSTERCLIP ) == 0 );
 	CHECK( ( pushable.pev->flags & FL_MONSTERCLIP ) == 0 );
+	CHECK( ( player.pev->flags & FL_MONSTERCLIP ) == 0 );
 
 	// Enforce clip flags via rules
 	rules.EnsureMonsterClipFlags();
 
-	// Verify after: both monster and pushable have FL_MONSTERCLIP
+	// Verify after: both monster and pushable have FL_MONSTERCLIP, but player strictly does not
 	CHECK( ( monster.pev->flags & FL_MONSTERCLIP ) != 0 );
 	CHECK( ( pushable.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( ( player.pev->flags & FL_MONSTERCLIP ) == 0 );
+}
+
+TEST_CASE( "Gladder Rules: FreezeMatchWorld preserves monster activity, sequence, and frame without resetting to ACT_RESET", "[gladder][rules][freeze]" )
+{
+	ResetMockEngine();
+
+	CTestConclusionRules rules;
+
+	edict_t *pMonsterSlot = GetMockClientEntity( 2 );
+	REQUIRE( pMonsterSlot != nullptr );
+	pMonsterSlot->free = 0;
+	pMonsterSlot->v.flags = FL_MONSTER;
+	pMonsterSlot->v.classname = MAKE_STRING( "monster_zombie" );
+	pMonsterSlot->v.pContainingEntity = pMonsterSlot;
+	pMonsterSlot->v.velocity = Vector( 120.0f, 0.0f, 0.0f );
+	pMonsterSlot->v.sequence = 5;
+	pMonsterSlot->v.frame = 42.0f;
+	pMonsterSlot->v.framerate = 1.0f;
+
+	CTestDropMonster monster;
+	pMonsterSlot->pvPrivateData = &monster;
+	monster.pev = &pMonsterSlot->v;
+	monster.m_Activity = ACT_MELEE_ATTACK1;
+
+	// Trigger freeze
+	rules.FreezeMatchWorld();
+
+	// Verify monster is frozen in its exact animation pose and activity
+	CHECK( ( monster.pev->flags & FL_FROZEN ) != 0 );
+	CHECK( monster.pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( monster.pev->framerate == 0.0f );
+	CHECK( monster.pev->sequence == 5 );
+	CHECK( monster.pev->frame == 42.0f );
+	CHECK( monster.m_Activity == ACT_MELEE_ATTACK1 );
 }
 
 TEST_CASE( "Gladder Triggers: CGladderTriggerClip solidity and player passage toggling", "[gladder][triggers][clip]" )
