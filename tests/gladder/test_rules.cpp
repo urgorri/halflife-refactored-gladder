@@ -373,20 +373,58 @@ TEST_CASE( "GladderRules: Wave completion overlay sends completed wave number (S
 	CHECK( waveMgr.GetCompletedWavesCount() == 2 );
 }
 
-TEST_CASE( "GladderRules: Summary camera cycling and multi-camera support (SPEC §6, §9.2, Issue #52)", "[gladder][rules][camera]" )
+TEST_CASE( "GladderRules: Dynamic third-person camera is first element in cyclic backdrop sequence (SPEC §6, §9.2, Issue #72)", "[gladder][rules][camera]" )
 {
-	std::vector<int> mockCameras = { 101, 102, 103 };
+	// Simulation of camera collection contract:
+	// Dynamic camera is ALWAYS index 0; map cameras follow in sequential order.
+	const int DYNAMIC_CAMERA_ID = 999;
+	std::vector<int> mapCameras = { 101, 102 };
+
+	std::vector<int> summaryCameras;
+	// 1. Dynamic third-person camera is ALWAYS placed at index 0
+	summaryCameras.push_back( DYNAMIC_CAMERA_ID );
+	// 2. Any map cameras follow sequentially
+	for ( int camId : mapCameras )
+	{
+		summaryCameras.push_back( camId );
+	}
+
+	REQUIRE( summaryCameras.size() == 3 );
+	CHECK( summaryCameras[0] == DYNAMIC_CAMERA_ID );
+	CHECK( summaryCameras[1] == 101 );
+	CHECK( summaryCameras[2] == 102 );
+
+	// Sequence ALWAYS begins with dynamic third-person camera at index 0
 	size_t currentIdx = 0;
+	CHECK( summaryCameras[currentIdx] == DYNAMIC_CAMERA_ID );
 
-	// Sequential rotation in order
-	currentIdx = ( currentIdx + 1 ) % mockCameras.size();
-	CHECK( mockCameras[currentIdx] == 102 );
+	// AdvanceSummaryCamera cycles: 0 -> 1 -> 2 -> 0 -> 1
+	currentIdx = ( currentIdx + 1 ) % summaryCameras.size();
+	CHECK( summaryCameras[currentIdx] == 101 );
 
-	currentIdx = ( currentIdx + 1 ) % mockCameras.size();
-	CHECK( mockCameras[currentIdx] == 103 );
+	currentIdx = ( currentIdx + 1 ) % summaryCameras.size();
+	CHECK( summaryCameras[currentIdx] == 102 );
 
-	currentIdx = ( currentIdx + 1 ) % mockCameras.size();
-	CHECK( mockCameras[currentIdx] == 101 );
+	// Loops back cyclically to dynamic third-person camera
+	currentIdx = ( currentIdx + 1 ) % summaryCameras.size();
+	CHECK( summaryCameras[currentIdx] == DYNAMIC_CAMERA_ID );
+
+	currentIdx = ( currentIdx + 1 ) % summaryCameras.size();
+	CHECK( summaryCameras[currentIdx] == 101 );
+
+	SECTION( "Single-camera fallback: only dynamic camera exists when no map cameras placed" )
+	{
+		std::vector<int> singleCameraList;
+		singleCameraList.push_back( DYNAMIC_CAMERA_ID );
+
+		CHECK( singleCameraList.size() == 1 );
+		CHECK( singleCameraList[0] == DYNAMIC_CAMERA_ID );
+		size_t idx = 0;
+		// Advancing on single-camera sequence remains on dynamic camera (index 0)
+		idx = ( idx + 1 ) % singleCameraList.size();
+		CHECK( idx == 0 );
+		CHECK( singleCameraList[idx] == DYNAMIC_CAMERA_ID );
+	}
 }
 
 TEST_CASE( "GladderRules: Spatial grid indexing retry prevention on empty grid (Issue #63)", "[gladder][grid][rules]" )

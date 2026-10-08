@@ -103,10 +103,12 @@ class CGladderRules : public CHalfLifeRules
 	void CalculateFinalScore( bool bSurvived );
 	void ShiftPlayerCamera( CBaseEntity *pPlr );
 
-	// Multi-camera backdrop rotation during summary screen (SPEC §6, §9.2, Issue #52)
-	void CollectSummaryCameras( void );
+	// Multi-camera backdrop rotation during summary screen (SPEC §6, §9.2, Issue #52, #72)
+	CBaseEntity *GetOrCreateDynamicCamera( CBaseEntity *pPlr );
+	void CollectSummaryCameras( CBaseEntity *pPlr = nullptr );
 	void ActivateSummaryCamera( CBaseEntity *pCamera, CBaseEntity *pPlr );
 	void AdvanceSummaryCamera( void );
+	const std::vector<EHANDLE> &GetSummaryCameras( void ) const { return m_summaryCameras; }
 
 	// Network telemetry broadcast
 	void BroadcastWaveUpdate( CBasePlayer *pPlayer = nullptr );

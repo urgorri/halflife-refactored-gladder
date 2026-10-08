@@ -33,6 +33,9 @@ class GladderAudio
 	// Dispatches a designated audio cue through an entity or broadcasts to all players
 	static void PlayCue( EGladderAudioCue cue, CBaseEntity *pEntity = nullptr, float flVolume = 1.0f );
 
+	// Terminates an active looping audio cue on an entity or player
+	static void StopCue( EGladderAudioCue cue, CBaseEntity *pEntity = nullptr );
+
 	// Cue sound path accessor & override for custom map/mod soundscapes
 	static const char *GetCueSoundPath( EGladderAudioCue cue );
 	static void SetCueSoundPath( EGladderAudioCue cue, const char *pszPath );

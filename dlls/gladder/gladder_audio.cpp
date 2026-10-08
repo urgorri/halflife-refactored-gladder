@@ -65,11 +65,57 @@ void GladderAudio::PlayCue( EGladderAudioCue cue, CBaseEntity *pEntity, float fl
 		{
 			pEdict = pPlayer->edict();
 		}
+		else if ( gpGlobals->maxClients >= 1 )
+		{
+			edict_t *pEnt1 = INDEXENT( 1 );
+			if ( pEnt1 && !pEnt1->free )
+			{
+				pEdict = pEnt1;
+			}
+		}
 	}
 
 	if ( pEdict )
 	{
 		EMIT_SOUND_DYN( pEdict, CHAN_STATIC, pszSound, flVolume, ATTN_NORM, 0, PITCH_NORM );
+	}
+}
+
+void GladderAudio::StopCue( EGladderAudioCue cue, CBaseEntity *pEntity )
+{
+	if ( cue < 0 || cue >= GLADDER_CUE_COUNT )
+		return;
+
+	EnsurePathsInitialized();
+	const char *pszSound = s_activeCuePaths[cue].c_str();
+	if ( !pszSound || !*pszSound )
+		return;
+
+	edict_t *pEdict = nullptr;
+	if ( pEntity && pEntity->edict() )
+	{
+		pEdict = pEntity->edict();
+	}
+	else if ( gpGlobals )
+	{
+		CBaseEntity *pPlayer = UTIL_PlayerByIndex( 1 );
+		if ( pPlayer && pPlayer->edict() )
+		{
+			pEdict = pPlayer->edict();
+		}
+		else if ( gpGlobals->maxClients >= 1 )
+		{
+			edict_t *pEnt1 = INDEXENT( 1 );
+			if ( pEnt1 && !pEnt1->free )
+			{
+				pEdict = pEnt1;
+			}
+		}
+	}
+
+	if ( pEdict )
+	{
+		STOP_SOUND( pEdict, CHAN_STATIC, pszSound );
 	}
 }
 

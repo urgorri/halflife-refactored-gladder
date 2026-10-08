@@ -8,28 +8,24 @@
 	}
 	"2"
 	{
-		"label" "#GameUI_GameMenu_Disconnect"
-		"command" "Disconnect"
+		"label" "Restart Match"
+		"command" "engine restart"
 		"OnlyInGame" "1"
 	}
 	"3"
 	{
-		"label" ""
-		"command" ""
-		"OnlyInGame" "1"
+		"label" "Jugar: Desierto (gl01)"
+		"command" "engine map gl01"
 	}
 	"4"
 	{
-		"label" "#GameUI_GameMenu_NewGame"
-		"command" "OpenNewGameDialog"
-		"notmulti" "1"
+		"label" "Jugar: Nieve (gl02)"
+		"command" "engine map gl02"
 	}
 	"5"
 	{
-		"label" ""
-		"command" ""
-		"notmulti" "1"
-		"OnlyInGame" "1"
+		"label" "Jugar: Almacen (gl03)"
+		"command" "engine map gl03"
 	}
 	"6"
 	{
@@ -37,6 +33,12 @@
 		"command" "OpenOptionsDialog"
 	}
 	"7"
+	{
+		"label" "#GameUI_GameMenu_LeaveGame"
+		"command" "Disconnect"
+		"OnlyInGame" "1"
+	}
+	"8"
 	{
 		"label" "#GameUI_GameMenu_Quit"
 		"command" "Quit"

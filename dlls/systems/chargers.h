@@ -31,6 +31,8 @@ class CBaseWallCharger : public CBaseToggle
 	int m_iOn; // 0 = off, 1 = startup, 2 = going
 	float m_flSoundTime;
 
+	virtual BOOL CanGiveResource( CBaseEntity *pActivator ) const = 0;
+
   protected:
 	virtual int GetCapacity( void ) const                = 0;
 	virtual float GetRechargeTime( void ) const          = 0;
@@ -47,6 +49,11 @@ class CWallHealth : public CBaseWallCharger
 	int Save( CSave &save ) override;
 	int Restore( CRestore &restore ) override;
 	static TYPEDESCRIPTION m_SaveData[];
+
+	BOOL CanGiveResource( CBaseEntity *pActivator ) const override
+	{
+		return ( pActivator->pev->takedamage != DAMAGE_NO && pActivator->pev->health < pActivator->pev->max_health );
+	}
 
   protected:
 	int GetCapacity( void ) const override
@@ -66,6 +73,11 @@ class CWallRecharge : public CBaseWallCharger
 	int Save( CSave &save ) override;
 	int Restore( CRestore &restore ) override;
 	static TYPEDESCRIPTION m_SaveData[];
+
+	BOOL CanGiveResource( CBaseEntity *pActivator ) const override
+	{
+		return ( pActivator->pev->armorvalue < MAX_NORMAL_BATTERY );
+	}
 
   protected:
 	int GetCapacity( void ) const override

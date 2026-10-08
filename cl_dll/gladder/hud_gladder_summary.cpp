@@ -40,7 +40,23 @@ static void Cmd_ToggleLeaderboard( void )
 }
 #elif defined( HL_TESTS )
 #include "cl_dll/input/kbutton.h"
-extern kbutton_t in_score;
+#include "tests/mock_client_engine.h"
+#define gEngfuncs g_mockClientEngineFuncs
+static const int ScreenWidth = 640;
+static const int ScreenHeight = 480;
+
+static inline int DrawConsoleString( int x, int y, const char *string )
+{
+	if ( gEngfuncs.pfnDrawConsoleString )
+		return gEngfuncs.pfnDrawConsoleString( x, y, const_cast<char *>( string ) );
+	return 0;
+}
+
+static inline void FillRGBA( int x, int y, int width, int height, int r, int g, int b, int a )
+{
+	if ( gEngfuncs.pfnFillRGBA )
+		gEngfuncs.pfnFillRGBA( x, y, width, height, r, g, b, a );
+}
 #endif
 
 CHudGladderSummary g_HudGladderSummary;
@@ -287,7 +303,7 @@ int CHudGladderSummary::MsgFunc_GladderSummary( const char *pszName, int iSize, 
 
 int CHudGladderSummary::Draw( float flTime )
 {
-#ifdef CLIENT_DLL
+#if defined( CLIENT_DLL ) || defined( HL_TESTS )
 	if ( !m_bActive )
 		return 1;
 
@@ -316,7 +332,7 @@ int CHudGladderSummary::Draw( float flTime )
 
 void CHudGladderSummary::DrawSummaryPage( float flTime, float tallyFrac )
 {
-#ifdef CLIENT_DLL
+#if defined( CLIENT_DLL ) || defined( HL_TESTS )
 	int cx = ScreenWidth / 2;
 	int y  = 40;
 	char szBuf[128];
@@ -463,7 +479,7 @@ void CHudGladderSummary::DrawSummaryPage( float flTime, float tallyFrac )
 
 void CHudGladderSummary::DrawLeaderboardPage( void )
 {
-#ifdef CLIENT_DLL
+#if defined( CLIENT_DLL ) || defined( HL_TESTS )
 	int cx = ScreenWidth / 2;
 	int y  = 40;
 	char szBuf[128];
@@ -474,17 +490,31 @@ void CHudGladderSummary::DrawLeaderboardPage( void )
 	DrawConsoleString( cx - ( len / 2 ), y, szBuf );
 	y += 32;
 
+	// Column-aligned tabular grid anchors (SPEC §10.2, Issue #73)
+	int tableX    = cx - 230;
+	int colRankX   = tableX;
+	int colScoreX  = tableX + 55;
+	int colWavesX  = tableX + 150;
+	int colFragsX  = tableX + 215;
+	int colTimeX   = tableX + 280;
+	int colGradeX  = tableX + 350;
+	int colStatusX = tableX + 410;
+
 	// Table Header
-	int tableX = cx - 220;
 	gEngfuncs.pfnDrawSetTextColor( 0.4f, 0.9f, 1.0f );
-	snprintf( szBuf, sizeof( szBuf ), "%-4s %-10s %-7s %-7s %-8s %-5s %-8s", "RANK", "SCORE", "WAVES", "FRAGS", "TIME", "GRADE", "STATUS" );
-	DrawConsoleString( tableX, y, szBuf );
+	DrawConsoleString( colRankX, y, "RANK" );
+	DrawConsoleString( colScoreX, y, "SCORE" );
+	DrawConsoleString( colWavesX, y, "WAVES" );
+	DrawConsoleString( colFragsX, y, "FRAGS" );
+	DrawConsoleString( colTimeX, y, "TIME" );
+	DrawConsoleString( colGradeX, y, "GRADE" );
+	DrawConsoleString( colStatusX, y, "STATUS" );
 	y += 20;
 
-	gEngfuncs.pfnDrawSetTextColor( 0.0f, 0.9f, 0.2f );
 	if ( m_leaderboard.empty() )
 	{
-		DrawConsoleString( tableX, y, "No local scores recorded yet." );
+		gEngfuncs.pfnDrawSetTextColor( 0.0f, 0.9f, 0.2f );
+		DrawConsoleString( colRankX, y, "No local scores recorded yet." );
 	}
 	else
 	{
@@ -496,15 +526,6 @@ void CHudGladderSummary::DrawLeaderboardPage( void )
 			char szTime[16];
 			snprintf( szTime, sizeof( szTime ), "%02d:%02d", m, s );
 
-			snprintf( szBuf, sizeof( szBuf ), "#%-3d %-10d %-7d %-7d %-8s %-5c %-8s",
-			          static_cast<int>( i + 1 ),
-			          e.score,
-			          e.waves,
-			          e.frags,
-			          szTime,
-			          e.grade,
-			          e.survived ? "SURVIVED" : "KIA" );
-
 			if ( static_cast<int>( i + 1 ) == m_iQualifiedRank )
 			{
 				gEngfuncs.pfnDrawSetTextColor( 1.0f, 1.0f, 0.2f ); // Highlight current run
@@ -514,7 +535,29 @@ void CHudGladderSummary::DrawLeaderboardPage( void )
 				gEngfuncs.pfnDrawSetTextColor( 0.0f, 0.9f, 0.2f );
 			}
 
-			DrawConsoleString( tableX, y, szBuf );
+			char szRank[16];
+			snprintf( szRank, sizeof( szRank ), "#%d", static_cast<int>( i + 1 ) );
+			DrawConsoleString( colRankX, y, szRank );
+
+			char szScore[24];
+			snprintf( szScore, sizeof( szScore ), "%d", e.score );
+			DrawConsoleString( colScoreX, y, szScore );
+
+			char szWaves[16];
+			snprintf( szWaves, sizeof( szWaves ), "%d", e.waves );
+			DrawConsoleString( colWavesX, y, szWaves );
+
+			char szFrags[16];
+			snprintf( szFrags, sizeof( szFrags ), "%d", e.frags );
+			DrawConsoleString( colFragsX, y, szFrags );
+
+			DrawConsoleString( colTimeX, y, szTime );
+
+			char szGrade[8];
+			snprintf( szGrade, sizeof( szGrade ), "%c", e.grade );
+			DrawConsoleString( colGradeX, y, szGrade );
+
+			DrawConsoleString( colStatusX, y, e.survived ? "SURVIVED" : "KIA" );
 			y += 18;
 		}
 	}

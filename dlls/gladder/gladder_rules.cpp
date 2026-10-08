@@ -494,6 +494,9 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	}
 #endif
 
+	// Terminate active mutator alert warning siren on wave completion (SPEC §3, §8, Issue #70)
+	GladderAudio::StopCue( GLADDER_CUE_MUTATOR_WARNING, pActivator );
+
 	// Acoustic cue for triumphant wave completion
 	GladderAudio::PlayCue( GLADDER_CUE_WAVE_COMPLETE, pActivator );
 
@@ -627,11 +630,66 @@ void CGladderRules::CalculateFinalScore( bool bSurvived )
 	BroadcastSummaryUpdate( nullptr, m_lastScoreBreakdown, m_comboTracker.GetStats() );
 }
 
-void CGladderRules::CollectSummaryCameras( void )
+CBaseEntity *CGladderRules::GetOrCreateDynamicCamera( CBaseEntity *pPlr )
+{
+	if ( !pPlr )
+	{
+		pPlr = gpGlobals ? UTIL_PlayerByIndex( 1 ) : nullptr;
+	}
+	if ( !pPlr || !pPlr->edict() )
+		return nullptr;
+
+	const char *pszPlayerModel = ( pPlr->pev->model ) ? STRING( pPlr->pev->model ) : "models/player.mdl";
+	UTIL_MakeVectors( pPlr->pev->v_angle );
+	Vector vecCamPos = pPlr->pev->origin + Vector( 0, 0, 90 ) - gpGlobals->v_forward * 140;
+	TraceResult tr;
+	UTIL_TraceLine( pPlr->pev->origin + Vector( 0, 0, 36 ), vecCamPos, ignore_monsters, pPlr->edict(), &tr );
+	vecCamPos = tr.vecEndPos + tr.vecPlaneNormal * 4;
+
+	Vector vecAngles = UTIL_VecToAngles( ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - vecCamPos );
+	vecAngles.x = -vecAngles.x;
+
+	CBaseEntity *pFallCam = UTIL_FindEntityByTargetname( nullptr, "gladder_dynamic_camera" );
+	if ( !pFallCam )
+	{
+		pFallCam = CBaseEntity::Create( "info_target", vecCamPos, vecAngles, nullptr );
+		if ( pFallCam )
+		{
+			pFallCam->pev->targetname = MAKE_STRING( "gladder_dynamic_camera" );
+		}
+	}
+	if ( pFallCam && pFallCam->edict() )
+	{
+		if ( pFallCam->pev->modelindex == 0 )
+		{
+			SET_MODEL( pFallCam->edict(), pszPlayerModel );
+		}
+		pFallCam->pev->rendermode = kRenderTransTexture;
+		pFallCam->pev->renderamt  = 0;
+		pFallCam->pev->solid      = SOLID_NOT;
+		pFallCam->pev->movetype   = MOVETYPE_NONE;
+		pFallCam->pev->angles     = vecAngles;
+		pFallCam->pev->v_angle    = vecAngles;
+		UTIL_SetOrigin( pFallCam->pev, vecCamPos );
+	}
+	return pFallCam;
+}
+
+void CGladderRules::CollectSummaryCameras( CBaseEntity *pPlr )
 {
 	m_summaryCameras.clear();
 	m_iCurrentSummaryCameraIndex = 0;
 
+	// 1. Dynamic third-person camera is ALWAYS index 0 (SPEC §6, §9.2, Issue #72)
+	CBaseEntity *pDynamicCam = GetOrCreateDynamicCamera( pPlr );
+	if ( pDynamicCam && pDynamicCam->edict() && !FNullEnt( pDynamicCam->edict() ) )
+	{
+		EHANDLE hCam;
+		hCam = pDynamicCam;
+		m_summaryCameras.push_back( hCam );
+	}
+
+	// 2. Sequential map-placed cameras follow index 0
 	CBaseEntity *pCam = nullptr;
 	while ( ( pCam = UTIL_FindEntityByClassname( pCam, "gladder_camera" ) ) != nullptr )
 	{
@@ -643,7 +701,7 @@ void CGladderRules::CollectSummaryCameras( void )
 		}
 	}
 
-	if ( m_summaryCameras.empty() )
+	if ( m_summaryCameras.size() <= 1 )
 	{
 		while ( ( pCam = UTIL_FindEntityByTargetname( pCam, "gladder_camera" ) ) != nullptr )
 		{
@@ -656,7 +714,7 @@ void CGladderRules::CollectSummaryCameras( void )
 		}
 	}
 
-	if ( m_summaryCameras.empty() )
+	if ( m_summaryCameras.size() <= 1 )
 	{
 		while ( ( pCam = UTIL_FindEntityByClassname( pCam, "trigger_camera" ) ) != nullptr )
 		{
@@ -675,10 +733,18 @@ void CGladderRules::ActivateSummaryCamera( CBaseEntity *pCamera, CBaseEntity *pP
 	if ( !pCamera || !pCamera->edict() || !pPlr || !pPlr->edict() )
 		return;
 
+	// If this is the dynamic third-person camera, refresh its transform relative to the player
+	if ( pCamera->pev->targetname && FStrEq( STRING( pCamera->pev->targetname ), "gladder_dynamic_camera" ) )
+	{
+		GetOrCreateDynamicCamera( pPlr );
+		SET_VIEW( pPlr->edict(), pCamera->edict() );
+		return;
+	}
+
 	const char *pszPlayerModel = ( pPlr->pev->model ) ? STRING( pPlr->pev->model ) : "models/player.mdl";
 
 	Vector vecCamAngles = pCamera->pev->angles;
-	if ( pCamera->pev->target )
+	if ( pCamera->pev->target)
 	{
 		const char *pszTarget = STRING( pCamera->pev->target );
 		if ( pszTarget && pszTarget[0] )
@@ -749,14 +815,15 @@ void CGladderRules::ShiftPlayerCamera( CBaseEntity *pPlr )
 
 	if ( m_summaryCameras.empty() )
 	{
-		CollectSummaryCameras();
+		CollectSummaryCameras( pPlr );
 	}
 
 	if ( !m_summaryCameras.empty() )
 	{
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 		m_flNextCameraSwitchTime = flTime + 5.0f;
-		CBaseEntity *pCam = m_summaryCameras[m_iCurrentSummaryCameraIndex];
+		m_iCurrentSummaryCameraIndex = 0;
+		CBaseEntity *pCam = m_summaryCameras[0];
 		if ( pCam && pCam->edict() )
 		{
 			ActivateSummaryCamera( pCam, pPlr );
@@ -764,39 +831,9 @@ void CGladderRules::ShiftPlayerCamera( CBaseEntity *pPlr )
 		}
 	}
 
-	// Dynamic fallback elevated camera overlooking player if no map cameras exist
-	const char *pszPlayerModel = ( pPlr->pev->model ) ? STRING( pPlr->pev->model ) : "models/player.mdl";
-	UTIL_MakeVectors( pPlr->pev->v_angle );
-	Vector vecCamPos = pPlr->pev->origin + Vector( 0, 0, 90 ) - gpGlobals->v_forward * 140;
-	TraceResult tr;
-	UTIL_TraceLine( pPlr->pev->origin + Vector( 0, 0, 36 ), vecCamPos, ignore_monsters, pPlr->edict(), &tr );
-	vecCamPos = tr.vecEndPos + tr.vecPlaneNormal * 4;
-
-	Vector vecAngles = UTIL_VecToAngles( ( pPlr->pev->origin + Vector( 0, 0, 20 ) ) - vecCamPos );
-	vecAngles.x = -vecAngles.x;
-
-	CBaseEntity *pFallCam = UTIL_FindEntityByTargetname( nullptr, "gladder_dynamic_camera" );
-	if ( !pFallCam )
-	{
-		pFallCam = CBaseEntity::Create( "info_target", vecCamPos, vecAngles, nullptr );
-		if ( pFallCam )
-		{
-			pFallCam->pev->targetname = MAKE_STRING( "gladder_dynamic_camera" );
-		}
-	}
+	CBaseEntity *pFallCam = GetOrCreateDynamicCamera( pPlr );
 	if ( pFallCam && pFallCam->edict() )
 	{
-		if ( pFallCam->pev->modelindex == 0 )
-		{
-			SET_MODEL( pFallCam->edict(), pszPlayerModel );
-		}
-		pFallCam->pev->rendermode = kRenderTransTexture;
-		pFallCam->pev->renderamt  = 0;
-		pFallCam->pev->solid      = SOLID_NOT;
-		pFallCam->pev->movetype   = MOVETYPE_NONE;
-		pFallCam->pev->angles     = vecAngles;
-		pFallCam->pev->v_angle    = vecAngles;
-		UTIL_SetOrigin( pFallCam->pev, vecCamPos );
 		SET_VIEW( pPlr->edict(), pFallCam->edict() );
 	}
 }
