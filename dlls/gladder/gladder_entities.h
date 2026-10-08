@@ -17,9 +17,51 @@
 #include "systems/triggers_point.h"
 
 //
+// gladder_trigger_clip
+// Companion solid BSP brush created for wave start and finish triggers.
+// Provides geometric clipping for monsters and pushables, and dynamically for players.
+//
+class CGladderTriggerClip : public CBaseEntity
+{
+  public:
+	void Spawn( void )
+	{
+		pev->angles   = g_vecZero;
+		pev->movetype = MOVETYPE_PUSH;
+		pev->solid    = SOLID_BSP;
+		if ( pev->model )
+		{
+			SET_MODEL( ENT( pev ), STRING( pev->model ) );
+		}
+		pev->effects = EF_NODRAW;
+		pev->flags |= FL_WORLDBRUSH;
+		pev->flags |= FL_MONSTERCLIP;
+	}
+
+	void SetSolidForPlayer( bool bSolid )
+	{
+		if ( bSolid )
+		{
+			pev->flags &= ~FL_MONSTERCLIP;
+			pev->solid = SOLID_BSP;
+		}
+		else
+		{
+			pev->flags |= FL_MONSTERCLIP;
+			pev->solid = SOLID_BSP;
+		}
+		UTIL_SetOrigin( pev, pev->origin );
+	}
+
+	bool IsSolidForPlayer( void ) const { return ( pev->flags & FL_MONSTERCLIP ) == 0; }
+};
+
+//
 // trigger_gladder_start
 // Mapper brush trigger placed at Point A (staging area).
 // Fires wave start on demand when the player crosses it.
+// Blocks monsters and pushables permanently, and becomes solid for the player
+// once traversed so the player cannot retreat after starting the wave.
 //
 class CTriggerGladderStart : public CBaseTrigger
 {
@@ -27,6 +69,20 @@ class CTriggerGladderStart : public CBaseTrigger
 	void Spawn( void );
 	void EXPORT StartTouch( CBaseEntity *pOther );
 	void EXPORT StartUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
+	void EXPORT CrossThink( void );
+
+	void ResetTrigger( void );
+	void SetSolidForPlayer( bool bSolid );
+	bool IsPlayerCrossed( void ) const { return m_bPlayerCrossed; }
+	CGladderTriggerClip *GetClip( void ) { return (CGladderTriggerClip *)( (CBaseEntity *)m_hClip ); }
+
+  private:
+	void CreateClipBrush( void );
+	bool IsEntityInside( CBaseEntity *pEntity );
+
+	EHANDLE m_hClip;
+	EHANDLE m_hActivatingPlayer;
+	bool m_bPlayerCrossed;
 };
 
 //
@@ -34,6 +90,7 @@ class CTriggerGladderStart : public CBaseTrigger
 // Mapper brush trigger placed at Point B (extraction / finish line).
 // Completes current wave, plays reward acoustic cue, cleans up entities,
 // and teleports the player back to Point A target destination preserving inventory.
+// Blocks monsters and pushables permanently while allowing the player to enter.
 //
 class CTriggerGladderFinish : public CBaseTrigger
 {
@@ -41,9 +98,13 @@ class CTriggerGladderFinish : public CBaseTrigger
 	void Spawn( void );
 	void EXPORT FinishTouch( CBaseEntity *pOther );
 	void EXPORT FinishUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
+	CGladderTriggerClip *GetClip( void ) { return (CGladderTriggerClip *)( (CBaseEntity *)m_hClip ); }
 
   private:
 	void DoFinish( CBaseEntity *pActivator );
+	void CreateClipBrush( void );
+
+	EHANDLE m_hClip;
 };
 
 //

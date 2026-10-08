@@ -98,6 +98,8 @@ class CGladderRules : public CHalfLifeRules
 	void PurgeWaveEntities( void );
 	void RechargeWallStations( void );
 	void ResetBreakableEntities( void );
+	void ResetStartTriggers( void );
+	void EnsureMonsterClipFlags( void );
 
 	// Scoring & match conclusion (SPEC §2, §3, §9.2, Issues #9, #85)
 	void HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer = nullptr );

@@ -61,11 +61,15 @@ TEST_CASE( "GladderVisuals: ClassifyPickupModel categorization (SPEC §7.2)", "[
 		CHECK( ClassifyPickupModel( "models/w_desert_eagle.mdl" ) == GLADDER_PICKUP_WEAPON );
 		CHECK( ClassifyPickupModel( "models/w_m40a1.mdl" ) == GLADDER_PICKUP_WEAPON );
 		CHECK( ClassifyPickupModel( "models/w_saw.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_grenade.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_satchel.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_tripmine.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/v_tripmine.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_sqknest.mdl" ) == GLADDER_PICKUP_WEAPON );
+	}
+
+	SECTION( "Consumable / Throwable Ordnance Models (SPEC §3, §7.2)" )
+	{
+		CHECK( ClassifyPickupModel( "models/w_grenade.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/w_satchel.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/w_tripmine.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/v_tripmine.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/w_sqknest.mdl" ) == GLADDER_PICKUP_ORDNANCE );
 	}
 
 	SECTION( "Live Combat Monsters Excluded from Pickups (SPEC §7.2, Issue #40)" )
@@ -414,4 +418,27 @@ TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qua
 		CHECK( info.b == 32 );
 		GladderClearActiveChargers();
 	}
+}
+
+TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct fiery crimson glow shell (SPEC §3, §7.2)", "[gladder][visuals][ordnance]" )
+{
+	cl_entity_t entGrenade;
+	memset( &entGrenade, 0, sizeof( entGrenade ) );
+	entGrenade.curstate.solid = SOLID_TRIGGER;
+
+	GladderPickupVisualModifier( 0, &entGrenade, "models/w_grenade.mdl" );
+	CHECK( entGrenade.curstate.renderfx == kRenderFxGlowShell );
+	CHECK( entGrenade.curstate.rendercolor.r == 255 );
+	CHECK( entGrenade.curstate.rendercolor.g == 48 );
+	CHECK( entGrenade.curstate.rendercolor.b == 48 );
+
+	cl_entity_t entShotgun;
+	memset( &entShotgun, 0, sizeof( entShotgun ) );
+	entShotgun.curstate.solid = SOLID_TRIGGER;
+
+	GladderPickupVisualModifier( 0, &entShotgun, "models/w_shotgun.mdl" );
+	CHECK( entShotgun.curstate.renderfx == kRenderFxGlowShell );
+	CHECK( entShotgun.curstate.rendercolor.r == 220 );
+	CHECK( entShotgun.curstate.rendercolor.g == 40 );
+	CHECK( entShotgun.curstate.rendercolor.b == 220 );
 }

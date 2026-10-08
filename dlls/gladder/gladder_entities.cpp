@@ -11,6 +11,11 @@
 #include <cstdlib>
 
 //
+// gladder_trigger_clip
+//
+LINK_ENTITY_TO_CLASS( gladder_trigger_clip, CGladderTriggerClip );
+
+//
 // trigger_gladder_start
 //
 LINK_ENTITY_TO_CLASS( trigger_gladder_start, CTriggerGladderStart );
@@ -25,12 +30,84 @@ void CTriggerGladderStart::Spawn( void )
 	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderStart::StartTouch );
 	SetUse( &CTriggerGladderStart::StartUse );
+
+	m_bPlayerCrossed = false;
+	m_hActivatingPlayer = nullptr;
+	CreateClipBrush();
+}
+
+void CTriggerGladderStart::CreateClipBrush( void )
+{
+	if ( !pev->model )
+		return;
+
+	edict_t *pent = CREATE_NAMED_ENTITY( MAKE_STRING( "gladder_trigger_clip" ) );
+	if ( !FNullEnt( pent ) )
+	{
+		CBaseEntity *pClip = Instance( pent );
+		if ( pClip )
+		{
+			pClip->pev->model = pev->model;
+			pClip->pev->origin = pev->origin;
+			pClip->pev->angles = pev->angles;
+			DispatchSpawn( pClip->edict() );
+			m_hClip = pClip;
+		}
+	}
+}
+
+bool CTriggerGladderStart::IsEntityInside( CBaseEntity *pEntity )
+{
+	if ( !pEntity || !pEntity->pev )
+		return false;
+
+	if ( pEntity->pev->absmax.x < pev->absmin.x || pEntity->pev->absmin.x > pev->absmax.x )
+		return false;
+	if ( pEntity->pev->absmax.y < pev->absmin.y || pEntity->pev->absmin.y > pev->absmax.y )
+		return false;
+	if ( pEntity->pev->absmax.z < pev->absmin.z || pEntity->pev->absmin.z > pev->absmax.z )
+		return false;
+
+	return true;
 }
 
 void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 {
-	if ( !pOther || !pOther->IsPlayer() )
+	if ( !pOther )
 		return;
+
+	// 1. Monsters and pushables are NEVER allowed to enter or cross the start area
+	if ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) )
+	{
+		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+		Vector vecDir = pOther->pev->origin - vecCenter;
+		vecDir.z = 0.0f;
+		if ( vecDir.Length() > 0.001f )
+			vecDir = vecDir.Normalize();
+		else
+			vecDir = Vector( 1.0f, 0.0f, 0.0f );
+
+		pOther->pev->velocity = vecDir * 250.0f;
+		return;
+	}
+
+	if ( !pOther->IsPlayer() )
+		return;
+
+	// 2. If the player has already crossed and the wave started, prevent retreating back to staging area
+	if ( m_bPlayerCrossed )
+	{
+		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+		Vector vecDir = pOther->pev->origin - vecCenter;
+		vecDir.z = 0.0f;
+		if ( vecDir.Length() > 0.001f )
+			vecDir = vecDir.Normalize();
+		else
+			vecDir = Vector( 1.0f, 0.0f, 0.0f );
+
+		pOther->pev->velocity = vecDir * 200.0f;
+		return;
+	}
 
 	if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
 		return;
@@ -46,8 +123,50 @@ void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 
 			pGladderRules->OnWaveTriggerStart( pOther );
 			SUB_UseTargets( pOther, USE_TOGGLE, 0 );
+
+			// Track activating player to monitor when they finish traversing the start threshold
+			m_hActivatingPlayer = pOther;
+			SetThink( &CTriggerGladderStart::CrossThink );
+			pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
 		}
 	}
+}
+
+void CTriggerGladderStart::CrossThink( void )
+{
+	if ( m_bPlayerCrossed )
+		return;
+
+	CBaseEntity *pPlayer = m_hActivatingPlayer;
+	if ( !pPlayer || !IsEntityInside( pPlayer ) )
+	{
+		// Player has finished crossing through the start volume into the gauntlet arena!
+		m_bPlayerCrossed = true;
+		SetSolidForPlayer( true );
+		return;
+	}
+
+	// Player is still crossing through; check again on next frame
+	pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+}
+
+void CTriggerGladderStart::SetSolidForPlayer( bool bSolid )
+{
+	if ( m_hClip )
+	{
+		CGladderTriggerClip *pClip = (CGladderTriggerClip *)( (CBaseEntity *)m_hClip );
+		if ( pClip )
+		{
+			pClip->SetSolidForPlayer( bSolid );
+		}
+	}
+}
+
+void CTriggerGladderStart::ResetTrigger( void )
+{
+	m_bPlayerCrossed = false;
+	m_hActivatingPlayer = nullptr;
+	SetSolidForPlayer( false );
 }
 
 void CTriggerGladderStart::StartUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
@@ -73,11 +192,51 @@ void CTriggerGladderFinish::Spawn( void )
 	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderFinish::FinishTouch );
 	SetUse( &CTriggerGladderFinish::FinishUse );
+
+	CreateClipBrush();
+}
+
+void CTriggerGladderFinish::CreateClipBrush( void )
+{
+	if ( !pev->model )
+		return;
+
+	edict_t *pent = CREATE_NAMED_ENTITY( MAKE_STRING( "gladder_trigger_clip" ) );
+	if ( !FNullEnt( pent ) )
+	{
+		CBaseEntity *pClip = Instance( pent );
+		if ( pClip )
+		{
+			pClip->pev->model = pev->model;
+			pClip->pev->origin = pev->origin;
+			pClip->pev->angles = pev->angles;
+			DispatchSpawn( pClip->edict() );
+			m_hClip = pClip;
+		}
+	}
 }
 
 void CTriggerGladderFinish::FinishTouch( CBaseEntity *pOther )
 {
-	if ( !pOther || !pOther->IsPlayer() )
+	if ( !pOther )
+		return;
+
+	// 1. Monsters and pushables are NEVER allowed to enter or cross the finish area
+	if ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) )
+	{
+		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+		Vector vecDir = pOther->pev->origin - vecCenter;
+		vecDir.z = 0.0f;
+		if ( vecDir.Length() > 0.001f )
+			vecDir = vecDir.Normalize();
+		else
+			vecDir = Vector( 1.0f, 0.0f, 0.0f );
+
+		pOther->pev->velocity = vecDir * 250.0f;
+		return;
+	}
+
+	if ( !pOther->IsPlayer() )
 		return;
 
 	if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )

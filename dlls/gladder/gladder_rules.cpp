@@ -578,6 +578,9 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		// Fire start relays (event = 0)
 		Gladder_FireWaveRelays( 0, pActivator );
 
+		// Enforce FL_MONSTERCLIP across monsters and pushables for start/finish trigger clip boundaries
+		EnsureMonsterClipFlags();
+
 		BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ) );
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
@@ -665,6 +668,37 @@ void CGladderRules::ResetWave( void )
 	RechargeWallStations();
 	ResetBreakableEntities();
 	RestoreStaticDecals();
+	ResetStartTriggers();
+}
+
+void CGladderRules::ResetStartTriggers( void )
+{
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		if ( !pEnt || !pEnt->pev )
+			return;
+
+		if ( FClassnameIs( pEnt->pev, "trigger_gladder_start" ) )
+		{
+			CTriggerGladderStart *pStart = dynamic_cast<CTriggerGladderStart *>( pEnt );
+			if ( pStart )
+			{
+				pStart->ResetTrigger();
+			}
+		}
+	} );
+}
+
+void CGladderRules::EnsureMonsterClipFlags( void )
+{
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		if ( !pEnt || !pEnt->pev )
+			return;
+
+		if ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) )
+		{
+			pEnt->pev->flags |= FL_MONSTERCLIP;
+		}
+	} );
 }
 
 void CGladderRules::PurgeWaveEntities( void )

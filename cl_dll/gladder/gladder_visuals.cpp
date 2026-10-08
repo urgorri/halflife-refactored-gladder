@@ -96,7 +96,16 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
 		return GLADDER_PICKUP_NONE;
 	}
 
-	// Weapons — general catch for weapon models, including dropped ordnance items
+	// Consumable & throwable ordnance weapons (SPEC §3, §7.2)
+	if ( strstr( szLower, "w_grenade" ) ||
+	     strstr( szLower, "w_satchel" ) ||
+	     strstr( szLower, "w_sqknest" ) ||
+	     strstr( szLower, "tripmine" ) )
+	{
+		return GLADDER_PICKUP_ORDNANCE;
+	}
+
+	// Weapons — general catch for fixed weapon models
 	if ( strstr( szLower, "models/w_" ) ||
 	     strstr( szLower, "/w_" ) ||
 	     strstr( szLower, "w_crowbar" ) ||
@@ -105,11 +114,7 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
 	     strstr( szLower, "w_desert_eagle" ) ||
 	     strstr( szLower, "w_m40a1" ) ||
 	     strstr( szLower, "w_saw" ) ||
-	     strstr( szLower, "w_9mmar" ) ||
-	     strstr( szLower, "w_grenade" ) ||
-	     strstr( szLower, "w_satchel" ) ||
-	     strstr( szLower, "w_sqknest" ) ||
-	     strstr( szLower, "tripmine" ) )
+	     strstr( szLower, "w_9mmar" ) )
 	{
 		return GLADDER_PICKUP_WEAPON;
 	}
@@ -265,6 +270,9 @@ void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char 
 		break;
 	case GLADDER_PICKUP_WEAPON:
 		r = 220; g = 40; b = 220;  // Arcade Magenta / Violet
+		break;
+	case GLADDER_PICKUP_ORDNANCE:
+		r = 255; g = 48; b = 48;   // Fiery Crimson / Scarlet Red (SPEC §7.2)
 		break;
 	default:
 		break;
@@ -727,6 +735,50 @@ void GladderPlayerCorpseVisualModifier( int type, struct cl_entity_s *ent, const
 REGISTER_ENTITY_VISUAL_MODIFIER( GladderPlayerCorpseVisualModifier );
 #else
 void GladderDrawChargerGlowShells( void ) {}
+
+void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char *modelname )
+{
+	if ( !ent || !modelname )
+		return;
+
+	if ( !ShouldApplyPickupVisuals( ent, modelname ) )
+		return;
+
+	EGladderPickupCategory cat = ClassifyPickupModel( modelname );
+	if ( cat == GLADDER_PICKUP_NONE )
+		return;
+
+	unsigned char r = 255, g = 255, b = 255;
+	switch ( cat )
+	{
+	case GLADDER_PICKUP_HEALTH:
+		r = 32; g = 255; b = 32;
+		break;
+	case GLADDER_PICKUP_HEV:
+		r = 32; g = 192; b = 255;
+		break;
+	case GLADDER_PICKUP_AMMO:
+		r = 255; g = 180; b = 20;
+		break;
+	case GLADDER_PICKUP_LAMBDA:
+		r = 255; g = 140; b = 20;
+		break;
+	case GLADDER_PICKUP_WEAPON:
+		r = 220; g = 40; b = 220;
+		break;
+	case GLADDER_PICKUP_ORDNANCE:
+		r = 255; g = 48; b = 48;
+		break;
+	default:
+		break;
+	}
+
+	ent->curstate.renderfx = kRenderFxGlowShell;
+	ent->curstate.rendercolor.r = r;
+	ent->curstate.rendercolor.g = g;
+	ent->curstate.rendercolor.b = b;
+	ent->curstate.renderamt = 16;
+}
 
 void GladderChargerVisualModifier( int type, struct cl_entity_s *ent, const char *modelname )
 {

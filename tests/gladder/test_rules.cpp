@@ -20,6 +20,7 @@
 #include "tests/mock_engine.h"
 #include "cl_dll/gladder/hud_gladder_overlay.h"
 #include "dlls/gladder/gladder_wave_manager.h"
+#include "dlls/gladder/gladder_entities.h"
 
 // GladderStaticDecal struct definition matching gladder_rules.h (SPEC §11.3, Issue #49)
 struct GladderStaticDecal
@@ -257,6 +258,29 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 		}
 
 		FreezeMatchWorld();
+	}
+
+	void EnsureMonsterClipFlags( void )
+	{
+		if ( !gpGlobals )
+			return;
+
+		int maxEdicts = ( gpGlobals->maxEntities > 0 ) ? gpGlobals->maxEntities : 512;
+		for ( int i = 1; i < maxEdicts; ++i )
+		{
+			edict_t *pEdict = INDEXENT( i );
+			if ( FNullEnt( pEdict ) || pEdict->free || !pEdict->v.pContainingEntity )
+				continue;
+
+			CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
+			if ( !pEnt )
+				continue;
+
+			if ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) )
+			{
+				pEnt->pev->flags |= FL_MONSTERCLIP;
+			}
+		}
 	}
 
 	void Think( void ) override
@@ -775,5 +799,78 @@ TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles o
 	CHECK( pProj->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
 	CHECK( pProj->pev->nextthink == 0.0f );
 }
+
+TEST_CASE( "Gladder Rules: EnsureMonsterClipFlags enforces FL_MONSTERCLIP across monsters and pushables", "[gladder][rules][clip]" )
+{
+	ResetMockEngine();
+
+	CTestConclusionRules rules;
+
+	// Mock monster in slot 2
+	edict_t *pMonsterSlot = GetMockClientEntity( 2 );
+	REQUIRE( pMonsterSlot != nullptr );
+	pMonsterSlot->free = 0;
+	pMonsterSlot->v.flags = FL_MONSTER;
+	pMonsterSlot->v.classname = MAKE_STRING( "monster_headcrab" );
+	pMonsterSlot->v.pContainingEntity = pMonsterSlot;
+
+	CTestDropMonster monster;
+	pMonsterSlot->pvPrivateData = &monster;
+	monster.pev = &pMonsterSlot->v;
+
+	// Mock pushable in slot 3
+	edict_t *pPushableSlot = GetMockClientEntity( 3 );
+	REQUIRE( pPushableSlot != nullptr );
+	pPushableSlot->free = 0;
+	pPushableSlot->v.classname = MAKE_STRING( "func_pushable" );
+	pPushableSlot->v.pContainingEntity = pPushableSlot;
+
+	CBaseEntity pushable;
+	pPushableSlot->pvPrivateData = &pushable;
+	pushable.pev = &pPushableSlot->v;
+
+	// Verify before: FL_MONSTERCLIP is not set
+	CHECK( ( monster.pev->flags & FL_MONSTERCLIP ) == 0 );
+	CHECK( ( pushable.pev->flags & FL_MONSTERCLIP ) == 0 );
+
+	// Enforce clip flags via rules
+	rules.EnsureMonsterClipFlags();
+
+	// Verify after: both monster and pushable have FL_MONSTERCLIP
+	CHECK( ( monster.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( ( pushable.pev->flags & FL_MONSTERCLIP ) != 0 );
+}
+
+TEST_CASE( "Gladder Triggers: CGladderTriggerClip solidity and player passage toggling", "[gladder][triggers][clip]" )
+{
+	ResetMockEngine();
+
+	CGladderTriggerClip clip;
+	entvars_t localPev;
+	memset( &localPev, 0, sizeof( localPev ) );
+	clip.pev = &localPev;
+
+	// Spawn sets default state: solid BSP, monsterclip set (blocks monsters and pushables, non-solid for players)
+	clip.Spawn();
+	CHECK( clip.pev->solid == SOLID_BSP );
+	CHECK( clip.pev->movetype == MOVETYPE_PUSH );
+	CHECK( ( clip.pev->flags & FL_WORLDBRUSH ) != 0 );
+	CHECK( ( clip.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( ( clip.pev->effects & EF_NODRAW ) != 0 );
+	CHECK( clip.IsSolidForPlayer() == false );
+
+	// When wave starts and player crosses: becomes solid for player too (FL_MONSTERCLIP removed)
+	clip.SetSolidForPlayer( true );
+	CHECK( clip.pev->solid == SOLID_BSP );
+	CHECK( ( clip.pev->flags & FL_MONSTERCLIP ) == 0 );
+	CHECK( clip.IsSolidForPlayer() == true );
+
+	// On wave reset: restores monsterclip flag (non-solid for players again)
+	clip.SetSolidForPlayer( false );
+	CHECK( clip.pev->solid == SOLID_BSP );
+	CHECK( ( clip.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( clip.IsSolidForPlayer() == false );
+}
+
 
 

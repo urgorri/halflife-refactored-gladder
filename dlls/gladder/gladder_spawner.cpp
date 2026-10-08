@@ -400,6 +400,11 @@ CBaseEntity *GladderSpawner::CreateWaveEntity( const char *szClassname, const Ve
 		EHANDLE h;
 		h = pEnt;
 		m_spawnedEntities.push_back( h );
+
+		if ( pEnt->MyMonsterPointer() || ( pEnt->pev && ( pEnt->pev->flags & FL_MONSTER ) ) )
+		{
+			pEnt->pev->flags |= FL_MONSTERCLIP;
+		}
 	}
 
 	return pEnt;

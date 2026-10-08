@@ -26,7 +26,8 @@ enum EGladderPickupCategory
 	GLADDER_PICKUP_HEV,
 	GLADDER_PICKUP_AMMO,
 	GLADDER_PICKUP_LAMBDA,
-	GLADDER_PICKUP_WEAPON
+	GLADDER_PICKUP_WEAPON,
+	GLADDER_PICKUP_ORDNANCE
 };
 
 // Returns the glow color category for a given model path, or GLADDER_PICKUP_NONE.
