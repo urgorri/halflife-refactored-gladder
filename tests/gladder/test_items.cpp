@@ -49,7 +49,12 @@ TEST_CASE( "GladderAudio: safe execution when no entity provided", "[gladder][au
 	REQUIRE_NOTHROW( GladderAudio::PlayCue( GLADDER_CUE_COLLECTIBLE, nullptr ) );
 	REQUIRE_NOTHROW( GladderAudio::PlayCue( (EGladderAudioCue)-1, nullptr ) );
 	REQUIRE_NOTHROW( GladderAudio::PlayCue( (EGladderAudioCue)999, nullptr ) );
+
+	REQUIRE_NOTHROW( GladderAudio::StopCue( GLADDER_CUE_MUTATOR_WARNING, nullptr ) );
+	REQUIRE_NOTHROW( GladderAudio::StopCue( (EGladderAudioCue)-1, nullptr ) );
+	REQUIRE_NOTHROW( GladderAudio::StopCue( (EGladderAudioCue)999, nullptr ) );
 }
+
 
 TEST_CASE( "CGladderItemLambda: ItemRegistry registration and scoring constants (SPEC §7.3)", "[gladder][items]" )
 {

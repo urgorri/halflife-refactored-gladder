@@ -13,6 +13,7 @@
 #include "core/skill.h"
 #include "core/skill_manager.h"
 #include "tests/mock_engine.h"
+#include "dlls/gladder/gladder_audio.h"
 #include "dlls/gladder/gladder_modifiers.h"
 
 // Test dummy monster
@@ -216,5 +217,63 @@ TEST_CASE( "GladderModifiers: Wall station active glow shell and depletion extin
 
 	memset( pEdHealth, 0, sizeof( edict_t ) );
 	memset( pEdHEV, 0, sizeof( edict_t ) );
+}
+
+TEST_CASE( "GladderAudio: StopCue terminates active audio cue on entity (SPEC §3, §8, Issue #70)", "[gladder][audio]" )
+{
+	ResetMockEngine();
+	g_mockEmittedSounds.clear();
+
+	edict_t testEdict;
+	memset( &testEdict, 0, sizeof( testEdict ) );
+	testEdict.v.pContainingEntity = &testEdict;
+	CBaseEntity testEnt;
+	testEnt.pev = &testEdict.v;
+
+	// Play mutator alert cue
+	GladderAudio::PlayCue( GLADDER_CUE_MUTATOR_WARNING, &testEnt );
+	bool heardSiren = false;
+	for ( const auto &call : g_mockEmittedSounds )
+	{
+		if ( call.sample == "ambience/siren.wav" && !( call.flags & SND_STOP ) )
+			heardSiren = true;
+	}
+	CHECK( heardSiren == true );
+
+	// Stop mutator alert cue
+	GladderAudio::StopCue( GLADDER_CUE_MUTATOR_WARNING, &testEnt );
+	bool stoppedSiren = false;
+	for ( const auto &call : g_mockEmittedSounds )
+	{
+		if ( call.sample == "ambience/siren.wav" && ( call.flags & SND_STOP ) )
+			stoppedSiren = true;
+	}
+	CHECK( stoppedSiren == true );
+}
+
+TEST_CASE( "GladderModifiers: RevertMutators terminates mutator warning siren (SPEC §3, §8, Issue #70)", "[gladder][modifiers][audio]" )
+{
+	ResetMockEngine();
+	g_mockEmittedSounds.clear();
+
+	edict_t *pPlayerEd = INDEXENT( 1 );
+	pPlayerEd->free = 0;
+	pPlayerEd->v.pContainingEntity = pPlayerEd;
+
+	GladderModifiers modifiers;
+	modifiers.ApplyMutator( GLADDER_MUTATOR_BLACKOUT, 5 );
+	CHECK( modifiers.GetActiveMutator() == GLADDER_MUTATOR_BLACKOUT );
+
+	// Revert mutators must terminate warning siren via StopCue
+	modifiers.RevertMutators();
+	CHECK( modifiers.GetActiveMutator() == GLADDER_MUTATOR_NONE );
+
+	bool stoppedSiren = false;
+	for ( const auto &call : g_mockEmittedSounds )
+	{
+		if ( call.sample == "ambience/siren.wav" && ( call.flags & SND_STOP ) )
+			stoppedSiren = true;
+	}
+	CHECK( stoppedSiren == true );
 }
 

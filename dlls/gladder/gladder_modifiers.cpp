@@ -7,6 +7,7 @@
  ****/
 
 #include "gladder_modifiers.h"
+#include "gladder_audio.h"
 #include "systems/chargers.h"
 #include "core/skill_manager.h"
 #include <algorithm>
@@ -299,6 +300,9 @@ void GladderModifiers::RevertMutators( void )
 
 	// 2. Restore standard GoldSrc gravity
 	CVAR_SET_FLOAT( "sv_gravity", 800.0f );
+
+	// 3. Terminate active mutator alert warning siren (SPEC §3, §8, Issue #70)
+	GladderAudio::StopCue( GLADDER_CUE_MUTATOR_WARNING );
 
 	m_szSwarmSpecies.clear();
 	m_activeMutator  = GLADDER_MUTATOR_NONE;

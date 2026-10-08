@@ -494,6 +494,9 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	}
 #endif
 
+	// Terminate active mutator alert warning siren on wave completion (SPEC §3, §8, Issue #70)
+	GladderAudio::StopCue( GLADDER_CUE_MUTATOR_WARNING, pActivator );
+
 	// Acoustic cue for triumphant wave completion
 	GladderAudio::PlayCue( GLADDER_CUE_WAVE_COMPLETE, pActivator );
 
