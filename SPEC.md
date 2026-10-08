@@ -44,19 +44,31 @@ Instead of progressing linearly through a series of maps, players run through a 
   * **End-of-Match Score Calculation**: To preserve clean screen visibility and immersion, the cumulative score is **calculated and revealed exclusively at the end of the match** on the summary screen.
   * **In-Game Combo Meter**: During active combat, rapid consecutive kills within a decaying window build a streak multiplier (`x2`, `x3`, `x4`, etc.). The game logs every combo event, streak count, and the peak maximum combo attained for the final score calculation.
   * **Direct & Indirect Player Kill Attribution**:
-    * Combat kills, frags, and combo progression MUST be strictly credited only when caused directly or indirectly by the player.
+    * Combat kills, frags, and combo progression MUST be strictly credited only when caused directly or indirectly by the player against living, hostile combatants.
     * **Direct Attribution**: Eliminations caused by player weapon discharges, bullets, projectiles, and placed explosives (satchels, tripmines, grenades).
     * **Indirect Attribution**: Eliminations caused by environmental detonations instigated by the player (e.g. shooting or breaking an explosive crate or barrel, `func_breakable`). The fatal explosion inherits player ownership so that surrounding enemy casualties count toward player frags and combo chaining.
-    * **Non-Player Exclusion**: Any monster death resulting from environmental hazards (slime, pits, fall damage, trigger_hurt) or AI monster infighting / accidental friendly fire without player instigation is strictly excluded. These deaths do not increment `FRAGS`, do not advance or refresh the combo meter, and do not contribute to final combat score.
+    * **Non-Player & Non-Combatant Exclusion**:
+      * Any monster death resulting from environmental hazards (slime, pits, fall damage, trigger_hurt) or AI monster infighting / accidental friendly fire without player instigation is strictly excluded.
+      * **Dead Monster Corpse Props Exclusion**: Striking, shooting, or exploding pre-placed dead monster props (such as `monster_barney_dead`, `monster_scientist_dead`, `monster_hgrunt_dead`, `monster_hevsuit_dead`, or any entity with `pev->deadflag != DEAD_NO` at the time of damage) must NEVER increment `FRAGS`, advance or refresh combo meters, or register in itemized species kill logs. These props serve purely as ambient environmental decor.
+      * **Projectile & Bioweapon Sub-Entity Exclusion**: Biological weapon projectiles and sub-entities that inherit from `CBaseMonster` (most notably Alien Grunt hornets `hornet` / `CHornet`, or player bioweapons) that can be shot or destroyed in flight must NEVER be credited as monster frags, combos, or species eliminations.
+      * Excluded entities do not increment `FRAGS`, do not advance or refresh the combo meter, and do not contribute to final combat scores or telemetry.
 * **Elite Monster Variants (Champions)**:
   * Enemies have a procedurally rolled chance to spawn as **Elite Champions**, with the spawn probability increasing as wave numbers climb.
   * **Visual Identification**: Rendered using GoldSrc's engine glow shell (`kRenderFxGlowShell` with red RGB color `RGB(255, 32, 32)`). The shell aura thickness (`renderamt`) must be kept compact and contouring closely to the monster's body (matching the subtle outline thickness used on weapon pickups, e.g. `renderamt = 16`), preventing oversized, blinding, or detached shell visual artifacts while preserving clear champion identification.
   * **Attributes**: Enhanced durability, heightened aggression, and elevated point payouts upon defeat.
-* **Dynamic Supply Balance & Ammunition Scarcity**:
-  * Weapons are persistent, durable assets retained by the player across all wave laps. Once a player collects a weapon, spawning duplicate weapons provides diminishing utility while cluttering the arena.
+* **Dynamic Supply Balance, Arsenal Categorization & Ammunition Scarcity**:
+  * **Categorical Separation of Weapons (Fixed vs. Consumable Ordnance)**:
+    * **Persistent Fixed Weapons**: Primary firearms and permanent combat tools (`weapon_glock`, `weapon_shotgun`, `weapon_mp5`, `weapon_357`, `weapon_crossbow`, `weapon_rpg`, `weapon_gauss`, `weapon_egon`, `weapon_knife`, `weapon_pipewrench`, `weapon_eagle`, `weapon_sniper`, `weapon_m249`). These are durable assets retained across all wave laps.
+    * **Consumable / Stackable Ordnance Weapons**: Deployable and throwable ordnance (`weapon_handgrenade`, `weapon_tripmine`, `weapon_satchel`, `weapon_snark`). These items are consumed upon use and function as tactical expendables.
+    * Consumable ordnance operates in a distinct procedural category separate from persistent fixed weapons, with its own dedicated spawn weights, tier distribution, and independent wave probability curves.
+  * **Loadout-Aware Fixed Weapon Spawning**:
+    * Procedural spawning of **Persistent Fixed Weapons** must dynamically inspect the player's active inventory (`HasNamedPlayerItem`).
+    * **Unacquired Spawning Only**: Only fixed weapons that the player does NOT currently possess in their loadout are permitted to spawn. This eliminates redundant fixed weapon drops, keeps arenas uncluttered, and reserves spawner capacity exclusively for weapons the player has yet to acquire.
+    * If the player already owns all permitted fixed weapons for the active map, fixed weapon spawn opportunities automatically fall back to consumable ordnance or ammunition drops.
   * Procedural pickup generation must strictly prioritize consumable survival resources over weapons:
     * **Ammunition**: Must represent the majority of procedural supply spawns, ensuring players are rewarded for exploration and forced to manage reserves across escalating combat encounters.
     * **Health & Armor**: Balanced secondary consumable drops to recover from attrition.
+    * **Consumable Ordnance**: Secondary tactical drops distributed according to ordnance tier weights.
     * **Weapons**: Assigned substantially lower procedural probability weights compared to ammunition, serving as rare, high-impact tactical upgrades rather than common drops.
     * **Monster Weapon Dropping Prohibition**: Monsters (specifically HECU Grunts or Barney) are strictly prohibited from dropping weapons or ammunition upon death (`DropItem` calls suppressed). All weapons, ammunition, and items present in the map must originate exclusively from the procedural spawner, ensuring complete deterministic authority over supply distribution and pacing.
 * **Special Waves & Random Mutators**:
@@ -150,7 +162,9 @@ Each map supports its own configuration profile to dictate thematic and gameplay
 
 The mod provides mapper-friendly entities to simplify setting up any custom or existing map:
 * **Wave Start Staging Zone (Point A)**: Defines the player's initial spawn point and return destination. Level designers configure Point A as a secure staging area free of monster spawn grids, with manual initiation mechanisms (e.g., airlock doors, start line triggers) that fire wave commencement on demand.
+  * **Start Trigger Visual Presentation (`trigger_gladder_start`)**: The start boundary trigger features the mod's signature arcade bounding glow shell (`kRenderFxGlowShell`) rendered over its brush bounds via the client Triangle API in vibrant Red (`RGB(255, 32, 32)`). Although trigger brush geometry is invisible in GoldSrc (`EF_NODRAW`), the outer red glow shell is actively drawn in 3D world space, giving players unmistakable visual demarcation of the wave start line.
 * **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, immediately snaps the screen to solid black (instant 100% black fade), teleports the player back to Point A while completely obscured, and fades the screen progressively back to 0% transparency to reveal the staging area.
+  * **Finish Trigger Visual Presentation (`trigger_gladder_finish`)**: Like the start trigger, the completion trigger volume renders the identical arcade bounding glow shell via Triangle API in vibrant Red (`RGB(255, 32, 32)`). Even though the trigger brush faces are non-rendered (`EF_NODRAW`), the red bounding glow shell clearly outlines the extraction / finish boundary across corridors and doorways.
 * **Wave State Relays**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
 * **End-Game Backdrop Cameras (`gladder_camera`)**: Support for placing multiple `gladder_camera` point entities (subclass of `trigger_camera`) across the map without requiring a specific `targetname`. During the post-game summary screen, the mod automatically cycles through backdrop cameras. The sequence ALWAYS begins with the dynamic third-person camera overlooking the player first. If map-placed `gladder_camera` entities exist in the level, the view then smoothly transitions sequentially through each of them in order, splitting view time equally among them, before looping back to the third-person camera and repeating the sequence indefinitely.
 * **Area Definition Volumes**: Bounding box entities with designer parameters for indexing scope and zoning.
@@ -223,6 +237,11 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * In standard GoldSrc, attempting to fire the MP5 grenade launcher (`weapon_mp5` secondary attack) underwater incorrectly updates the primary attack timer instead of secondary attack, using a hardcoded static float (`0.15`) rather than a relative timebase offset (`UTIL_WeaponTimeBase() + 0.15`). Holding down secondary fire while submerged causes the empty sound cue to spam uncontrollably on every frame.
 * In Half-Life: Gladder, secondary attack attempts underwater correctly debounce both attack channels (`m_flNextSecondaryAttack = m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.15`), preventing audio click storms and predicting properly on the client.
 
+### 7.10 Guaranteed Weapon Pickup HUD Sprite Delivery
+* In classic Half-Life GoldSrc, acquiring a new weapon flashes the corresponding weapon icon/sprite on the bottom-right corner of the HUD (positioned immediately above the active ammunition display) via the `WeapPickup` user message history slot (`HISTSLOT_WEAP`).
+* However, historical GoldSrc weapon classes omitted `WeapPickup` dispatches from the base weapon class (`CBasePlayerWeapon::AddToPlayer`) and various standard weapons (such as `weapon_glock`, `weapon_crowbar`, and deployable/throwable ordnance), causing the HUD pickup notification to appear intermittently or fail entirely for newly acquired weapons and modular arsenal items.
+* In Half-Life: Gladder, **all weapons**—including standard firearms, melee weapons, consumable ordnance (`weapon_handgrenade`, `weapon_tripmine`, `weapon_satchel`, `weapon_snark`), and extended arsenal weapons (`weapon_knife`, `weapon_pipewrench`, `weapon_eagle`, `weapon_sniper`, `weapon_m249`)—must reliably dispatch `WeapPickup` upon acquisition, guaranteeing instant visual HUD confirmation above the ammunition display whenever any weapon is collected.
+
 ---
 
 ## 8. Arcade Audio Cues & Soundscapes
@@ -247,8 +266,9 @@ A dedicated on-screen text overlay is rendered at all times (matching classic Ha
 * **Current Wave Counter**: Displays the active wave number (e.g., `WAVE: 14`).
 * **Collectibles Counter**: Displays the total count of Lambda items collected during the match (`COLLECTIBLES: 08`).
 * **Current Wave Timer**: Stopwatch tracking elapsed time spent in the active wave (`WAVE TIME: 00:38`).
-* **Total Frags / Kills**: Real-time counter of total monsters eliminated directly or indirectly by the player during the match (`FRAGS: 187`).
+* **Total Frags / Kills**: Real-time counter of total living hostile monsters eliminated directly or indirectly by the player during the match (`FRAGS: 187`). Excludes environmental deaths, monster infighting, pre-placed dead corpse props (`monster_*_dead`), and hostile projectile entities (`hornet`).
 * **Average Wave Duration**: Dynamically recalculated average completion time across all finished waves (`AVG WAVE: 00:46`).
+* **Weapon Pickup Notification**: Temporary weapon icon sprite flashed in the bottom-right HUD quadrant (positioned immediately above the primary/secondary ammunition display) upon acquiring any new weapon or ordnance item, confirming immediate loadout delivery.
 
 ### 9.2 End-of-Run Summary, Score Calculation & Grading
 Upon match conclusion—whether through **time limit expiration** or **player death**—the mod overrides the standard engine reload/menu routine and immediately activates the summary screen over the static camera backdrop:
@@ -314,10 +334,14 @@ To maintain authentic arcade tension, competitive scoring integrity, and fluid g
 * **Session Finality & Seamless Death Transition**: Each session represents a single, self-contained run. Player death bypasses original save reload and main menu prompts, seamlessly launching the end-of-run summary screen with full score calculation and high score recording.
 * **Corpse Orientation Lock**: Upon player death, the orientation angles (yaw, pitch, roll) of the 3D player corpse model are permanently locked at the exact moment and position of death. Moving the mouse or looking around in third-person view / death cameras must not pivot or rotate the dead player model on the floor.
 
-### 10.4 In-Game Match Restart (`GameMenu` Integration)
-* **On-Demand Match Restart**: Players can restart their active gauntlet run on demand via the in-game escape menu (`resource/GameMenu.res`).
-* **GameMenu Entry**: A dedicated "Restart Match" option (`#GameUI_GameMenu_RestartGame` / "Restart Match") executes an engine level reload (`engine restart` / `restart`), reloading the current map from Wave 1.
-* **State Reset**: Reloading the match cleanly purges all accumulated session metrics, resets combo streaks, restores procedural spawner state, and returns the player to Point A with the default staging loadout (`item_suit` and `weapon_crowbar`).
+### 10.4 In-Game Match Restart (`gladder_restart` & `GameMenu` Integration)
+* **On-Demand Match Restart**: Players can restart their active gauntlet run on demand via the in-game escape menu (`resource/GameMenu.res`) or the console.
+* **Full Map Reload vs. Engine Restart Bug**:
+  * In standard GoldSrc, executing the engine `restart` command after match conclusion, player death, or state invalidation suffers from an engine entity restoration bug: destroyed or modified brush entities (`func_breakable`, `func_wall`, interactive brushes) fail to reload, leaving map brush geometry missing and world structures broken.
+  * To ensure a complete, reliable level reset, the mod introduces the dedicated `gladder_restart` command (available as both a client console command and server command).
+  * `gladder_restart` automatically resolves the current active map name (via `pfnGetLevelName` on client or `gpGlobals->mapname` on server) and executes a full level load (`map <mapname>`).
+* **GameMenu Entry**: The "Restart Match" option in `resource/GameMenu.res` invokes `gladder_restart` (instead of legacy `engine restart`), triggering an immediate, clean full map reload from Wave 1.
+* **State Reset**: Reloading the match cleanly purges all accumulated session metrics, resets combo streaks, restores procedural spawner state, recreates all world brush entities, and returns the player to Point A with the default staging loadout (`item_suit` and `weapon_crowbar`).
 
 ### 10.5 New Game Gauntlet Map Selection (Map Selector vs. Legacy Difficulty)
 * **Map Selection Architecture**: Configured via declarative GameUI resource scripts (`resource/GameMenu.res` and `Resource/NewGameDialog.res`). Replaces the legacy Half-Life difficulty selection dialog (`#GameUI_Difficulty` ComboBox in `NewGameDialog`) with a Gauntlet Map Selector.
