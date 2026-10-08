@@ -189,10 +189,11 @@ bool ShouldApplyChargerGlowShell( const struct cl_entity_s *ent, const char *psz
 	unsigned char g = ent->curstate.rendercolor.g;
 	unsigned char b = ent->curstate.rendercolor.b;
 
-	bool bIsHealth = ( r == 32 && g == 255 && b == 32 );
-	bool bIsHEV    = ( r == 255 && g == 140 && b == 20 );
+	bool bIsHealth  = ( r == 32 && g == 255 && b == 32 );
+	bool bIsHEV     = ( r == 255 && g == 140 && b == 20 );
+	bool bIsTrigger = ( r == 255 && g == 32 && b == 32 );
 
-	return ( bIsHealth || bIsHEV );
+	return ( bIsHealth || bIsHEV || bIsTrigger );
 }
 
 void GladderComputeChargerGlowBounds( const Vector &origin, const Vector &mins, const Vector &maxs, float flDelta, Vector &outMins, Vector &outMaxs )

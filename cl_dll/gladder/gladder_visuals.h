@@ -50,9 +50,9 @@ struct GladderActiveChargerInfo
 	float lastSeenTime;
 };
 
-// Checks whether an entity and model qualify as an active wall charger needing a glow shell (SPEC §3, §7.2, Issue #48).
+// Checks whether an entity and model qualify as an active brush entity needing a glow shell (SPEC §3, §6, §7.2, Issues #48, #81).
 // Requires brush model (modelname[0] == '*'), renderfx == kRenderFxGlowShell, frame == 0,
-// and matching Health (32, 255, 32) or HEV (255, 140, 20) color.
+// and matching Health (32, 255, 32), HEV (255, 140, 20), or Trigger (255, 32, 32) color.
 bool ShouldApplyChargerGlowShell( const struct cl_entity_s *ent, const char *pszModelName );
 
 // Computes the world-space bounding box expanded by flDelta for a charger brush

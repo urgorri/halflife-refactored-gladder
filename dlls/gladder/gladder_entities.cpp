@@ -18,6 +18,11 @@ LINK_ENTITY_TO_CLASS( trigger_gladder_start, CTriggerGladderStart );
 void CTriggerGladderStart::Spawn( void )
 {
 	InitTrigger();
+	pev->renderfx = kRenderFxGlowShell;
+	pev->rendercolor = Vector( 255, 32, 32 );
+	pev->renderamt = 16;
+	pev->rendermode = kRenderTransTexture;
+	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderStart::StartTouch );
 	SetUse( &CTriggerGladderStart::StartUse );
 }
@@ -61,6 +66,11 @@ LINK_ENTITY_TO_CLASS( trigger_gladder_finish, CTriggerGladderFinish );
 void CTriggerGladderFinish::Spawn( void )
 {
 	InitTrigger();
+	pev->renderfx = kRenderFxGlowShell;
+	pev->rendercolor = Vector( 255, 32, 32 );
+	pev->renderamt = 16;
+	pev->rendermode = kRenderTransTexture;
+	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderFinish::FinishTouch );
 	SetUse( &CTriggerGladderFinish::FinishUse );
 }
