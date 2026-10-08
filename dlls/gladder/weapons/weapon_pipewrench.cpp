@@ -238,7 +238,8 @@ int CPipewrench::Swing( int fFirst )
 #ifndef CLIENT_DLL
 		fDidHit = TRUE;
 		CBaseEntity *pEntity = CBaseEntity::Instance( tr.pHit );
-		EHANDLE hEntity = pEntity;
+		EHANDLE hEntity;
+		hEntity = pEntity;
 		int iClassification = pEntity ? pEntity->Classify() : CLASS_NONE;
 
 		if ( pEntity )
@@ -348,11 +349,11 @@ void CPipewrench::BigSwing( void )
 		SendWeaponAnim( PIPEWRENCH_BIG_SWING_HIT );
 		m_pPlayer->SetAnimation( PLAYER_ATTACK1 );
 
-#ifndef CLIENT_DLL
 		CBaseEntity *pEntity = CBaseEntity::Instance( tr.pHit );
 		if ( pEntity )
 		{
-			EHANDLE hEntity = pEntity;
+			EHANDLE hEntity;
+			hEntity = pEntity;
 			int iClassification = pEntity->Classify();
 
 			ClearMultiDamage();
@@ -375,16 +376,14 @@ void CPipewrench::BigSwing( void )
 				EMIT_SOUND( m_pPlayer->edict(), CHAN_ITEM, "weapons/pwrench_hit1.wav", 1.0f, ATTN_NORM );
 			}
 		}
-#endif
 	}
 	else
 	{
 		SendWeaponAnim( PIPEWRENCH_BIG_SWING_MISS );
 		m_pPlayer->SetAnimation( PLAYER_ATTACK1 );
-#ifndef CLIENT_DLL
 		EMIT_SOUND( m_pPlayer->edict(), CHAN_ITEM, "weapons/pwrench_big_miss.wav", 1.0f, ATTN_NORM );
-#endif
 	}
+#endif
 
 	m_flNextPrimaryAttack = GetNextAttackDelay( 1.0 );
 	m_flNextSecondaryAttack = GetNextAttackDelay( 1.0 );
