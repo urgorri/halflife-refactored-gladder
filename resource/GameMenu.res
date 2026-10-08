@@ -8,37 +8,33 @@
 	}
 	"2"
 	{
-		"label" "#GameUI_GameMenu_Disconnect"
-		"command" "Disconnect"
+		"label" "Restart Game"
+		"command" "engine restart"
 		"OnlyInGame" "1"
-	}
-	"3"
-	{
-		"label" ""
-		"command" ""
-		"OnlyInGame" "1"
-	}
-	"4"
-	{
-		"label" "#GameUI_GameMenu_NewGame"
-		"command" "OpenNewGameDialog"
-		"notmulti" "1"
-	}
-	"5"
-	{
-		"label" ""
-		"command" ""
-		"notmulti" "1"
-		"OnlyInGame" "1"
-	}
-	"6"
-	{
-		"label" "#GameUI_GameMenu_Options"
-		"command" "OpenOptionsDialog"
 	}
 	"7"
 	{
+		"label" "Elegir Mapa"
+		"command" "OpenCreateMultiplayerGameDialog"
+		"HelpText" "Seleccionar mapa e iniciar partida"
+	}
+	"18"
+	{
+		"label" "#GameUI_GameMenu_Options"
+		"command" "OpenOptionsDialog"
+		"HelpText" "#GameUI_MainMenu_Hint_Configuration"
+	}
+	"20"
+	{
+		"label" "#GameUI_GameMenu_LeaveGame"
+		"command" "Disconnect"
+		"OnlyInGame" "1"
+		"notmulti" "1"
+	}
+	"21"
+	{
 		"label" "#GameUI_GameMenu_Quit"
 		"command" "Quit"
+		"HelpText" "#GameUI_MainMenu_Hint_QuitGame"
 	}
 }
