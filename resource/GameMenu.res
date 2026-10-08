@@ -8,33 +8,39 @@
 	}
 	"2"
 	{
-		"label" "Restart Game"
+		"label" "Restart Match"
 		"command" "engine restart"
 		"OnlyInGame" "1"
 	}
-	"7"
+	"3"
 	{
-		"label" "Elegir Mapa"
-		"command" "OpenCreateMultiplayerGameDialog"
-		"HelpText" "Seleccionar mapa e iniciar partida"
+		"label" "Jugar: Desierto (gl01)"
+		"command" "engine map gl01"
 	}
-	"18"
+	"4"
+	{
+		"label" "Jugar: Nieve (gl02)"
+		"command" "engine map gl02"
+	}
+	"5"
+	{
+		"label" "Jugar: Almacen (gl03)"
+		"command" "engine map gl03"
+	}
+	"6"
 	{
 		"label" "#GameUI_GameMenu_Options"
 		"command" "OpenOptionsDialog"
-		"HelpText" "#GameUI_MainMenu_Hint_Configuration"
 	}
-	"20"
+	"7"
 	{
 		"label" "#GameUI_GameMenu_LeaveGame"
 		"command" "Disconnect"
 		"OnlyInGame" "1"
-		"notmulti" "1"
 	}
-	"21"
+	"8"
 	{
 		"label" "#GameUI_GameMenu_Quit"
 		"command" "Quit"
-		"HelpText" "#GameUI_MainMenu_Hint_QuitGame"
 	}
 }
