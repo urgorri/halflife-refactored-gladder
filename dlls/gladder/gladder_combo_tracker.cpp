@@ -84,6 +84,30 @@ bool GladderComboTracker::IsPlayerInstigated( entvars_t *pKiller, entvars_t *pIn
 	return ResolvesToClient( pKiller ) || ResolvesToClient( pInflictor );
 }
 
+bool GladderComboTracker::IsValidCombatant( CBaseMonster *pVictim )
+{
+	if ( !pVictim || !pVictim->pev )
+		return false;
+
+	// Exclude bioweapons and projectiles (e.g. hornets) (SPEC §3, §9.1, Issue #77)
+	int iClass = pVictim->Classify();
+	if ( iClass == CLASS_PLAYER_BIOWEAPON || iClass == CLASS_ALIEN_BIOWEAPON )
+		return false;
+
+	if ( FClassnameIs( pVictim->pev, "hornet" ) )
+		return false;
+
+	// Exclude pre-placed dead corpses and dead props (SPEC §3, §9.1, Issue #77)
+	if ( pVictim->m_MonsterState == MONSTERSTATE_DEAD || pVictim->pev->deadflag == DEAD_DEAD )
+		return false;
+
+	const char *pszClassname = STRING( pVictim->pev->classname );
+	if ( pszClassname && strstr( pszClassname, "_dead" ) != nullptr )
+		return false;
+
+	return true;
+}
+
 void GladderComboTracker::OnMonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor, float flCurrentTime )
 {
 	if ( !pVictim || !pVictim->pev )
@@ -91,6 +115,10 @@ void GladderComboTracker::OnMonsterKilled( CBaseMonster *pVictim, entvars_t *pKi
 
 	// Combat kills and combo progression must be attributed strictly to direct and indirect player actions (SPEC §3, §9.1, Issue #60)
 	if ( !IsPlayerInstigated( pKiller, pInflictor ) )
+		return;
+
+	// Non-combatants such as dead monster props and projectiles are strictly excluded (SPEC §3, §9.1, Issue #77)
+	if ( !IsValidCombatant( pVictim ) )
 		return;
 
 	// Extract classname for itemized kill log

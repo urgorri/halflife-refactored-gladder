@@ -26,7 +26,11 @@ class CTestComboMonster : public CBaseMonster
 		memset( pev, 0, sizeof( entvars_t ) );
 		pev->classname = MAKE_STRING( szClassname );
 		m_LastHitGroup = hitgroup;
+		m_iClassify = CLASS_NONE;
 	}
+
+	int m_iClassify;
+	int Classify( void ) override { return m_iClassify; }
 
 	~CTestComboMonster()
 	{
@@ -322,4 +326,65 @@ TEST_CASE( "GladderComboTracker: IsPlayerInstigated validation logic (SPEC §3, 
 	memset( &freedChild, 0, sizeof( freedChild ) );
 	freedChild.v.owner = &freedPlayer;
 	CHECK_FALSE( GladderComboTracker::IsPlayerInstigated( &freedChild.v, nullptr ) );
+}
+
+TEST_CASE( "GladderComboTracker: Exclude dead monster props and projectile entities from frags and combos (SPEC §3, §9.1, Issue #77)", "[gladder][combo][exclusion]" )
+{
+	ResetMockEngine();
+	CTestPlayerClient player;
+	GladderComboTracker tracker;
+
+	// 1. Dead monster corpse props
+	const char *deadProps[] = {
+		"monster_barney_dead",
+		"monster_scientist_dead",
+		"monster_hgrunt_dead",
+		"monster_hevsuit_dead"
+	};
+
+	for ( const char *propName : deadProps )
+	{
+		CTestComboMonster deadProp( propName );
+		deadProp.pev->deadflag = DEAD_DEAD;
+		deadProp.m_MonsterState = MONSTERSTATE_DEAD;
+
+		CHECK_FALSE( GladderComboTracker::IsValidCombatant( &deadProp ) );
+
+		tracker.OnMonsterKilled( &deadProp, &player.edict.v, nullptr, 1.0f );
+		CHECK( tracker.GetTotalFrags() == 0 );
+		CHECK( tracker.GetCurrentStreak() == 0 );
+		CHECK( tracker.GetStats().speciesKills.empty() );
+	}
+
+	// 2. Hostile biological weapon projectile entities (hornet)
+	CTestComboMonster hornet( "hornet" );
+	hornet.m_iClassify = CLASS_ALIEN_BIOWEAPON;
+	CHECK_FALSE( GladderComboTracker::IsValidCombatant( &hornet ) );
+
+	tracker.OnMonsterKilled( &hornet, &player.edict.v, nullptr, 2.0f );
+	CHECK( tracker.GetTotalFrags() == 0 );
+	CHECK( tracker.GetCurrentStreak() == 0 );
+	CHECK( tracker.GetStats().speciesKills.empty() );
+
+	// Player bioweapon projectile hornet
+	CTestComboMonster playerHornet( "hornet" );
+	playerHornet.m_iClassify = CLASS_PLAYER_BIOWEAPON;
+	CHECK_FALSE( GladderComboTracker::IsValidCombatant( &playerHornet ) );
+
+	tracker.OnMonsterKilled( &playerHornet, &player.edict.v, nullptr, 3.0f );
+	CHECK( tracker.GetTotalFrags() == 0 );
+	CHECK( tracker.GetCurrentStreak() == 0 );
+	CHECK( tracker.GetStats().speciesKills.empty() );
+
+	// 3. Living hostile monsters: must still be counted properly
+	CTestComboMonster livingMonster( "monster_headcrab" );
+	livingMonster.pev->deadflag = DEAD_NO;
+	livingMonster.m_MonsterState = MONSTERSTATE_COMBAT;
+	livingMonster.m_iClassify = CLASS_ALIEN_MONSTER;
+	CHECK( GladderComboTracker::IsValidCombatant( &livingMonster ) );
+
+	tracker.OnMonsterKilled( &livingMonster, &player.edict.v, nullptr, 4.0f );
+	CHECK( tracker.GetTotalFrags() == 1 );
+	CHECK( tracker.GetCurrentStreak() == 1 );
+	CHECK( tracker.GetSpeciesKills( "monster_headcrab" ) == 1 );
 }
