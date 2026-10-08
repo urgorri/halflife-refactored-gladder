@@ -56,7 +56,8 @@ CGladderRules::CGladderRules()
       m_iCurrentSummaryCameraIndex( 0 ),
       m_flNextCameraSwitchTime( 0.0f ),
       m_vecDeathAngles( 0, 0, 0 ),
-      m_bPlayerDead( false )
+      m_bPlayerDead( false ),
+      m_bMatchConcluded( false )
 {
 	m_comboTracker.Reset();
 	m_modifiers.Reset();
@@ -124,6 +125,12 @@ void CGladderRules::Think( void )
 	m_waveManager.Tick( flTime );
 	m_comboTracker.Update( flTime );
 
+	// Handle match conclusion when session time limit expires (SPEC §2, §3, §9.2, Issue #85)
+	if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
+	{
+		HandleMatchConclusion( true );
+	}
+
 	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active.
 	// Only attempt once per map to prevent per-tick console spam if map yields 0 cells (Issue #63).
 	if ( !m_bGridIndexAttempted && gpGlobals && gpGlobals->mapname )
@@ -175,10 +182,15 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 		return;
 
 	m_bPlayerDead = false;
+	m_bMatchConcluded = false;
 	m_vecDeathAngles = g_vecZero;
 	m_summaryCameras.clear();
 	m_iCurrentSummaryCameraIndex = 0;
 	m_flNextCameraSwitchTime = 0.0f;
+	if ( pPlayer->pev )
+	{
+		pPlayer->pev->flags &= ~FL_FROZEN;
+	}
 
 	// Strictly reject player spawning if a savegame restore was attempted (SPEC §10.3)
 	if ( m_bRestoreAttempted )
@@ -353,24 +365,58 @@ void CGladderRules::OnRestoreDenied( void )
 
 void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
 {
+	HandleMatchConclusion( false, pVictim );
+}
+
+void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer )
+{
+	if ( m_bMatchConcluded )
+		return;
+
+	m_bMatchConcluded = true;
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
-	m_bPlayerDead = true;
-	if ( pVictim && pVictim->pev )
+
+	if ( !pPlayer && gpGlobals )
 	{
-		m_vecDeathAngles = pVictim->pev->angles;
-		// Terminate any active looping weapon audio on player death (SPEC §7.7, Issue #66)
-		EMIT_SOUND( ENT( pVictim->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+			if ( pPlr && pPlr->edict() )
+			{
+				pPlayer = dynamic_cast<CBasePlayer *>( pPlr );
+				if ( pPlayer )
+					break;
+			}
+		}
 	}
-	m_waveManager.EndMatch( flTime, false );
+
+	if ( pPlayer && pPlayer->pev )
+	{
+		// Freeze player upon match conclusion so they cannot move or fire (SPEC §2, §3, Issue #85)
+		pPlayer->pev->flags |= FL_FROZEN;
+		// Terminate any active looping weapon audio (SPEC §7.7, Issue #66)
+		EMIT_SOUND( ENT( pPlayer->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
+		if ( !bSurvived )
+		{
+			m_bPlayerDead = true;
+			m_vecDeathAngles = pPlayer->pev->angles;
+		}
+	}
+
+	if ( !m_waveManager.IsMatchOver() )
+	{
+		m_waveManager.EndMatch( flTime, bSurvived );
+	}
+
 	m_modifiers.RevertMutators();
-	GladderAudio::PlayCue( GLADDER_CUE_MATCH_END, pVictim );
-	CalculateFinalScore( false );
+	GladderAudio::PlayCue( GLADDER_CUE_MATCH_END, pPlayer );
+	CalculateFinalScore( bSurvived );
 
-	// Trigger Defeat Relays (event = 3)
-	Gladder_FireWaveRelays( 3, pVictim );
+	// Trigger Defeat (3) or Victory (2) relays
+	Gladder_FireWaveRelays( bSurvived ? 2 : 3, pPlayer );
 
-	BroadcastWaveUpdate( pVictim );
-	BroadcastTelemetryUpdate( pVictim );
+	BroadcastWaveUpdate( pPlayer );
+	BroadcastTelemetryUpdate( pPlayer );
 }
 
 void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
@@ -532,11 +578,11 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	// Advance engine skill tier based on wave milestones
 	GladderModifiers::ApplySkillProgression( m_waveManager.GetWaveNumber() );
 
-	// If match completed due to time limit
-	if ( m_waveManager.IsMatchOver() )
+	// If match completed due to time limit or final wave
+	if ( m_waveManager.IsMatchOver() && !m_bMatchConcluded )
 	{
-		CalculateFinalScore( true );
-		Gladder_FireWaveRelays( 2, pActivator );
+		CBasePlayer *pPlayer = dynamic_cast<CBasePlayer *>( pActivator );
+		HandleMatchConclusion( true, pPlayer );
 	}
 
 	BroadcastWaveUpdate();

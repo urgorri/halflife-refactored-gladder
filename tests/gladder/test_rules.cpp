@@ -533,3 +533,90 @@ TEST_CASE( "GladderRules: gladder_restart executes full map reload command prese
 	}
 }
 
+TEST_CASE( "GladderRules: Session time limit expiration match conclusion and player freeze (SPEC §2, §3, §9.2, Issue #85)", "[gladder][rules][conclusion]" )
+{
+	ResetMockEngine();
+
+	class CTestConclusionRules : public CTestGladderRulesAutoswitch
+	{
+	  public:
+		bool m_bMatchConcluded = false;
+		bool m_bSurvived = false;
+		int m_firedRelayEvent = -1;
+		CBaseEntity *m_pTrackedPlayer = nullptr;
+		CGladderWaveManager m_waveManager;
+
+		CTestConclusionRules()
+		{
+			m_waveManager.SetSessionTimeLimit( 100.0f );
+			m_waveManager.InitializeMatch( 0.0f );
+			m_waveManager.StartWave( 0.0f );
+		}
+
+		void HandleMatchConclusion( bool bSurvived, CBaseEntity *pPlayer = nullptr )
+		{
+			if ( m_bMatchConcluded )
+				return;
+
+			m_bMatchConcluded = true;
+			m_bSurvived = bSurvived;
+			m_firedRelayEvent = bSurvived ? 2 : 3;
+
+			if ( !pPlayer )
+			{
+				pPlayer = m_pTrackedPlayer;
+			}
+
+			if ( pPlayer && pPlayer->pev )
+			{
+				pPlayer->pev->flags |= FL_FROZEN;
+			}
+		}
+
+		void Think( void ) override
+		{
+			float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+			m_waveManager.Tick( flTime );
+
+			if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
+			{
+				HandleMatchConclusion( true, nullptr );
+			}
+		}
+	};
+
+	CTestConclusionRules rules;
+	edict_t playerEdict;
+	memset( &playerEdict, 0, sizeof( playerEdict ) );
+	CBaseEntity dummyPlayer;
+	dummyPlayer.pev = &playerEdict.v;
+	playerEdict.v.flags = FL_CLIENT;
+	playerEdict.pvPrivateData = &dummyPlayer;
+	rules.m_pTrackedPlayer = &dummyPlayer;
+
+	CHECK_FALSE( rules.m_bMatchConcluded );
+	CHECK( rules.m_waveManager.GetState() == GLADDER_STATE_WAVE_ACTIVE );
+
+	// Frame at t=50s: active wave continues, match not over
+	gpGlobals->time = 50.0f;
+	rules.Think();
+	CHECK_FALSE( rules.m_bMatchConcluded );
+	CHECK_FALSE( rules.m_waveManager.IsMatchOver() );
+
+	// Frame at t=100.5s: session time limit expires
+	gpGlobals->time = 100.5f;
+	rules.Think();
+	CHECK( rules.m_waveManager.IsMatchOver() );
+	CHECK( rules.m_bMatchConcluded );
+	CHECK( rules.m_bSurvived == true );
+	CHECK( rules.m_firedRelayEvent == 2 ); // Victory relays
+	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) != 0 ); // Player automatically frozen on expiration
+
+	// Player respawn clears frozen state and resets concluded flag
+	dummyPlayer.pev->flags &= ~FL_FROZEN;
+	rules.m_bMatchConcluded = false;
+	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) == 0 );
+	CHECK_FALSE( rules.m_bMatchConcluded );
+}
+
+
