@@ -130,6 +130,10 @@ void CGladderRules::Think( void )
 	{
 		HandleMatchConclusion( true );
 	}
+	else if ( m_bMatchConcluded )
+	{
+		FreezeMatchWorld();
+	}
 
 	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active.
 	// Only attempt once per map to prevent per-tick console spam if map yields 0 cells (Issue #63).
@@ -394,6 +398,9 @@ void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer 
 	{
 		// Freeze player upon match conclusion so they cannot move or fire (SPEC §2, §3, Issue #85)
 		pPlayer->pev->flags |= FL_FROZEN;
+		pPlayer->pev->velocity = g_vecZero;
+		pPlayer->pev->avelocity = g_vecZero;
+		pPlayer->EnableControl( FALSE );
 		// Terminate any active looping weapon audio (SPEC §7.7, Issue #66)
 		EMIT_SOUND( ENT( pPlayer->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
 		if ( !bSurvived )
@@ -402,6 +409,9 @@ void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer 
 			m_vecDeathAngles = pPlayer->pev->angles;
 		}
 	}
+
+	// Freeze match world: all monsters, projectiles, and dynamic combat entities (Issue #85, Timeout freeze)
+	FreezeMatchWorld();
 
 	if ( !m_waveManager.IsMatchOver() )
 	{
@@ -417,6 +427,66 @@ void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer 
 
 	BroadcastWaveUpdate( pPlayer );
 	BroadcastTelemetryUpdate( pPlayer );
+}
+
+void CGladderRules::FreezeMatchWorld( void )
+{
+	if ( !gpGlobals )
+		return;
+
+	int maxEdicts = ( gpGlobals->maxEntities > 0 ) ? gpGlobals->maxEntities : 512;
+	for ( int i = 1; i < maxEdicts; ++i )
+	{
+		edict_t *pEdict = INDEXENT( i );
+		if ( FNullEnt( pEdict ) || pEdict->free || !pEdict->v.pContainingEntity )
+			continue;
+
+		CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
+		if ( !pEnt || pEnt->IsPlayer() )
+			continue;
+
+		// 1. Freeze monsters in place: halt velocity, physics, animation, and schedules
+		CBaseMonster *pMonster = pEnt->MyMonsterPointer();
+		if ( pMonster )
+		{
+			pMonster->pev->velocity = g_vecZero;
+			pMonster->pev->avelocity = g_vecZero;
+			pMonster->pev->framerate = 0.0f;
+			pMonster->pev->movetype = MOVETYPE_NONE;
+			pMonster->pev->effects |= EF_NOINTERP;
+			pMonster->pev->takedamage = DAMAGE_NO;
+			pMonster->pev->flags |= FL_FROZEN;
+			pMonster->pev->nextthink = 0.0f;
+			pMonster->m_pSchedule = nullptr;
+			pMonster->m_iTaskStatus = TASKSTATUS_NEW;
+			pMonster->m_iScheduleIndex = 0;
+			pMonster->m_Activity = ACT_RESET;
+			EMIT_SOUND( pMonster->edict(), CHAN_VOICE, "common/null.wav", 1.0f, ATTN_NORM );
+			EMIT_SOUND( pMonster->edict(), CHAN_BODY, "common/null.wav", 1.0f, ATTN_NORM );
+			continue;
+		}
+
+		// 2. Freeze in-flight combat projectiles, deployables, and thrown explosives
+		const char *pszClassname = STRING( pEnt->pev->classname );
+		if ( pszClassname && (
+		     strncmp( pszClassname, "projectile_", 11 ) == 0 ||
+		     strncmp( pszClassname, "monster_satchel", 15 ) == 0 ||
+		     strncmp( pszClassname, "monster_tripmine", 16 ) == 0 ||
+		     strncmp( pszClassname, "monster_snark", 13 ) == 0 ||
+		     strcmp( pszClassname, "grenade" ) == 0 ||
+		     strcmp( pszClassname, "rpg_rocket" ) == 0 ||
+		     strcmp( pszClassname, "bolt" ) == 0 ||
+		     strcmp( pszClassname, "hornet" ) == 0 ) )
+		{
+			pEnt->pev->velocity = g_vecZero;
+			pEnt->pev->avelocity = g_vecZero;
+			pEnt->pev->framerate = 0.0f;
+			pEnt->pev->movetype = MOVETYPE_NONE;
+			pEnt->pev->effects |= EF_NOINTERP;
+			pEnt->pev->takedamage = DAMAGE_NO;
+			pEnt->pev->nextthink = 0.0f;
+		}
+	}
 }
 
 void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor )

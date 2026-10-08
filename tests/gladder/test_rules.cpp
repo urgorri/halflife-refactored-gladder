@@ -164,6 +164,117 @@ class CTestDropMonster : public CBaseMonster
 	edict_t m_mockEdict;
 };
 
+class CTestConclusionRules : public CTestGladderRulesAutoswitch
+{
+  public:
+	bool m_bMatchConcluded = false;
+	bool m_bSurvived = false;
+	int m_firedRelayEvent = -1;
+	CBaseEntity *m_pTrackedPlayer = nullptr;
+	CGladderWaveManager m_waveManager;
+
+	CTestConclusionRules()
+	{
+		m_waveManager.SetSessionTimeLimit( 100.0f );
+		m_waveManager.InitializeMatch( 0.0f );
+		m_waveManager.StartWave( 0.0f );
+	}
+
+	void FreezeMatchWorld( void )
+	{
+		if ( !gpGlobals )
+			return;
+
+		int maxEdicts = ( gpGlobals->maxEntities > 0 ) ? gpGlobals->maxEntities : 512;
+		for ( int i = 1; i < maxEdicts; ++i )
+		{
+			edict_t *pEdict = INDEXENT( i );
+			if ( FNullEnt( pEdict ) || pEdict->free || !pEdict->v.pContainingEntity )
+				continue;
+
+			CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
+			if ( !pEnt || pEnt->IsPlayer() )
+				continue;
+
+			CBaseMonster *pMonster = pEnt->MyMonsterPointer();
+			if ( pMonster )
+			{
+				pMonster->pev->velocity = g_vecZero;
+				pMonster->pev->avelocity = g_vecZero;
+				pMonster->pev->framerate = 0.0f;
+				pMonster->pev->movetype = MOVETYPE_NONE;
+				pMonster->pev->effects |= EF_NOINTERP;
+				pMonster->pev->takedamage = DAMAGE_NO;
+				pMonster->pev->flags |= FL_FROZEN;
+				pMonster->pev->nextthink = 0.0f;
+				pMonster->m_pSchedule = nullptr;
+				pMonster->m_iTaskStatus = TASKSTATUS_NEW;
+				pMonster->m_iScheduleIndex = 0;
+				pMonster->m_Activity = ACT_RESET;
+				continue;
+			}
+
+			const char *pszClassname = STRING( pEnt->pev->classname );
+			if ( pszClassname && (
+			     strncmp( pszClassname, "projectile_", 11 ) == 0 ||
+			     strncmp( pszClassname, "monster_satchel", 15 ) == 0 ||
+			     strncmp( pszClassname, "monster_tripmine", 16 ) == 0 ||
+			     strncmp( pszClassname, "monster_snark", 13 ) == 0 ||
+			     strcmp( pszClassname, "grenade" ) == 0 ||
+			     strcmp( pszClassname, "rpg_rocket" ) == 0 ||
+			     strcmp( pszClassname, "bolt" ) == 0 ||
+			     strcmp( pszClassname, "hornet" ) == 0 ) )
+			{
+				pEnt->pev->velocity = g_vecZero;
+				pEnt->pev->avelocity = g_vecZero;
+				pEnt->pev->framerate = 0.0f;
+				pEnt->pev->movetype = MOVETYPE_NONE;
+				pEnt->pev->effects |= EF_NOINTERP;
+				pEnt->pev->takedamage = DAMAGE_NO;
+				pEnt->pev->nextthink = 0.0f;
+			}
+		}
+	}
+
+	void HandleMatchConclusion( bool bSurvived, CBaseEntity *pPlayer = nullptr )
+	{
+		if ( m_bMatchConcluded )
+			return;
+
+		m_bMatchConcluded = true;
+		m_bSurvived = bSurvived;
+		m_firedRelayEvent = bSurvived ? 2 : 3;
+
+		if ( !pPlayer )
+		{
+			pPlayer = m_pTrackedPlayer;
+		}
+
+		if ( pPlayer && pPlayer->pev )
+		{
+			pPlayer->pev->flags |= FL_FROZEN;
+			pPlayer->pev->velocity = g_vecZero;
+		}
+
+		FreezeMatchWorld();
+	}
+
+	void Think( void ) override
+	{
+		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+		m_waveManager.Tick( flTime );
+
+		if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
+		{
+			HandleMatchConclusion( true, nullptr );
+		}
+		else if ( m_bMatchConcluded )
+		{
+			FreezeMatchWorld();
+		}
+	}
+};
+
 } // anonymous namespace
 
 TEST_CASE( "Gladder Rules: Monster weapon and item drop suppression (SPEC §3, Issue #44)", "[gladder][rules][drops]" )
@@ -537,54 +648,6 @@ TEST_CASE( "GladderRules: Session time limit expiration match conclusion and pla
 {
 	ResetMockEngine();
 
-	class CTestConclusionRules : public CTestGladderRulesAutoswitch
-	{
-	  public:
-		bool m_bMatchConcluded = false;
-		bool m_bSurvived = false;
-		int m_firedRelayEvent = -1;
-		CBaseEntity *m_pTrackedPlayer = nullptr;
-		CGladderWaveManager m_waveManager;
-
-		CTestConclusionRules()
-		{
-			m_waveManager.SetSessionTimeLimit( 100.0f );
-			m_waveManager.InitializeMatch( 0.0f );
-			m_waveManager.StartWave( 0.0f );
-		}
-
-		void HandleMatchConclusion( bool bSurvived, CBaseEntity *pPlayer = nullptr )
-		{
-			if ( m_bMatchConcluded )
-				return;
-
-			m_bMatchConcluded = true;
-			m_bSurvived = bSurvived;
-			m_firedRelayEvent = bSurvived ? 2 : 3;
-
-			if ( !pPlayer )
-			{
-				pPlayer = m_pTrackedPlayer;
-			}
-
-			if ( pPlayer && pPlayer->pev )
-			{
-				pPlayer->pev->flags |= FL_FROZEN;
-			}
-		}
-
-		void Think( void ) override
-		{
-			float flTime = gpGlobals ? gpGlobals->time : 0.0f;
-			m_waveManager.Tick( flTime );
-
-			if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
-			{
-				HandleMatchConclusion( true, nullptr );
-			}
-		}
-	};
-
 	CTestConclusionRules rules;
 	edict_t playerEdict;
 	memset( &playerEdict, 0, sizeof( playerEdict ) );
@@ -617,6 +680,100 @@ TEST_CASE( "GladderRules: Session time limit expiration match conclusion and pla
 	rules.m_bMatchConcluded = false;
 	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) == 0 );
 	CHECK_FALSE( rules.m_bMatchConcluded );
+}
+
+TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles on match conclusion (Timeout freeze)", "[gladder][rules][freeze]" )
+{
+	ResetMockEngine();
+
+	CTestConclusionRules rules;
+
+	// Setup mock player
+	edict_t *pPlayerSlot = GetMockClientEntity( 1 );
+	REQUIRE( pPlayerSlot != nullptr );
+	pPlayerSlot->free = 0;
+	pPlayerSlot->v.flags = FL_CLIENT;
+	pPlayerSlot->v.classname = MAKE_STRING( "player" );
+	pPlayerSlot->v.pContainingEntity = pPlayerSlot;
+	pPlayerSlot->v.velocity = Vector( 250.0f, 0.0f, 0.0f );
+
+	CBaseEntity player;
+	pPlayerSlot->pvPrivateData = &player;
+	player.pev = &pPlayerSlot->v;
+	CBaseEntity *pPlayer = &player;
+
+	// Setup mock monster in slot 2
+	edict_t *pMonsterSlot = GetMockClientEntity( 2 );
+	REQUIRE( pMonsterSlot != nullptr );
+	pMonsterSlot->free = 0;
+	pMonsterSlot->v.flags = FL_MONSTER;
+	pMonsterSlot->v.classname = MAKE_STRING( "monster_headcrab" );
+	pMonsterSlot->v.pContainingEntity = pMonsterSlot;
+	pMonsterSlot->v.velocity = Vector( 120.0f, 40.0f, 0.0f );
+	pMonsterSlot->v.framerate = 1.0f;
+	pMonsterSlot->v.movetype = MOVETYPE_STEP;
+	pMonsterSlot->v.takedamage = DAMAGE_YES;
+	pMonsterSlot->v.nextthink = 50.0f;
+
+	CTestDropMonster monster;
+	pMonsterSlot->pvPrivateData = &monster;
+	monster.pev = &pMonsterSlot->v;
+	CBaseMonster *pMonster = &monster;
+
+	// Setup mock projectile in slot 3
+	edict_t *pProjSlot = GetMockClientEntity( 3 );
+	REQUIRE( pProjSlot != nullptr );
+	pProjSlot->free = 0;
+	pProjSlot->v.classname = MAKE_STRING( "grenade" );
+	pProjSlot->v.pContainingEntity = pProjSlot;
+	pProjSlot->v.velocity = Vector( 600.0f, 0.0f, 150.0f );
+	pProjSlot->v.movetype = MOVETYPE_BOUNCE;
+	pProjSlot->v.nextthink = 45.0f;
+
+	CBaseEntity proj;
+	pProjSlot->pvPrivateData = &proj;
+	proj.pev = &pProjSlot->v;
+	CBaseEntity *pProj = &proj;
+
+	// Before conclusion: entities are active and moving
+	CHECK( pPlayer->pev->velocity.Length() > 0.0f );
+	CHECK( pMonster->pev->velocity.Length() > 0.0f );
+	CHECK( pMonster->pev->framerate == 1.0f );
+	CHECK( pMonster->pev->nextthink == 50.0f );
+	CHECK( pProj->pev->velocity.Length() > 0.0f );
+	CHECK( pProj->pev->nextthink == 45.0f );
+
+	// Trigger match conclusion (e.g. time expired or death)
+	rules.HandleMatchConclusion( true, pPlayer );
+
+	// Verify Player is frozen
+	CHECK( ( pPlayer->pev->flags & FL_FROZEN ) != 0 );
+	CHECK( pPlayer->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+
+	// Verify Monster is completely frozen in place
+	CHECK( ( pMonster->pev->flags & FL_FROZEN ) != 0 );
+	CHECK( pMonster->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pMonster->pev->avelocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pMonster->pev->framerate == 0.0f );
+	CHECK( pMonster->pev->movetype == MOVETYPE_NONE );
+	CHECK( ( pMonster->pev->effects & EF_NOINTERP ) != 0 );
+	CHECK( pMonster->pev->takedamage == DAMAGE_NO );
+	CHECK( pMonster->pev->nextthink == 0.0f );
+
+	// Verify Projectile is frozen in mid-air
+	CHECK( pProj->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pProj->pev->movetype == MOVETYPE_NONE );
+	CHECK( ( pProj->pev->effects & EF_NOINTERP ) != 0 );
+	CHECK( pProj->pev->takedamage == DAMAGE_NO );
+	CHECK( pProj->pev->nextthink == 0.0f );
+
+	// Subsequent Think calls maintain the frozen world
+	rules.Think();
+	CHECK( pMonster->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pMonster->pev->framerate == 0.0f );
+	CHECK( pMonster->pev->nextthink == 0.0f );
+	CHECK( pProj->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pProj->pev->nextthink == 0.0f );
 }
 
 

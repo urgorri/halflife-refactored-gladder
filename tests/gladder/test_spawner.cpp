@@ -334,6 +334,7 @@ TEST_CASE( "Gladder Spawner: Cell occupancy and spatial clearance prevents dupli
 		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_762", "ammo_556", "ammo_rpgclip",
 		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle",
 		"weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark",
 		"item_gladder_lambda"
 	};
 	for ( const char *szP : pickupsToRegister )
@@ -468,7 +469,8 @@ TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clea
 	const char *pickupsToRegister[] = {
 		"item_healthkit", "item_battery",
 		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades", "ammo_762", "ammo_556", "ammo_rpgclip",
-		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon"
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark"
 	};
 	for ( const char *szP : pickupsToRegister )
 		RegisterMockEntityFactory( szP, FactoryTestItem );
@@ -962,7 +964,72 @@ TEST_CASE( "Gladder Spawner: Restrict fixed weapon spawns to unacquired loadout 
 	CHECK_FALSE( rolledAnyFixedWeapon );
 	CHECK( rolledAmmoOrHealthOrOrdnance );
 
+	// Verify consumable ordnance weapons can repeat even when owned by player (SPEC §3, §7)
+	MockOwnedItem ownedGrenade( "weapon_handgrenade" );
+	pPlayer->m_rgpPlayerItems[4] = ownedGrenade.item();
+	CHECK( pPlayer->HasNamedPlayerItem( "weapon_handgrenade" ) == TRUE );
+
+	int grenadeRollCount = 0;
+	int totalOrdnanceCount = 0;
+	int totalWeaponCount = 0;
+
+	for ( int i = 0; i < 3000; ++i )
+	{
+		const char *item = GladderSpawner::RollPickupItem( 2, config, pPlayer );
+		if ( !item ) continue;
+
+		if ( strcmp( item, "weapon_handgrenade" ) == 0 )
+		{
+			grenadeRollCount++;
+			totalOrdnanceCount++;
+		}
+		else if ( strcmp( item, "weapon_tripmine" ) == 0 ||
+		          strcmp( item, "weapon_satchel" ) == 0 ||
+		          strcmp( item, "weapon_snark" ) == 0 )
+		{
+			totalOrdnanceCount++;
+		}
+	}
+
+	// Consumable ordnance (hand grenades) MUST still roll even when owned
+	CHECK( grenadeRollCount > 0 );
+	CHECK( totalOrdnanceCount > 0 );
+
 	for ( auto *p : allOwnedItems )
 		delete p;
+}
+
+TEST_CASE( "Gladder Spawner: Consumable ordnance has higher category frequency than fixed weapons (SPEC §3, §7)", "[gladder][spawner][frequency]" )
+{
+	ResetMockEngine();
+	GladderMapConfig config;
+
+	// In a fresh player scenario with no weapons owned, ordnance category (15%)
+	// must roll with higher frequency than fixed weapons (10%)
+	int ordnanceCount = 0;
+	int fixedWeaponCount = 0;
+
+	for ( int i = 0; i < 10000; ++i )
+	{
+		const char *item = GladderSpawner::RollPickupItem( 3, config, nullptr );
+		if ( !item ) continue;
+
+		if ( strcmp( item, "weapon_handgrenade" ) == 0 ||
+		     strcmp( item, "weapon_tripmine" ) == 0 ||
+		     strcmp( item, "weapon_satchel" ) == 0 ||
+		     strcmp( item, "weapon_snark" ) == 0 )
+		{
+			ordnanceCount++;
+		}
+		else if ( strncmp( item, "weapon_", 7 ) == 0 )
+		{
+			fixedWeaponCount++;
+		}
+	}
+
+	// Macro category weighting: Ordnance (15%) > Fixed weapons (10%)
+	CHECK( ordnanceCount > 0 );
+	CHECK( fixedWeaponCount > 0 );
+	CHECK( ordnanceCount > fixedWeaponCount );
 }
 

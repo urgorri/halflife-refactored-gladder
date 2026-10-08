@@ -101,6 +101,7 @@ class CGladderRules : public CHalfLifeRules
 
 	// Scoring & match conclusion (SPEC §2, §3, §9.2, Issues #9, #85)
 	void HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer = nullptr );
+	void FreezeMatchWorld( void );
 	void CalculateFinalScore( bool bSurvived );
 	void ShiftPlayerCamera( CBaseEntity *pPlr );
 

@@ -474,62 +474,143 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 		pPlayer = (CBasePlayer *)UTIL_PlayerByIndex( 1 );
 	}
 
-	std::vector<float> weights;
-	std::vector<size_t> indices;
-	weights.reserve( s_pickupRosterCount );
-	indices.reserve( s_pickupRosterCount );
+	std::vector<size_t> ammoIndices;
+	std::vector<size_t> healthArmorIndices;
+	std::vector<size_t> ordnanceIndices;
+	std::vector<size_t> weaponIndices;
 
-	float totalWeight = 0.0f;
+	ammoIndices.reserve( s_pickupRosterCount );
+	healthArmorIndices.reserve( s_pickupRosterCount );
+	ordnanceIndices.reserve( s_pickupRosterCount );
+	weaponIndices.reserve( s_pickupRosterCount );
 
 	for ( size_t i = 0; i < s_pickupRosterCount; ++i )
 	{
 		const auto &def = s_pickupRoster[i];
 
-		if ( def.isWeapon && !config.IsWeaponAllowed( def.szClassname ) )
-			continue;
-
-		if ( def.isConsumableWeapon && !config.IsWeaponAllowed( def.szClassname ) )
-			continue;
-
-		// Restrict fixed weapon spawns to unacquired loadout items (SPEC §3, Issue #79)
-		if ( def.isWeapon && !def.isConsumableWeapon && pPlayer )
+		if ( def.isAmmo )
 		{
-			if ( pPlayer->HasNamedPlayerItem( def.szClassname ) )
+			ammoIndices.push_back( i );
+		}
+		else if ( def.isHealthArmor )
+		{
+			healthArmorIndices.push_back( i );
+		}
+		else if ( def.isConsumableWeapon )
+		{
+			if ( config.IsWeaponAllowed( def.szClassname ) )
 			{
-				continue;
+				// Consumable ordnance weapons (hand grenades, tripmines, satchels, snarks)
+				// function as tactical expendables and can always spawn and repeat even if
+				// the player already has them in inventory (SPEC §3, §7, Issues #78, #79).
+				ordnanceIndices.push_back( i );
 			}
 		}
-
-		float categoryW = 1.0f;
-		if ( def.isWeapon )
-			categoryW = GetWeaponTierWeight( def.tier, iWaveNumber );
-		else if ( def.isConsumableWeapon )
-			categoryW = GetOrdnanceTierWeight( def.tier, iWaveNumber );
-		else if ( def.isHealthArmor )
-			categoryW = 70.0f;
-		else if ( def.isAmmo )
-			categoryW = 65.0f;
-
-		float effectiveW = categoryW * def.relativeWeight;
-		if ( effectiveW > 0.0f )
+		else if ( def.isWeapon )
 		{
-			totalWeight += effectiveW;
-			weights.push_back( totalWeight );
-			indices.push_back( i );
+			if ( config.IsWeaponAllowed( def.szClassname ) )
+			{
+				// Restrict persistent fixed weapons strictly to unacquired items (SPEC §3, Issue #79).
+				if ( pPlayer && pPlayer->HasNamedPlayerItem( def.szClassname ) )
+				{
+					continue;
+				}
+				weaponIndices.push_back( i );
+			}
 		}
 	}
 
-	if ( indices.empty() || totalWeight <= 0.0f )
-		return "item_healthkit";
+	// Macro category probabilities (SPEC §3, §7, Issues #39, #78, #79):
+	// - Ammunition: Majority of supply spawns (60%, SPEC > 55%)
+	// - Health & Armor: Balanced secondary consumable drops (22%, SPEC ~20-25%)
+	// - Consumable Ordnance: Tactically consumable expendables (12%) - 2x higher frequency than fixed weapons!
+	// - Fixed Weapons: Rare high-impact tactical upgrades (6%, SPEC < 20% total weapons)
+	float wAmmo     = ammoIndices.empty() ? 0.0f : 60.0f;
+	float wHealth   = healthArmorIndices.empty() ? 0.0f : 22.0f;
+	float wOrdnance = ordnanceIndices.empty() ? 0.0f : 12.0f;
+	float wWeapon   = weaponIndices.empty() ? 0.0f : 6.0f;
 
-	float roll = RANDOM_FLOAT( 0.0f, totalWeight );
-	for ( size_t k = 0; k < weights.size(); ++k )
+	// If player already owns all permitted fixed weapons for the active map,
+	// fixed weapon spawn opportunities automatically fall back to consumable ordnance or ammo (SPEC §3).
+	if ( wWeapon <= 0.0f )
 	{
-		if ( roll <= weights[k] )
-			return s_pickupRoster[indices[k]].szClassname;
+		if ( !ordnanceIndices.empty() )
+			wOrdnance += 6.0f;
+		else if ( !ammoIndices.empty() )
+			wAmmo += 6.0f;
 	}
 
-	return s_pickupRoster[indices.back()].szClassname;
+	float totalCatWeight = wAmmo + wHealth + wOrdnance + wWeapon;
+	if ( totalCatWeight <= 0.0f )
+		return "item_healthkit";
+
+	float catRoll = RANDOM_FLOAT( 0.0f, totalCatWeight );
+	int selectedCat = 0; // 0 = Ammo, 1 = Health/Armor, 2 = Ordnance, 3 = Weapon
+
+	if ( catRoll <= wAmmo )
+	{
+		selectedCat = 0;
+	}
+	else if ( catRoll <= wAmmo + wHealth )
+	{
+		selectedCat = 1;
+	}
+	else if ( catRoll <= wAmmo + wHealth + wOrdnance )
+	{
+		selectedCat = 2;
+	}
+	else
+	{
+		selectedCat = 3;
+	}
+
+	const std::vector<size_t> *pSelectedList = &ammoIndices;
+	if ( selectedCat == 1 )
+		pSelectedList = &healthArmorIndices;
+	else if ( selectedCat == 2 )
+		pSelectedList = &ordnanceIndices;
+	else if ( selectedCat == 3 )
+		pSelectedList = &weaponIndices;
+
+	if ( pSelectedList->empty() )
+		return "item_healthkit";
+
+	// Roll specific item within selected category based on tier & relative weights
+	std::vector<float> itemWeights;
+	itemWeights.reserve( pSelectedList->size() );
+	float totalItemWeight = 0.0f;
+
+	for ( size_t idx : *pSelectedList )
+	{
+		const auto &def = s_pickupRoster[idx];
+		float tierW = 1.0f;
+		if ( def.isConsumableWeapon )
+			tierW = GetOrdnanceTierWeight( def.tier, iWaveNumber );
+		else if ( def.isWeapon )
+			tierW = GetWeaponTierWeight( def.tier, iWaveNumber );
+
+		float effW = tierW * def.relativeWeight;
+		if ( effW > 0.0f )
+		{
+			totalItemWeight += effW;
+			itemWeights.push_back( totalItemWeight );
+		}
+	}
+
+	if ( totalItemWeight <= 0.0f || itemWeights.empty() )
+	{
+		// Fallback: pick any item in the category if all tier weights were 0
+		return s_pickupRoster[(*pSelectedList)[0]].szClassname;
+	}
+
+	float itemRoll = RANDOM_FLOAT( 0.0f, totalItemWeight );
+	for ( size_t k = 0; k < itemWeights.size(); ++k )
+	{
+		if ( itemRoll <= itemWeights[k] )
+			return s_pickupRoster[(*pSelectedList)[k]].szClassname;
+	}
+
+	return s_pickupRoster[pSelectedList->back()].szClassname;
 }
 
 bool GladderSpawner::IsLargeMonster( const char *szClassname )
