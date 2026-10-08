@@ -37,9 +37,18 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Mid-Game Milestone**: After a set number of waves, the engine promotes to `skill 2`, activating medium monster health pools, higher damage outputs, and sharper combat reactions.
     * **Late-Game Milestone**: Advances to `skill 3` (Hard), bringing maximum monster toughness, lethal damage, and aggressive AI behavior.
   * In addition to engine skill progression, procedural spawn density and Elite Champion spawn rates continue scaling with wave count.
-* **Time-Driven Match Objective**:
+* **Time-Driven Match Objective & Session Expiration Lifecycle**:
   * The core goal of each run is **time-based**: players must survive, navigate the gauntlet, and clear as many waves as possible within a configured session duration / time limit (e.g., 10, 15, or 20 minutes) or survival clock.
   * Wave completions are continuously counted and logged as the primary scoring metric, but the match concludes when the time limit expires (or upon player death).
+  * **Session Time Expiration Flow**:
+    * When the session time limit expires (`m_flSessionEndTime` reached, remaining time = 0), the match transitions definitively into `MATCH OVER`.
+    * Rather than becoming inactive or leaving the mod in an unhandled limbo state, session expiration must execute the full, seamless match termination lifecycle (identical to player death, but with survival outcome):
+      * **Player Freezing & Combat Halting**: Player movement, jumping, and weapon attacks are immediately frozen (`FL_FROZEN`), halting combat while preserving the current scene.
+      * **Audio Silencing & Mutator Termination**: Looping weapon sound channels (`CHAN_WEAPON`) and mutator alert sirens are silenced immediately.
+      * **Match End Acoustic Sting**: Plays `GLADDER_CUE_MATCH_END`.
+      * **Camera Backdrop Transition**: The player's viewport switches immediately to the end-game backdrop cameras (`gladder_camera`), starting with the third-person camera.
+      * **Score Calculation & Persistence**: Final composite score, wave milestones, and grade are computed (`STATUS: SURVIVED - TIME EXPIRED`) and saved to local map leaderboards (`gladder/scores/<mapname>.dat`).
+      * **Summary Screen Modal**: Activates the undismissable end-of-run summary screen on the client HUD.
 * **Arcade Scoring & Combo Multiplier**:
   * **End-of-Match Score Calculation**: To preserve clean screen visibility and immersion, the cumulative score is **calculated and revealed exclusively at the end of the match** on the summary screen.
   * **In-Game Combo Meter**: During active combat, rapid consecutive kills within a decaying window build a streak multiplier (`x2`, `x3`, `x4`, etc.). The game logs every combo event, streak count, and the peak maximum combo attained for the final score calculation.
@@ -75,7 +84,8 @@ Instead of progressing linearly through a series of maps, players run through a 
   * Every few waves (at configurable intervals, e.g. every 5th wave), the mod rolls a random gameplay mutator:
     * **Blackout**: Level lights are extinguished into pitch darkness; navigation relies heavily on the HEV flashlight.
     * **Low Gravity**: Xen-like reduced gravity physics applied to both the player and physical debris.
-    * **Swarm**: Standard enemy distribution is replaced by a massive horde composed exclusively of a single randomly selected monster species (e.g., all Houndeyes, all Headcrabs, or all Alien Grunts).
+    * **Swarm**: Standard enemy distribution is replaced by a massive horde composed exclusively of a single randomly selected monster species (e.g., all Houndeyes, all Headcrabs, all Bullsquids, or all Alien Grunts).
+      * **Horde AI & Gib Stability**: In dense single-species swarms (such as Bullsquid hordes), monsters responding to combat stimuli, biological gibs, and meat scents (`bits_SOUND_MEAT`) must maintain robust schedule evaluation. Sound and scent listening routines must avoid shared-pointer list corruptions or NULL-pointer dereferences when dozens of monsters detect scents or gibs simultaneously.
     * **Mutator Siren Silencing on Wave Completion**: The ominous alert siren played when a special mutator starts (such as Blackout) must be explicitly stopped upon wave completion (`trigger_gladder_end`) or when mutators are reverted, preventing the audio loop from persisting indefinitely during subsequent waves.
 * **Modernized Monster Turning Speed (`yawspeed`)**:
   * Original Half-Life monsters feature sluggish turning rates (`m_flYawSpeed`), resulting in slow rotational reaction times that feel dated and allow players to easily bypass or stand behind monsters without being tracked.
@@ -241,6 +251,11 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * In classic Half-Life GoldSrc, acquiring a new weapon flashes the corresponding weapon icon/sprite on the bottom-right corner of the HUD (positioned immediately above the active ammunition display) via the `WeapPickup` user message history slot (`HISTSLOT_WEAP`).
 * However, historical GoldSrc weapon classes omitted `WeapPickup` dispatches from the base weapon class (`CBasePlayerWeapon::AddToPlayer`) and various standard weapons (such as `weapon_glock`, `weapon_crowbar`, and deployable/throwable ordnance), causing the HUD pickup notification to appear intermittently or fail entirely for newly acquired weapons and modular arsenal items.
 * In Half-Life: Gladder, **all weapons**—including standard firearms, melee weapons, consumable ordnance (`weapon_handgrenade`, `weapon_tripmine`, `weapon_satchel`, `weapon_snark`), and extended arsenal weapons (`weapon_knife`, `weapon_pipewrench`, `weapon_eagle`, `weapon_sniper`, `weapon_m249`)—must reliably dispatch `WeapPickup` upon acquisition, guaranteeing instant visual HUD confirmation above the ammunition display whenever any weapon is collected.
+
+### 7.11 Pipe Wrench Charged Attack Lethal Resolution & Gib Stability
+* The Opposing Force Pipe Wrench (`weapon_pipewrench`) features a heavy charged secondary attack (`BigSwing`), dealing up to 85+ damage and capable of instantly gibbing medium-tier monsters (such as Bullsquids or Zombies).
+* Striking and fatally gibbing entities with the charged attack must safely validate target entity pointers both before and after applying multi-damage (`ApplyMultiDamage`), preventing stale entity dereferences when the victim is gibbed into fragments or removed from memory.
+* Additionally, client prediction for the heavy swing must remain fully aligned with the server state machine, ensuring hit animations and impact acoustic cues predict cleanly without desynchronization.
 
 ---
 
