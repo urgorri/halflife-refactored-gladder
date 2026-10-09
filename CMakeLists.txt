@@ -403,6 +403,9 @@ if(BUILD_TESTS)
         tests/gladder/test_wave_notify_msg.cpp
         tests/gladder/test_hud.cpp
         tests/gladder/test_summary_screen.cpp
+        tests/test_weapons_pickup.cpp
+        tests/test_ai_soundent.cpp
+        dlls/ai/soundent.cpp
         ${PM_SHARED_SOURCES}
     )
 

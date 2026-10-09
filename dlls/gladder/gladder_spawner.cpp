@@ -8,6 +8,7 @@
 
 #include "gladder_spawner.h"
 #include "gladder_modifiers.h"
+#include "core/player.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -46,33 +47,39 @@ static const size_t s_monsterRosterCount = sizeof( s_monsterRoster ) / sizeof( s
 //
 static const GladderPickupDef s_pickupRoster[] = {
 	// Medical & Armor
-	{ "item_healthkit", 1, 1.0f, false, false, true },
-	{ "item_battery", 1, 1.0f, false, false, true },
+	{ "item_healthkit", 1, 1.0f, false, false, true, false },
+	{ "item_battery", 1, 1.0f, false, false, true, false },
 
 	// Ammunition
-	{ "ammo_9mmclip", 1, 1.0f, false, true, false },
-	{ "ammo_9mmAR", 1, 1.0f, false, true, false },
-	{ "ammo_buckshot", 1, 1.0f, false, true, false },
-	{ "ammo_357", 2, 0.8f, false, true, false },
-	{ "ammo_ARgrenades", 2, 0.6f, false, true, false },
-	{ "ammo_762", 2, 0.6f, false, true, false },
-	{ "ammo_556", 2, 0.7f, false, true, false },
-	{ "ammo_rpgclip", 3, 0.5f, false, true, false },
+	{ "ammo_9mmclip", 1, 1.0f, false, true, false, false },
+	{ "ammo_9mmAR", 1, 1.0f, false, true, false, false },
+	{ "ammo_buckshot", 1, 1.0f, false, true, false, false },
+	{ "ammo_357", 2, 0.8f, false, true, false, false },
+	{ "ammo_ARgrenades", 2, 0.6f, false, true, false, false },
+	{ "ammo_762", 2, 0.6f, false, true, false, false },
+	{ "ammo_556", 2, 0.7f, false, true, false, false },
+	{ "ammo_rpgclip", 3, 0.5f, false, true, false, false },
 
-	// Weapons
-	{ "weapon_knife", 1, 0.7f, true, false, false },
-	{ "weapon_pipewrench", 1, 0.6f, true, false, false },
-	{ "weapon_glock", 1, 0.8f, true, false, false },
-	{ "weapon_shotgun", 1, 0.7f, true, false, false },
-	{ "weapon_mp5", 2, 0.8f, true, false, false },
-	{ "weapon_357", 2, 0.6f, true, false, false },
-	{ "weapon_eagle", 2, 0.6f, true, false, false },
-	{ "weapon_crossbow", 3, 0.5f, true, false, false },
-	{ "weapon_sniper", 3, 0.4f, true, false, false },
-	{ "weapon_m249", 3, 0.35f, true, false, false },
-	{ "weapon_rpg", 3, 0.4f, true, false, false },
-	{ "weapon_gauss", 3, 0.4f, true, false, false },
-	{ "weapon_egon", 3, 0.3f, true, false, false },
+	// Fixed Weapons (SPEC §3)
+	{ "weapon_knife", 1, 0.7f, true, false, false, false },
+	{ "weapon_pipewrench", 1, 0.6f, true, false, false, false },
+	{ "weapon_glock", 1, 0.8f, true, false, false, false },
+	{ "weapon_shotgun", 1, 0.7f, true, false, false, false },
+	{ "weapon_mp5", 2, 0.8f, true, false, false, false },
+	{ "weapon_357", 2, 0.6f, true, false, false, false },
+	{ "weapon_eagle", 2, 0.6f, true, false, false, false },
+	{ "weapon_crossbow", 3, 0.5f, true, false, false, false },
+	{ "weapon_sniper", 3, 0.4f, true, false, false, false },
+	{ "weapon_m249", 3, 0.35f, true, false, false, false },
+	{ "weapon_rpg", 3, 0.4f, true, false, false, false },
+	{ "weapon_gauss", 3, 0.4f, true, false, false, false },
+	{ "weapon_egon", 3, 0.3f, true, false, false, false },
+
+	// Consumable Ordnance Weapons (SPEC §3, §7, Issue #78)
+	{ "weapon_handgrenade", 1, 0.8f, false, false, false, true },
+	{ "weapon_tripmine", 2, 0.6f, false, false, false, true },
+	{ "weapon_satchel", 2, 0.6f, false, false, false, true },
+	{ "weapon_snark", 3, 0.5f, false, false, false, true },
 };
 
 static const size_t s_pickupRosterCount = sizeof( s_pickupRoster ) / sizeof( s_pickupRoster[0] );
@@ -324,6 +331,26 @@ float GladderSpawner::GetWeaponTierWeight( int tier, int iWaveNumber )
 	}
 }
 
+float GladderSpawner::GetOrdnanceTierWeight( int tier, int iWaveNumber )
+{
+	float w = static_cast<float>( (std::max)( 1, iWaveNumber ) );
+
+	switch ( tier )
+	{
+		case 1:
+			// Hand grenades: available immediately across all waves, floor at 10.0f
+			return (std::max)( 10.0f, 25.0f - ( w - 1.0f ) * 2.0f );
+		case 2:
+			// Tripmines & Satchels: available from wave 2+, scales to 20.0f
+			return ( w < 2.0f ) ? 0.0f : (std::min)( 20.0f, 8.0f + ( w - 2.0f ) * 2.5f );
+		case 3:
+			// Snarks: available from wave 3+, scales to 15.0f
+			return ( w < 3.0f ) ? 0.0f : (std::min)( 15.0f, 5.0f + ( w - 3.0f ) * 2.5f );
+		default:
+			return 8.0f;
+	}
+}
+
 int GladderSpawner::GetActiveEdictCount()
 {
 	if ( !gpGlobals )
@@ -373,6 +400,11 @@ CBaseEntity *GladderSpawner::CreateWaveEntity( const char *szClassname, const Ve
 		EHANDLE h;
 		h = pEnt;
 		m_spawnedEntities.push_back( h );
+
+		if ( pEnt->MyMonsterPointer() || ( pEnt->pev && ( pEnt->pev->flags & FL_MONSTER ) ) )
+		{
+			pEnt->pev->flags |= FL_MONSTERCLIP;
+		}
 	}
 
 	return pEnt;
@@ -440,50 +472,150 @@ const char *GladderSpawner::RollMonsterSpecies( int iWaveNumber, const GladderMa
 	return s_monsterRoster[lastIdx].szClassname;
 }
 
-const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapConfig &config )
+const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer )
 {
-	std::vector<float> weights;
-	std::vector<size_t> indices;
-	weights.reserve( s_pickupRosterCount );
-	indices.reserve( s_pickupRosterCount );
+	if ( !pPlayer && gpGlobals )
+	{
+		pPlayer = (CBasePlayer *)UTIL_PlayerByIndex( 1 );
+	}
 
-	float totalWeight = 0.0f;
+	std::vector<size_t> ammoIndices;
+	std::vector<size_t> healthArmorIndices;
+	std::vector<size_t> ordnanceIndices;
+	std::vector<size_t> weaponIndices;
+
+	ammoIndices.reserve( s_pickupRosterCount );
+	healthArmorIndices.reserve( s_pickupRosterCount );
+	ordnanceIndices.reserve( s_pickupRosterCount );
+	weaponIndices.reserve( s_pickupRosterCount );
 
 	for ( size_t i = 0; i < s_pickupRosterCount; ++i )
 	{
 		const auto &def = s_pickupRoster[i];
 
-		if ( def.isWeapon && !config.IsWeaponAllowed( def.szClassname ) )
-			continue;
-
-		float categoryW = 1.0f;
-		if ( def.isWeapon )
-			categoryW = GetWeaponTierWeight( def.tier, iWaveNumber );
-		else if ( def.isHealthArmor )
-			categoryW = 70.0f;
-		else if ( def.isAmmo )
-			categoryW = 65.0f;
-
-		float effectiveW = categoryW * def.relativeWeight;
-		if ( effectiveW > 0.0f )
+		if ( def.isAmmo )
 		{
-			totalWeight += effectiveW;
-			weights.push_back( totalWeight );
-			indices.push_back( i );
+			ammoIndices.push_back( i );
+		}
+		else if ( def.isHealthArmor )
+		{
+			healthArmorIndices.push_back( i );
+		}
+		else if ( def.isConsumableWeapon )
+		{
+			if ( config.IsWeaponAllowed( def.szClassname ) )
+			{
+				// Consumable ordnance weapons (hand grenades, tripmines, satchels, snarks)
+				// function as tactical expendables and can always spawn and repeat even if
+				// the player already has them in inventory (SPEC §3, §7, Issues #78, #79).
+				ordnanceIndices.push_back( i );
+			}
+		}
+		else if ( def.isWeapon )
+		{
+			if ( config.IsWeaponAllowed( def.szClassname ) )
+			{
+				// Restrict persistent fixed weapons strictly to unacquired items (SPEC §3, Issue #79).
+				if ( pPlayer && pPlayer->HasNamedPlayerItem( def.szClassname ) )
+				{
+					continue;
+				}
+				weaponIndices.push_back( i );
+			}
 		}
 	}
 
-	if ( indices.empty() || totalWeight <= 0.0f )
-		return "item_healthkit";
+	// Macro category probabilities (SPEC §3, §7, Issues #39, #78, #79):
+	// - Ammunition: Majority of supply spawns (60%, SPEC > 55%)
+	// - Health & Armor: Balanced secondary consumable drops (22%, SPEC ~20-25%)
+	// - Consumable Ordnance: Tactically consumable expendables (12%) - 2x higher frequency than fixed weapons!
+	// - Fixed Weapons: Rare high-impact tactical upgrades (6%, SPEC < 20% total weapons)
+	float wAmmo     = ammoIndices.empty() ? 0.0f : 60.0f;
+	float wHealth   = healthArmorIndices.empty() ? 0.0f : 22.0f;
+	float wOrdnance = ordnanceIndices.empty() ? 0.0f : 12.0f;
+	float wWeapon   = weaponIndices.empty() ? 0.0f : 6.0f;
 
-	float roll = RANDOM_FLOAT( 0.0f, totalWeight );
-	for ( size_t k = 0; k < weights.size(); ++k )
+	// If player already owns all permitted fixed weapons for the active map,
+	// fixed weapon spawn opportunities automatically fall back to consumable ordnance or ammo (SPEC §3).
+	if ( wWeapon <= 0.0f )
 	{
-		if ( roll <= weights[k] )
-			return s_pickupRoster[indices[k]].szClassname;
+		if ( !ordnanceIndices.empty() )
+			wOrdnance += 6.0f;
+		else if ( !ammoIndices.empty() )
+			wAmmo += 6.0f;
 	}
 
-	return s_pickupRoster[indices.back()].szClassname;
+	float totalCatWeight = wAmmo + wHealth + wOrdnance + wWeapon;
+	if ( totalCatWeight <= 0.0f )
+		return "item_healthkit";
+
+	float catRoll = RANDOM_FLOAT( 0.0f, totalCatWeight );
+	int selectedCat = 0; // 0 = Ammo, 1 = Health/Armor, 2 = Ordnance, 3 = Weapon
+
+	if ( catRoll <= wAmmo )
+	{
+		selectedCat = 0;
+	}
+	else if ( catRoll <= wAmmo + wHealth )
+	{
+		selectedCat = 1;
+	}
+	else if ( catRoll <= wAmmo + wHealth + wOrdnance )
+	{
+		selectedCat = 2;
+	}
+	else
+	{
+		selectedCat = 3;
+	}
+
+	const std::vector<size_t> *pSelectedList = &ammoIndices;
+	if ( selectedCat == 1 )
+		pSelectedList = &healthArmorIndices;
+	else if ( selectedCat == 2 )
+		pSelectedList = &ordnanceIndices;
+	else if ( selectedCat == 3 )
+		pSelectedList = &weaponIndices;
+
+	if ( pSelectedList->empty() )
+		return "item_healthkit";
+
+	// Roll specific item within selected category based on tier & relative weights
+	std::vector<float> itemWeights;
+	itemWeights.reserve( pSelectedList->size() );
+	float totalItemWeight = 0.0f;
+
+	for ( size_t idx : *pSelectedList )
+	{
+		const auto &def = s_pickupRoster[idx];
+		float tierW = 1.0f;
+		if ( def.isConsumableWeapon )
+			tierW = GetOrdnanceTierWeight( def.tier, iWaveNumber );
+		else if ( def.isWeapon )
+			tierW = GetWeaponTierWeight( def.tier, iWaveNumber );
+
+		float effW = tierW * def.relativeWeight;
+		if ( effW > 0.0f )
+		{
+			totalItemWeight += effW;
+			itemWeights.push_back( totalItemWeight );
+		}
+	}
+
+	if ( totalItemWeight <= 0.0f || itemWeights.empty() )
+	{
+		// Fallback: pick any item in the category if all tier weights were 0
+		return s_pickupRoster[(*pSelectedList)[0]].szClassname;
+	}
+
+	float itemRoll = RANDOM_FLOAT( 0.0f, totalItemWeight );
+	for ( size_t k = 0; k < itemWeights.size(); ++k )
+	{
+		if ( itemRoll <= itemWeights[k] )
+			return s_pickupRoster[(*pSelectedList)[k]].szClassname;
+	}
+
+	return s_pickupRoster[pSelectedList->back()].szClassname;
 }
 
 bool GladderSpawner::IsLargeMonster( const char *szClassname )
@@ -819,7 +951,8 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 		}
 
 		const auto &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
-		const char *szPickup = RollPickupItem( iWaveNumber, config );
+		CBasePlayer *pLocalPlayer = gpGlobals ? (CBasePlayer *)UTIL_PlayerByIndex( 1 ) : nullptr;
+		const char *szPickup = RollPickupItem( iWaveNumber, config, pLocalPlayer );
 
 		Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
 		Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );

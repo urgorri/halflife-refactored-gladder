@@ -238,6 +238,9 @@ int CPipewrench::Swing( int fFirst )
 #ifndef CLIENT_DLL
 		fDidHit = TRUE;
 		CBaseEntity *pEntity = CBaseEntity::Instance( tr.pHit );
+		EHANDLE hEntity;
+		hEntity = pEntity;
+		int iClassification = pEntity ? pEntity->Classify() : CLASS_NONE;
 
 		if ( pEntity )
 		{
@@ -249,9 +252,9 @@ int CPipewrench::Swing( int fFirst )
 		float flVol = 1.0f;
 		BOOL fHitWorld = TRUE;
 
-		if ( pEntity )
+		if ( hEntity != nullptr )
 		{
-			if ( pEntity->Classify() != CLASS_NONE && pEntity->Classify() != CLASS_MACHINE )
+			if ( iClassification != CLASS_NONE && iClassification != CLASS_MACHINE )
 			{
 				switch ( RANDOM_LONG( 0, 2 ) )
 				{
@@ -260,7 +263,7 @@ int CPipewrench::Swing( int fFirst )
 				case 2: EMIT_SOUND( m_pPlayer->edict(), CHAN_ITEM, "weapons/pwrench_hitbod3.wav", 1.0f, ATTN_NORM ); break;
 				}
 				m_pPlayer->m_iWeaponVolume = PIPEWRENCH_BODYHIT_VOLUME;
-				if ( !pEntity->IsAlive() )
+				if ( !hEntity->IsAlive() )
 				{
 					if ( g_pGameRules && g_pGameRules->FFixMeleeCorpseAttackDelay() )
 					{
@@ -278,6 +281,19 @@ int CPipewrench::Swing( int fFirst )
 					fHitWorld = FALSE;
 				}
 			}
+		}
+		else if ( pEntity != nullptr && ( iClassification != CLASS_NONE && iClassification != CLASS_MACHINE ) )
+		{
+			// Target was killed and immediately gibbed/freed by the damage (Issue #84)
+			switch ( RANDOM_LONG( 0, 2 ) )
+			{
+			case 0: EMIT_SOUND( m_pPlayer->edict(), CHAN_ITEM, "weapons/pwrench_hitbod1.wav", 1.0f, ATTN_NORM ); break;
+			case 1: EMIT_SOUND( m_pPlayer->edict(), CHAN_ITEM, "weapons/pwrench_hitbod2.wav", 1.0f, ATTN_NORM ); break;
+			case 2: EMIT_SOUND( m_pPlayer->edict(), CHAN_ITEM, "weapons/pwrench_hitbod3.wav", 1.0f, ATTN_NORM ); break;
+			}
+			m_pPlayer->m_iWeaponVolume = PIPEWRENCH_BODYHIT_VOLUME;
+			flVol     = 0.1f;
+			fHitWorld = FALSE;
 		}
 
 		if ( fHitWorld )
@@ -336,6 +352,10 @@ void CPipewrench::BigSwing( void )
 		CBaseEntity *pEntity = CBaseEntity::Instance( tr.pHit );
 		if ( pEntity )
 		{
+			EHANDLE hEntity;
+			hEntity = pEntity;
+			int iClassification = pEntity->Classify();
+
 			ClearMultiDamage();
 			float chargeRatio = (std::min)( 1.5f, (std::max)( 0.2f, gpGlobals->time - m_flBigSwingStart ) ) / 1.5f;
 			float flDamage = GLADDER_DMG_PIPEWRENCH + chargeRatio * 50.0f; // up to 85 damage!
@@ -343,7 +363,7 @@ void CPipewrench::BigSwing( void )
 			pEntity->TraceAttack( m_pPlayer->pev, flDamage, gpGlobals->v_forward, &tr, DMG_CLUB );
 			ApplyMultiDamage( m_pPlayer->pev, m_pPlayer->pev );
 
-			if ( pEntity->Classify() != CLASS_NONE && pEntity->Classify() != CLASS_MACHINE )
+			if ( iClassification != CLASS_NONE && iClassification != CLASS_MACHINE )
 			{
 				switch ( RANDOM_LONG( 0, 1 ) )
 				{

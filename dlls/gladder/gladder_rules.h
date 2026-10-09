@@ -98,8 +98,12 @@ class CGladderRules : public CHalfLifeRules
 	void PurgeWaveEntities( void );
 	void RechargeWallStations( void );
 	void ResetBreakableEntities( void );
+	void ResetStartTriggers( void );
+	void EnsureMonsterClipFlags( void );
 
-	// Scoring & match conclusion (Issue #9)
+	// Scoring & match conclusion (SPEC §2, §3, §9.2, Issues #9, #85)
+	void HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer = nullptr );
+	void FreezeMatchWorld( void );
 	void CalculateFinalScore( bool bSurvived );
 	void ShiftPlayerCamera( CBaseEntity *pPlr );
 
@@ -150,6 +154,10 @@ class CGladderRules : public CHalfLifeRules
 	bool IsPendingSavePurge( void ) const { return m_bPendingSavePurge; }
 	const Vector &GetDeathAngles( void ) const { return m_vecDeathAngles; }
 	bool IsPlayerDead( void ) const { return m_bPlayerDead; }
+	bool IsMatchConcluded( void ) const { return m_bMatchConcluded; }
+	bool IsPlayerFrozen( void ) const { return m_bPlayerFrozen; }
+	int GetFrozenPlayerSequence( void ) const { return m_iFrozenPlayerSequence; }
+	float GetFrozenPlayerFrame( void ) const { return m_flFrozenPlayerFrame; }
 	size_t GetSummaryCameraCount( void ) const { return m_summaryCameras.size(); }
 	size_t GetCurrentSummaryCameraIndex( void ) const { return m_iCurrentSummaryCameraIndex; }
 
@@ -168,6 +176,11 @@ class CGladderRules : public CHalfLifeRules
 	float m_flNextCameraSwitchTime;
 	Vector m_vecDeathAngles;
 	bool m_bPlayerDead;
+	bool m_bPlayerFrozen;
+	int m_iFrozenPlayerSequence;
+	float m_flFrozenPlayerFrame;
+	int m_iFrozenPlayerGaitSequence;
+	bool m_bMatchConcluded;
 	bool m_bInitialSpawnDone;
 	bool m_bRestoreAttempted;
 	bool m_bPendingSavePurge;

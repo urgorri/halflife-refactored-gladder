@@ -63,6 +63,9 @@ class GladderComboTracker
 	// Validates whether damage or kill was directly or indirectly instigated by a player (SPEC §3, §9.1, Issue #60)
 	static bool IsPlayerInstigated( entvars_t *pKiller, entvars_t *pInflictor );
 
+	// Validates whether the victim is a living, authentic hostile combatant (SPEC §3, §9.1, Issue #77)
+	static bool IsValidCombatant( CBaseMonster *pVictim );
+
 	// Active streak & gauge queries (for HUD overlays and networking)
 	int GetCurrentStreak( void ) const { return m_iCurrentStreak; }
 	int GetCurrentMultiplier( void ) const;

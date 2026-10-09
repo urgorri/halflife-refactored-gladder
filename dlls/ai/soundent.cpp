@@ -32,7 +32,7 @@ void CSound ::Clear( void )
 	m_iVolume      = 0;
 	m_flExpireTime = 0;
 	m_iNext        = SOUNDLIST_EMPTY;
-	m_iNextAudible = 0;
+	m_iNextAudible = SOUNDLIST_EMPTY;
 }
 
 //=========================================================
@@ -41,10 +41,11 @@ void CSound ::Clear( void )
 //=========================================================
 void CSound ::Reset( void )
 {
-	m_vecOrigin = g_vecZero;
-	m_iType     = 0;
-	m_iVolume   = 0;
-	m_iNext     = SOUNDLIST_EMPTY;
+	m_vecOrigin    = g_vecZero;
+	m_iType        = 0;
+	m_iVolume      = 0;
+	m_iNext        = SOUNDLIST_EMPTY;
+	m_iNextAudible = SOUNDLIST_EMPTY;
 }
 
 //=========================================================
@@ -157,7 +158,8 @@ void CSoundEnt ::FreeSound( int iSound, int iPrevious )
 		pSoundEnt->m_iActiveSound = pSoundEnt->m_SoundPool[iSound].m_iNext;
 	}
 
-	// make iSound the head of the Free list.
+	// make iSound the head of the Free list and clear stale sound state.
+	pSoundEnt->m_SoundPool[iSound].Clear();
 	pSoundEnt->m_SoundPool[iSound].m_iNext = pSoundEnt->m_iFreeSound;
 	pSoundEnt->m_iFreeSound                = iSound;
 }
@@ -184,7 +186,8 @@ int CSoundEnt ::IAllocSound( void )
 
 	m_iFreeSound = m_SoundPool[m_iFreeSound].m_iNext; // move the index down into the free list.
 
-	m_SoundPool[iNewSound].m_iNext = m_iActiveSound; // point the new sound at the top of the active list.
+	m_SoundPool[iNewSound].m_iNext        = m_iActiveSound; // point the new sound at the top of the active list.
+	m_SoundPool[iNewSound].m_iNextAudible = SOUNDLIST_EMPTY;
 
 	m_iActiveSound = iNewSound; // now make the new sound the top of the active list. You're done.
 

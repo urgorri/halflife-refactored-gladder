@@ -11,6 +11,11 @@
 #include <cstdlib>
 
 //
+// gladder_trigger_clip
+//
+LINK_ENTITY_TO_CLASS( gladder_trigger_clip, CGladderTriggerClip );
+
+//
 // trigger_gladder_start
 //
 LINK_ENTITY_TO_CLASS( trigger_gladder_start, CTriggerGladderStart );
@@ -18,31 +23,219 @@ LINK_ENTITY_TO_CLASS( trigger_gladder_start, CTriggerGladderStart );
 void CTriggerGladderStart::Spawn( void )
 {
 	InitTrigger();
+	pev->renderfx = kRenderFxGlowShell;
+	pev->rendercolor = Vector( 255, 32, 32 );
+	pev->renderamt = 16;
+	pev->rendermode = kRenderTransTexture;
+	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderStart::StartTouch );
 	SetUse( &CTriggerGladderStart::StartUse );
+
+	m_bPlayerCrossed = false;
+	m_hActivatingPlayer = nullptr;
+	m_vecEntryPos = g_vecZero;
+	CreateClipBrush();
+}
+
+void CTriggerGladderStart::CreateClipBrush( void )
+{
+	if ( !pev->model )
+		return;
+
+	edict_t *pent = CREATE_NAMED_ENTITY( MAKE_STRING( "gladder_trigger_clip" ) );
+	if ( !FNullEnt( pent ) )
+	{
+		CBaseEntity *pClip = Instance( pent );
+		if ( pClip )
+		{
+			pClip->pev->model = pev->model;
+			pClip->pev->origin = pev->origin;
+			pClip->pev->angles = pev->angles;
+			DispatchSpawn( pClip->edict() );
+			m_hClip = pClip;
+		}
+	}
+}
+
+bool CTriggerGladderStart::IsEntityInside( CBaseEntity *pEntity )
+{
+	if ( !pEntity || !pEntity->pev )
+		return false;
+
+	if ( pEntity->pev->absmax.x < pev->absmin.x || pEntity->pev->absmin.x > pev->absmax.x )
+		return false;
+	if ( pEntity->pev->absmax.y < pev->absmin.y || pEntity->pev->absmin.y > pev->absmax.y )
+		return false;
+	if ( pEntity->pev->absmax.z < pev->absmin.z || pEntity->pev->absmin.z > pev->absmax.z )
+		return false;
+
+	return true;
 }
 
 void CTriggerGladderStart::StartTouch( CBaseEntity *pOther )
 {
-	if ( !pOther || !pOther->IsPlayer() )
+	if ( !pOther )
 		return;
 
-	if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
-		return;
-
-	if ( g_pGameRules )
+	// 1. Players can freely traverse into the gauntlet arena until they completely cross it
+	if ( pOther->IsPlayer() )
 	{
-		CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
-		if ( pGladderRules )
+		// If the player has already crossed and the wave started, prevent retreating back to staging area
+		if ( m_bPlayerCrossed )
 		{
-			// Only trigger if waiting for wave start
-			if ( pGladderRules->GetWaveManager().GetState() != GLADDER_STATE_WAITING_FOR_START )
-				return;
+			Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+			Vector vecDir = pOther->pev->origin - vecCenter;
+			vecDir.z = 0.0f;
+			if ( vecDir.Length() > 0.001f )
+				vecDir = vecDir.Normalize();
+			else
+				vecDir = Vector( 1.0f, 0.0f, 0.0f );
 
-			pGladderRules->OnWaveTriggerStart( pOther );
-			SUB_UseTargets( pOther, USE_TOGGLE, 0 );
+			pOther->pev->velocity = vecDir * 200.0f;
+			return;
+		}
+
+		if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
+			return;
+
+		if ( g_pGameRules )
+		{
+			CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
+			if ( pGladderRules )
+			{
+				int state = pGladderRules->GetWaveManager().GetState();
+				if ( state != GLADDER_STATE_WAITING_FOR_START && state != GLADDER_STATE_WAVE_COMPLETED )
+				{
+					return;
+				}
+
+				// Only record entry position and engage thinker when initially starting traversal
+				if ( m_hActivatingPlayer == nullptr )
+				{
+					m_hActivatingPlayer = pOther;
+					m_vecEntryPos = pOther->pev->origin;
+					SetThink( &CTriggerGladderStart::CrossThink );
+					pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+				}
+			}
+		}
+		return;
+	}
+
+	// 2. Monsters and pushables are NEVER allowed to enter or cross the start area
+	if ( ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) ) && !pOther->IsPlayer() )
+	{
+		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+		Vector vecDir = pOther->pev->origin - vecCenter;
+		vecDir.z = 0.0f;
+		if ( vecDir.Length() > 0.001f )
+			vecDir = vecDir.Normalize();
+		else
+			vecDir = Vector( 1.0f, 0.0f, 0.0f );
+
+		pOther->pev->velocity = vecDir * 250.0f;
+		return;
+	}
+}
+
+void CTriggerGladderStart::CrossThink( void )
+{
+	if ( m_bPlayerCrossed )
+		return;
+
+	CBaseEntity *pPlayer = m_hActivatingPlayer;
+	if ( !pPlayer || !pPlayer->IsAlive() )
+	{
+		m_hActivatingPlayer = nullptr;
+		SetThink( nullptr );
+		return;
+	}
+
+	if ( IsEntityInside( pPlayer ) )
+	{
+		// Player is still traversing inside the start trigger volume; check again on next tick
+		pev->nextthink = gpGlobals ? ( gpGlobals->time + 0.05f ) : 0.05f;
+		return;
+	}
+
+	// Player is no longer inside the trigger volume!
+	// Determine whether the player actually crossed from one side through to the other,
+	// or merely backed out on the same side they entered.
+	Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+	Vector vecSize = pev->absmax - pev->absmin;
+	Vector vecExitPos = pPlayer->pev->origin;
+	Vector vecEntryDelta = m_vecEntryPos - vecCenter;
+	Vector vecExitDelta = vecExitPos - vecCenter;
+
+	bool bCrossed = false;
+
+	// Crossing requires starting on one side of center and exiting on the opposite side across an axis
+	// with a non-trivial traversal distance across the trigger.
+	if ( vecSize.x > 0.0f && ( vecEntryDelta.x * vecExitDelta.x < 0.0f ) && ( fabs( vecExitPos.x - m_vecEntryPos.x ) >= vecSize.x * 0.5f ) )
+	{
+		bCrossed = true;
+	}
+	else if ( vecSize.y > 0.0f && ( vecEntryDelta.y * vecExitDelta.y < 0.0f ) && ( fabs( vecExitPos.y - m_vecEntryPos.y ) >= vecSize.y * 0.5f ) )
+	{
+		bCrossed = true;
+	}
+	else if ( vecSize.z > 0.0f && ( vecEntryDelta.z * vecExitDelta.z < 0.0f ) && ( fabs( vecExitPos.z - m_vecEntryPos.z ) >= vecSize.z * 0.5f ) )
+	{
+		bCrossed = true;
+	}
+
+	if ( bCrossed )
+	{
+		// Player completely crossed through the start threshold into the gauntlet arena!
+		// Seal the passage solid for the player and trigger wave start.
+		m_bPlayerCrossed = true;
+		SetSolidForPlayer( true );
+
+		if ( g_pGameRules )
+		{
+			CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
+			if ( pGladderRules )
+			{
+				int state = pGladderRules->GetWaveManager().GetState();
+				if ( state == GLADDER_STATE_WAITING_FOR_START || state == GLADDER_STATE_WAVE_COMPLETED )
+				{
+					pGladderRules->OnWaveTriggerStart( pPlayer );
+					SUB_UseTargets( pPlayer, USE_TOGGLE, 0 );
+				}
+			}
+		}
+
+		m_hActivatingPlayer = nullptr;
+		SetThink( nullptr );
+	}
+	else
+	{
+		// Player retreated / backed out the same side they entered.
+		// Do NOT start wave, do NOT seal door. Reset tracking so they can try again.
+		m_hActivatingPlayer = nullptr;
+		SetThink( nullptr );
+	}
+}
+
+void CTriggerGladderStart::SetSolidForPlayer( bool bSolid )
+{
+	if ( m_hClip )
+	{
+		CGladderTriggerClip *pClip = (CGladderTriggerClip *)( (CBaseEntity *)m_hClip );
+		if ( pClip )
+		{
+			pClip->SetSolidForPlayer( bSolid );
 		}
 	}
+}
+
+void CTriggerGladderStart::ResetTrigger( void )
+{
+	m_bPlayerCrossed = false;
+	m_hActivatingPlayer = nullptr;
+	m_vecEntryPos = g_vecZero;
+	SetSolidForPlayer( false );
+	SetThink( nullptr );
 }
 
 void CTriggerGladderStart::StartUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
@@ -61,19 +254,66 @@ LINK_ENTITY_TO_CLASS( trigger_gladder_finish, CTriggerGladderFinish );
 void CTriggerGladderFinish::Spawn( void )
 {
 	InitTrigger();
+	pev->renderfx = kRenderFxGlowShell;
+	pev->rendercolor = Vector( 255, 32, 32 );
+	pev->renderamt = 16;
+	pev->rendermode = kRenderTransTexture;
+	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderFinish::FinishTouch );
 	SetUse( &CTriggerGladderFinish::FinishUse );
+
+	CreateClipBrush();
+}
+
+void CTriggerGladderFinish::CreateClipBrush( void )
+{
+	if ( !pev->model )
+		return;
+
+	edict_t *pent = CREATE_NAMED_ENTITY( MAKE_STRING( "gladder_trigger_clip" ) );
+	if ( !FNullEnt( pent ) )
+	{
+		CBaseEntity *pClip = Instance( pent );
+		if ( pClip )
+		{
+			pClip->pev->model = pev->model;
+			pClip->pev->origin = pev->origin;
+			pClip->pev->angles = pev->angles;
+			DispatchSpawn( pClip->edict() );
+			m_hClip = pClip;
+		}
+	}
 }
 
 void CTriggerGladderFinish::FinishTouch( CBaseEntity *pOther )
 {
-	if ( !pOther || !pOther->IsPlayer() )
+	if ( !pOther )
 		return;
 
-	if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
-		return;
+	// 1. Players can touch finish trigger to complete wave and teleport to staging
+	if ( pOther->IsPlayer() )
+	{
+		if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
+			return;
 
-	DoFinish( pOther );
+		DoFinish( pOther );
+		return;
+	}
+
+	// 2. Monsters and pushables are NEVER allowed to enter or cross the finish area
+	if ( ( pOther->MyMonsterPointer() || ( pOther->pev->flags & FL_MONSTER ) || FClassnameIs( pOther->pev, "func_pushable" ) ) && !pOther->IsPlayer() )
+	{
+		Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+		Vector vecDir = pOther->pev->origin - vecCenter;
+		vecDir.z = 0.0f;
+		if ( vecDir.Length() > 0.001f )
+			vecDir = vecDir.Normalize();
+		else
+			vecDir = Vector( 1.0f, 0.0f, 0.0f );
+
+		pOther->pev->velocity = vecDir * 250.0f;
+		return;
+	}
 }
 
 void CTriggerGladderFinish::FinishUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )

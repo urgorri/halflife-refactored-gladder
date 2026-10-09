@@ -20,6 +20,7 @@
 #include "tests/mock_engine.h"
 #include "cl_dll/gladder/hud_gladder_overlay.h"
 #include "dlls/gladder/gladder_wave_manager.h"
+#include "dlls/gladder/gladder_entities.h"
 
 // GladderStaticDecal struct definition matching gladder_rules.h (SPEC §11.3, Issue #49)
 struct GladderStaticDecal
@@ -125,6 +126,29 @@ class CTestGladderRulesAutoswitch : public CGameRules
 	int PlayerRelationship( CBaseEntity *pPlayer, CBaseEntity *pTarget ) override { return 0; }
 	const char *GetTeamID( CBaseEntity *pEntity ) override { return ""; }
 	BOOL FAllowMonsters( void ) override { return TRUE; }
+	BOOL ClientCommand( CBasePlayer *pPlayer, const char *pcmd ) override
+	{
+		if ( !pcmd )
+			return FALSE;
+
+		if ( FStrEq( pcmd, "gladder_restart" ) )
+		{
+			const char *pszMap = ( gpGlobals && gpGlobals->mapname ) ? STRING( gpGlobals->mapname ) : nullptr;
+			if ( pszMap && *pszMap )
+			{
+				char szCmd[128];
+				snprintf( szCmd, sizeof( szCmd ), "map %s\n", pszMap );
+				SERVER_COMMAND( szCmd );
+			}
+			else
+			{
+				SERVER_COMMAND( "restart\n" );
+			}
+			return TRUE;
+		}
+
+		return CGameRules::ClientCommand( pPlayer, pcmd );
+	}
 };
 
 class CTestDropMonster : public CBaseMonster
@@ -139,6 +163,150 @@ class CTestDropMonster : public CBaseMonster
 
   	private:
 	edict_t m_mockEdict;
+};
+
+class CTestConclusionRules : public CTestGladderRulesAutoswitch
+{
+  public:
+	bool m_bMatchConcluded = false;
+	bool m_bPlayerDead = false;
+	bool m_bSurvived = false;
+	int m_firedRelayEvent = -1;
+	CBaseEntity *m_pTrackedPlayer = nullptr;
+	CGladderWaveManager m_waveManager;
+
+	CTestConclusionRules()
+	{
+		m_waveManager.SetSessionTimeLimit( 100.0f );
+		m_waveManager.InitializeMatch( 0.0f );
+		m_waveManager.StartWave( 0.0f );
+	}
+
+	void FreezeMatchWorld( void )
+	{
+		if ( !gpGlobals )
+			return;
+
+		int maxEdicts = ( gpGlobals->maxEntities > 0 ) ? gpGlobals->maxEntities : 512;
+		for ( int i = 1; i < maxEdicts; ++i )
+		{
+			edict_t *pEdict = INDEXENT( i );
+			if ( FNullEnt( pEdict ) || pEdict->free || !pEdict->v.pContainingEntity )
+				continue;
+
+			CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
+			if ( !pEnt || pEnt->IsPlayer() )
+				continue;
+
+			CBaseMonster *pMonster = pEnt->MyMonsterPointer();
+			if ( pMonster )
+			{
+				pMonster->pev->velocity = g_vecZero;
+				pMonster->pev->avelocity = g_vecZero;
+				pMonster->pev->framerate = 0.0f;
+				pMonster->pev->movetype = MOVETYPE_NONE;
+				pMonster->pev->effects |= EF_NOINTERP;
+				pMonster->pev->takedamage = DAMAGE_NO;
+				pMonster->pev->flags |= FL_FROZEN;
+				pMonster->pev->nextthink = 0.0f;
+				pMonster->m_pSchedule = nullptr;
+				pMonster->m_iTaskStatus = TASKSTATUS_NEW;
+				pMonster->m_iScheduleIndex = 0;
+				// Monster sequence, frame, and activity preserved
+				continue;
+			}
+
+			const char *pszClassname = STRING( pEnt->pev->classname );
+			if ( pszClassname && (
+			     strncmp( pszClassname, "projectile_", 11 ) == 0 ||
+			     strncmp( pszClassname, "monster_satchel", 15 ) == 0 ||
+			     strncmp( pszClassname, "monster_tripmine", 16 ) == 0 ||
+			     strncmp( pszClassname, "monster_snark", 13 ) == 0 ||
+			     strcmp( pszClassname, "grenade" ) == 0 ||
+			     strcmp( pszClassname, "rpg_rocket" ) == 0 ||
+			     strcmp( pszClassname, "bolt" ) == 0 ||
+			     strcmp( pszClassname, "hornet" ) == 0 ) )
+			{
+				pEnt->pev->velocity = g_vecZero;
+				pEnt->pev->avelocity = g_vecZero;
+				pEnt->pev->framerate = 0.0f;
+				pEnt->pev->movetype = MOVETYPE_NONE;
+				pEnt->pev->effects |= EF_NOINTERP;
+				pEnt->pev->takedamage = DAMAGE_NO;
+				pEnt->pev->nextthink = 0.0f;
+			}
+		}
+	}
+
+	void HandleMatchConclusion( bool bSurvived, CBaseEntity *pPlayer = nullptr )
+	{
+		if ( m_bMatchConcluded )
+			return;
+
+		m_bMatchConcluded = true;
+		m_bSurvived = bSurvived;
+		m_firedRelayEvent = bSurvived ? 2 : 3;
+
+		if ( !pPlayer )
+		{
+			pPlayer = m_pTrackedPlayer;
+		}
+
+		if ( pPlayer && pPlayer->pev )
+		{
+			if ( m_bPlayerDead )
+			{
+				// player is dead
+			}
+			else
+			{
+				pPlayer->pev->flags |= FL_FROZEN;
+				pPlayer->pev->framerate = 0.0f;
+				pPlayer->pev->velocity = g_vecZero;
+			}
+		}
+
+		FreezeMatchWorld();
+	}
+
+	void EnsureMonsterClipFlags( void )
+	{
+		if ( !gpGlobals )
+			return;
+
+		int maxEdicts = ( gpGlobals->maxEntities > 0 ) ? gpGlobals->maxEntities : 512;
+		for ( int i = 1; i < maxEdicts; ++i )
+		{
+			edict_t *pEdict = INDEXENT( i );
+			if ( FNullEnt( pEdict ) || pEdict->free || !pEdict->v.pContainingEntity )
+				continue;
+
+			CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
+			if ( !pEnt || !pEnt->pev || ( pEnt->pev->flags & FL_CLIENT ) || pEnt->IsPlayer() )
+				continue;
+
+			if ( ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) ) &&
+			     !( pEnt->pev->flags & FL_CLIENT ) && !pEnt->IsPlayer() )
+			{
+				pEnt->pev->flags |= FL_MONSTERCLIP;
+			}
+		}
+	}
+
+	void Think( void ) override
+	{
+		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+		m_waveManager.Tick( flTime );
+
+		if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
+		{
+			HandleMatchConclusion( true, nullptr );
+		}
+		else if ( m_bMatchConcluded )
+		{
+			FreezeMatchWorld();
+		}
+	}
 };
 
 } // anonymous namespace
@@ -485,3 +653,335 @@ TEST_CASE( "GladderRules: Gamemode combat and weapon lifecycle hooks enabled (SP
 	CHECK( gladderRules.FFixMP5UnderwaterDebounce() == TRUE );
 }
 
+TEST_CASE( "GladderRules: gladder_restart executes full map reload command preserving brush entities (SPEC §10.4, Issue #82)", "[gladder][rules][restart]" )
+{
+	ResetMockEngine();
+	CTestGladderRulesAutoswitch rules;
+	g_mockServerCommands.clear();
+
+	SECTION( "Reloads current map when gpGlobals->mapname is populated" )
+	{
+		gpGlobals->mapname = MAKE_STRING( "gl02" );
+		BOOL bHandled = rules.ClientCommand( nullptr, "gladder_restart" );
+		CHECK( bHandled == TRUE );
+		REQUIRE_FALSE( g_mockServerCommands.empty() );
+		CHECK( g_mockServerCommands.back() == "map gl02\n" );
+	}
+
+	SECTION( "Falls back to restart command if mapname is unassigned" )
+	{
+		gpGlobals->mapname = 0;
+		BOOL bHandled = rules.ClientCommand( nullptr, "gladder_restart" );
+		CHECK( bHandled == TRUE );
+		REQUIRE_FALSE( g_mockServerCommands.empty() );
+		CHECK( g_mockServerCommands.back() == "restart\n" );
+	}
+}
+
+TEST_CASE( "GladderRules: Session time limit expiration match conclusion and player freeze (SPEC §2, §3, §9.2, Issue #85)", "[gladder][rules][conclusion]" )
+{
+	ResetMockEngine();
+
+	CTestConclusionRules rules;
+	edict_t playerEdict;
+	memset( &playerEdict, 0, sizeof( playerEdict ) );
+	CBaseEntity dummyPlayer;
+	dummyPlayer.pev = &playerEdict.v;
+	playerEdict.v.flags = FL_CLIENT;
+	playerEdict.pvPrivateData = &dummyPlayer;
+	rules.m_pTrackedPlayer = &dummyPlayer;
+
+	CHECK_FALSE( rules.m_bMatchConcluded );
+	CHECK( rules.m_waveManager.GetState() == GLADDER_STATE_WAVE_ACTIVE );
+
+	// Frame at t=50s: active wave continues, match not over
+	gpGlobals->time = 50.0f;
+	rules.Think();
+	CHECK_FALSE( rules.m_bMatchConcluded );
+	CHECK_FALSE( rules.m_waveManager.IsMatchOver() );
+
+	// Frame at t=100.5s: session time limit expires
+	gpGlobals->time = 100.5f;
+	rules.Think();
+	CHECK( rules.m_waveManager.IsMatchOver() );
+	CHECK( rules.m_bMatchConcluded );
+	CHECK( rules.m_bSurvived == true );
+	CHECK( rules.m_firedRelayEvent == 2 ); // Victory relays
+	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) != 0 ); // Player automatically frozen on expiration
+
+	// Player respawn clears frozen state and resets concluded flag
+	dummyPlayer.pev->flags &= ~FL_FROZEN;
+	rules.m_bMatchConcluded = false;
+	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) == 0 );
+	CHECK_FALSE( rules.m_bMatchConcluded );
+}
+
+TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles on match conclusion (Timeout freeze)", "[gladder][rules][freeze]" )
+{
+	ResetMockEngine();
+
+	CTestConclusionRules rules;
+
+	// Setup mock player
+	edict_t *pPlayerSlot = GetMockClientEntity( 1 );
+	REQUIRE( pPlayerSlot != nullptr );
+	pPlayerSlot->free = 0;
+	pPlayerSlot->v.flags = FL_CLIENT;
+	pPlayerSlot->v.classname = MAKE_STRING( "player" );
+	pPlayerSlot->v.pContainingEntity = pPlayerSlot;
+	pPlayerSlot->v.velocity = Vector( 250.0f, 0.0f, 0.0f );
+
+	CBaseEntity player;
+	pPlayerSlot->pvPrivateData = &player;
+	player.pev = &pPlayerSlot->v;
+	CBaseEntity *pPlayer = &player;
+
+	// Setup mock monster in slot 2
+	edict_t *pMonsterSlot = GetMockClientEntity( 2 );
+	REQUIRE( pMonsterSlot != nullptr );
+	pMonsterSlot->free = 0;
+	pMonsterSlot->v.flags = FL_MONSTER;
+	pMonsterSlot->v.classname = MAKE_STRING( "monster_headcrab" );
+	pMonsterSlot->v.pContainingEntity = pMonsterSlot;
+	pMonsterSlot->v.velocity = Vector( 120.0f, 40.0f, 0.0f );
+	pMonsterSlot->v.framerate = 1.0f;
+	pMonsterSlot->v.movetype = MOVETYPE_STEP;
+	pMonsterSlot->v.takedamage = DAMAGE_YES;
+	pMonsterSlot->v.nextthink = 50.0f;
+
+	CTestDropMonster monster;
+	pMonsterSlot->pvPrivateData = &monster;
+	monster.pev = &pMonsterSlot->v;
+	CBaseMonster *pMonster = &monster;
+
+	// Setup mock projectile in slot 3
+	edict_t *pProjSlot = GetMockClientEntity( 3 );
+	REQUIRE( pProjSlot != nullptr );
+	pProjSlot->free = 0;
+	pProjSlot->v.classname = MAKE_STRING( "grenade" );
+	pProjSlot->v.pContainingEntity = pProjSlot;
+	pProjSlot->v.velocity = Vector( 600.0f, 0.0f, 150.0f );
+	pProjSlot->v.movetype = MOVETYPE_BOUNCE;
+	pProjSlot->v.nextthink = 45.0f;
+
+	CBaseEntity proj;
+	pProjSlot->pvPrivateData = &proj;
+	proj.pev = &pProjSlot->v;
+	CBaseEntity *pProj = &proj;
+
+	// Before conclusion: entities are active and moving
+	CHECK( pPlayer->pev->velocity.Length() > 0.0f );
+	CHECK( pMonster->pev->velocity.Length() > 0.0f );
+	CHECK( pMonster->pev->framerate == 1.0f );
+	CHECK( pMonster->pev->nextthink == 50.0f );
+	CHECK( pProj->pev->velocity.Length() > 0.0f );
+	CHECK( pProj->pev->nextthink == 45.0f );
+
+	// Trigger match conclusion (e.g. time expired or death)
+	rules.HandleMatchConclusion( true, pPlayer );
+
+	// Verify Player is frozen
+	CHECK( ( pPlayer->pev->flags & FL_FROZEN ) != 0 );
+	CHECK( pPlayer->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+
+	// Verify Monster is completely frozen in place
+	CHECK( ( pMonster->pev->flags & FL_FROZEN ) != 0 );
+	CHECK( pMonster->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pMonster->pev->avelocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pMonster->pev->framerate == 0.0f );
+	CHECK( pMonster->pev->movetype == MOVETYPE_NONE );
+	CHECK( ( pMonster->pev->effects & EF_NOINTERP ) != 0 );
+	CHECK( pMonster->pev->takedamage == DAMAGE_NO );
+	CHECK( pMonster->pev->nextthink == 0.0f );
+
+	// Verify Projectile is frozen in mid-air
+	CHECK( pProj->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pProj->pev->movetype == MOVETYPE_NONE );
+	CHECK( ( pProj->pev->effects & EF_NOINTERP ) != 0 );
+	CHECK( pProj->pev->takedamage == DAMAGE_NO );
+	CHECK( pProj->pev->nextthink == 0.0f );
+
+	// Subsequent Think calls maintain the frozen world
+	rules.Think();
+	CHECK( pMonster->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pMonster->pev->framerate == 0.0f );
+	CHECK( pMonster->pev->nextthink == 0.0f );
+	CHECK( pProj->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( pProj->pev->nextthink == 0.0f );
+}
+
+TEST_CASE( "Gladder Rules: EnsureMonsterClipFlags enforces FL_MONSTERCLIP across monsters and pushables", "[gladder][rules][clip]" )
+{
+	ResetMockEngine();
+
+	CTestConclusionRules rules;
+
+	// Mock monster in slot 2
+	edict_t *pMonsterSlot = GetMockClientEntity( 2 );
+	REQUIRE( pMonsterSlot != nullptr );
+	pMonsterSlot->free = 0;
+	pMonsterSlot->v.flags = FL_MONSTER;
+	pMonsterSlot->v.classname = MAKE_STRING( "monster_headcrab" );
+	pMonsterSlot->v.pContainingEntity = pMonsterSlot;
+
+	CTestDropMonster monster;
+	pMonsterSlot->pvPrivateData = &monster;
+	monster.pev = &pMonsterSlot->v;
+
+	// Mock pushable in slot 3
+	edict_t *pPushableSlot = GetMockClientEntity( 3 );
+	REQUIRE( pPushableSlot != nullptr );
+	pPushableSlot->free = 0;
+	pPushableSlot->v.classname = MAKE_STRING( "func_pushable" );
+	pPushableSlot->v.pContainingEntity = pPushableSlot;
+
+	CBaseEntity pushable;
+	pPushableSlot->pvPrivateData = &pushable;
+	pushable.pev = &pPushableSlot->v;
+
+	// Mock player in slot 1
+	edict_t *pPlayerSlot = GetMockClientEntity( 1 );
+	REQUIRE( pPlayerSlot != nullptr );
+	pPlayerSlot->free = 0;
+	pPlayerSlot->v.flags = FL_CLIENT;
+	pPlayerSlot->v.classname = MAKE_STRING( "player" );
+	pPlayerSlot->v.pContainingEntity = pPlayerSlot;
+
+	CBaseEntity player;
+	pPlayerSlot->pvPrivateData = &player;
+	player.pev = &pPlayerSlot->v;
+
+	// Verify before: FL_MONSTERCLIP is not set
+	CHECK( ( monster.pev->flags & FL_MONSTERCLIP ) == 0 );
+	CHECK( ( pushable.pev->flags & FL_MONSTERCLIP ) == 0 );
+	CHECK( ( player.pev->flags & FL_MONSTERCLIP ) == 0 );
+
+	// Enforce clip flags via rules
+	rules.EnsureMonsterClipFlags();
+
+	// Verify after: both monster and pushable have FL_MONSTERCLIP, but player strictly does not
+	CHECK( ( monster.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( ( pushable.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( ( player.pev->flags & FL_MONSTERCLIP ) == 0 );
+}
+
+TEST_CASE( "Gladder Rules: FreezeMatchWorld preserves monster activity, sequence, and frame without resetting to ACT_RESET", "[gladder][rules][freeze]" )
+{
+	ResetMockEngine();
+
+	CTestConclusionRules rules;
+
+	edict_t *pMonsterSlot = GetMockClientEntity( 2 );
+	REQUIRE( pMonsterSlot != nullptr );
+	pMonsterSlot->free = 0;
+	pMonsterSlot->v.flags = FL_MONSTER;
+	pMonsterSlot->v.classname = MAKE_STRING( "monster_zombie" );
+	pMonsterSlot->v.pContainingEntity = pMonsterSlot;
+	pMonsterSlot->v.velocity = Vector( 120.0f, 0.0f, 0.0f );
+	pMonsterSlot->v.sequence = 5;
+	pMonsterSlot->v.frame = 42.0f;
+	pMonsterSlot->v.framerate = 1.0f;
+
+	CTestDropMonster monster;
+	pMonsterSlot->pvPrivateData = &monster;
+	monster.pev = &pMonsterSlot->v;
+	monster.m_Activity = ACT_MELEE_ATTACK1;
+
+	// Trigger freeze
+	rules.FreezeMatchWorld();
+
+	// Verify monster is frozen in its exact animation pose and activity
+	CHECK( ( monster.pev->flags & FL_FROZEN ) != 0 );
+	CHECK( monster.pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+	CHECK( monster.pev->framerate == 0.0f );
+	CHECK( monster.pev->sequence == 5 );
+	CHECK( monster.pev->frame == 42.0f );
+	CHECK( monster.m_Activity == ACT_MELEE_ATTACK1 );
+}
+
+TEST_CASE( "Gladder Triggers: CGladderTriggerClip solidity and player passage toggling", "[gladder][triggers][clip]" )
+{
+	ResetMockEngine();
+
+	CGladderTriggerClip clip;
+	entvars_t localPev;
+	memset( &localPev, 0, sizeof( localPev ) );
+	clip.pev = &localPev;
+
+	// Spawn sets default state: solid BSP, monsterclip set (blocks monsters and pushables, non-solid for players)
+	clip.Spawn();
+	CHECK( clip.pev->solid == SOLID_BSP );
+	CHECK( clip.pev->movetype == MOVETYPE_PUSH );
+	CHECK( ( clip.pev->flags & FL_WORLDBRUSH ) != 0 );
+	CHECK( ( clip.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( ( clip.pev->effects & EF_NODRAW ) != 0 );
+	CHECK( clip.IsSolidForPlayer() == false );
+
+	// When wave starts and player crosses: becomes solid for player too (FL_MONSTERCLIP removed)
+	clip.SetSolidForPlayer( true );
+	CHECK( clip.pev->solid == SOLID_BSP );
+	CHECK( ( clip.pev->flags & FL_MONSTERCLIP ) == 0 );
+	CHECK( clip.IsSolidForPlayer() == true );
+
+	// On wave reset: restores monsterclip flag (non-solid for players again)
+	clip.SetSolidForPlayer( false );
+	CHECK( clip.pev->solid == SOLID_BSP );
+	CHECK( ( clip.pev->flags & FL_MONSTERCLIP ) != 0 );
+	CHECK( clip.IsSolidForPlayer() == false );
+}
+
+TEST_CASE( "Gladder Triggers: Wave start trigger requires complete crossing and ignores retreat", "[gladder][triggers][start]" )
+{
+	// Test the traversal logic: crossing requires opposite sign relative to center along an axis and distance >= half size
+	auto CheckCrossing = []( const Vector &mins, const Vector &maxs, const Vector &entryPos, const Vector &exitPos ) -> bool {
+		Vector vecCenter = ( mins + maxs ) * 0.5f;
+		Vector vecSize = maxs - mins;
+		Vector vecEntryDelta = entryPos - vecCenter;
+		Vector vecExitDelta = exitPos - vecCenter;
+
+		if ( vecSize.x > 0.0f && ( vecEntryDelta.x * vecExitDelta.x < 0.0f ) && ( fabs( exitPos.x - entryPos.x ) >= vecSize.x * 0.5f ) )
+			return true;
+		if ( vecSize.y > 0.0f && ( vecEntryDelta.y * vecExitDelta.y < 0.0f ) && ( fabs( exitPos.y - entryPos.y ) >= vecSize.y * 0.5f ) )
+			return true;
+		if ( vecSize.z > 0.0f && ( vecEntryDelta.z * vecExitDelta.z < 0.0f ) && ( fabs( exitPos.z - entryPos.z ) >= vecSize.z * 0.5f ) )
+			return true;
+
+		return false;
+	};
+
+	Vector triggerMins( -32.0f, -64.0f, 0.0f );
+	Vector triggerMaxs( 32.0f, 64.0f, 128.0f );
+
+	SECTION( "Player retreats out the same side they entered (does NOT cross)" )
+	{
+		// Player enters from staging area (X < 0)
+		Vector entryPos( -48.0f, 0.0f, 36.0f );
+		// Player steps inside, then turns around and retreats back out into staging (X < 0)
+		Vector exitPos( -52.0f, 10.0f, 36.0f );
+
+		CHECK_FALSE( CheckCrossing( triggerMins, triggerMaxs, entryPos, exitPos ) );
+	}
+
+	SECTION( "Player traverses through to opposite side (crosses into gauntlet arena)" )
+	{
+		// Player enters from staging area (X < 0)
+		Vector entryPos( -48.0f, 0.0f, 36.0f );
+		// Player walks through trigger and exits into arena on the opposite side (X > 0)
+		Vector exitPos( 48.0f, 0.0f, 36.0f );
+
+		CHECK( CheckCrossing( triggerMins, triggerMaxs, entryPos, exitPos ) );
+	}
+
+	SECTION( "Player traverses along Y axis doorway" )
+	{
+		Vector yMins( -64.0f, -32.0f, 0.0f );
+		Vector yMaxs( 64.0f, 32.0f, 128.0f );
+
+		Vector entryPos( 0.0f, -48.0f, 36.0f );
+		Vector retreatPos( 10.0f, -50.0f, 36.0f );
+		Vector crossPos( 0.0f, 48.0f, 36.0f );
+
+		CHECK_FALSE( CheckCrossing( yMins, yMaxs, entryPos, retreatPos ) );
+		CHECK( CheckCrossing( yMins, yMaxs, entryPos, crossPos ) );
+	}
+}

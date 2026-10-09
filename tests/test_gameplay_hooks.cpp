@@ -142,6 +142,7 @@ class CTestHookRules : public CGameRules
 		m_flLastDefaultYawSpeed = flDefaultYawSpeed;
 		return flDefaultYawSpeed * m_flCustomYawMultiplier;
 	}
+
 	bool m_bMonsterInterruptMaskCalled = false;
 	int m_iMonsterInterruptMaskAugment = 0;
 	int FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask ) override

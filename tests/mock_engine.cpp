@@ -13,6 +13,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <unordered_map>
+#include "util.h"
+#include "cbase.h"
+#include "core/player.h"
+#include "weapons/weapon_base.h"
+#include "ai/soundent.h"
 #include <string>
 
 // Global definitions expected by game DLL / pm_shared
@@ -1079,8 +1084,105 @@ int CBaseMonster::IgnoreConditions( void ) { return 0; }
 int CBaseMonster::FValidateHintType( short sHint ) { return 0; }
 int CBaseMonster::FCanActiveIdle( void ) { return 0; }
 int CBaseMonster::ISoundMask( void ) { return 0; }
-CSound *CBaseMonster::PBestSound( void ) { return nullptr; }
-CSound *CBaseMonster::PBestScent( void ) { return nullptr; }
+CSound *CBaseMonster::PBestSound( void )
+{
+	int iThisSound;
+	int iBestSound   = -1;
+	float flBestDist = 8192;
+	float flDist;
+	CSound *pSound;
+
+	iThisSound = m_iAudibleList;
+
+	if ( iThisSound == SOUNDLIST_EMPTY )
+	{
+		return nullptr;
+	}
+
+	int iLoopCount = 0;
+	while ( iThisSound != SOUNDLIST_EMPTY )
+	{
+		if ( ++iLoopCount > MAX_WORLD_SOUNDS )
+		{
+			break;
+		}
+
+		pSound = CSoundEnt::SoundPointerForIndex( iThisSound );
+		if ( !pSound )
+		{
+			break;
+		}
+
+		if ( pSound->FIsSound() )
+		{
+			flDist = ( pSound->m_vecOrigin - EarPosition() ).Length();
+
+			if ( flDist < flBestDist )
+			{
+				iBestSound = iThisSound;
+				flBestDist = flDist;
+			}
+		}
+
+		iThisSound = pSound->m_iNextAudible;
+	}
+	if ( iBestSound >= 0 )
+	{
+		pSound = CSoundEnt::SoundPointerForIndex( iBestSound );
+		return pSound;
+	}
+	return nullptr;
+}
+
+CSound *CBaseMonster::PBestScent( void )
+{
+	int iThisScent;
+	int iBestScent   = -1;
+	float flBestDist = 8192;
+	float flDist;
+	CSound *pSound;
+
+	iThisScent = m_iAudibleList;
+
+	if ( iThisScent == SOUNDLIST_EMPTY )
+	{
+		return nullptr;
+	}
+
+	int iLoopCount = 0;
+	while ( iThisScent != SOUNDLIST_EMPTY )
+	{
+		if ( ++iLoopCount > MAX_WORLD_SOUNDS )
+		{
+			break;
+		}
+
+		pSound = CSoundEnt::SoundPointerForIndex( iThisScent );
+		if ( !pSound )
+		{
+			break;
+		}
+
+		if ( pSound->FIsScent() )
+		{
+			flDist = ( pSound->m_vecOrigin - ( pev ? pev->origin : g_vecZero ) ).Length();
+
+			if ( flDist < flBestDist )
+			{
+				iBestScent = iThisScent;
+				flBestDist = flDist;
+			}
+		}
+
+		iThisScent = pSound->m_iNextAudible;
+	}
+	if ( iBestScent >= 0 )
+	{
+		pSound = CSoundEnt::SoundPointerForIndex( iBestScent );
+		return pSound;
+	}
+	return nullptr;
+}
 int CBaseMonster::FBecomeProne( void ) { return 0; }
 void CBaseMonster::BarnacleVictimBitten( entvars_t *pevBarnacle ) {}
 void CBaseMonster::BarnacleVictimReleased( void ) {}
@@ -1282,3 +1384,23 @@ edict_t *DBG_EntOfVars( const entvars_t *pev )
 }
 void DBG_AssertFunction( BOOL fExpr, const char *szExpr, const char *szFile, int szLine, const char *szMessage ) {}
 #endif
+
+BOOL CBasePlayer::HasNamedPlayerItem( const char *pszItemName )
+{
+	if ( !pszItemName || !*pszItemName )
+		return FALSE;
+
+	for ( int i = 0; i < MAX_ITEM_TYPES; i++ )
+	{
+		CBasePlayerItem *pItem = m_rgpPlayerItems[i];
+		while ( pItem )
+		{
+			if ( pItem->pev && pItem->pev->classname && !strcmp( pszItemName, STRING( pItem->pev->classname ) ) )
+			{
+				return TRUE;
+			}
+			pItem = pItem->m_pNext;
+		}
+	}
+	return FALSE;
+}

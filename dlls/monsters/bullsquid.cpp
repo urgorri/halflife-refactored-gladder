@@ -822,14 +822,19 @@ Schedule_t *CBullsquid ::GetSchedule( void )
 
 			pSound = PBestScent();
 
-			if ( pSound && ( !FInViewCone( &pSound->m_vecOrigin ) || !FVisible( pSound->m_vecOrigin ) ) )
+			if ( pSound )
 			{
-				// scent is behind or occluded
-				return GetScheduleOfType( SCHED_SQUID_SNIFF_AND_EAT );
+				if ( !FInViewCone( &pSound->m_vecOrigin ) || !FVisible( pSound->m_vecOrigin ) )
+				{
+					// scent is behind or occluded
+					return GetScheduleOfType( SCHED_SQUID_SNIFF_AND_EAT );
+				}
+
+				// food is right out in the open. Just go get it.
+				return GetScheduleOfType( SCHED_SQUID_EAT );
 			}
 
-			// food is right out in the open. Just go get it.
-			return GetScheduleOfType( SCHED_SQUID_EAT );
+			ClearConditions( bits_COND_SMELL_FOOD );
 		}
 
 		if ( HasConditions( bits_COND_SMELL ) )
@@ -840,6 +845,8 @@ Schedule_t *CBullsquid ::GetSchedule( void )
 			pSound = PBestScent();
 			if ( pSound )
 				return GetScheduleOfType( SCHED_SQUID_WALLOW );
+
+			ClearConditions( bits_COND_SMELL );
 		}
 
 		break;
@@ -873,14 +880,19 @@ Schedule_t *CBullsquid ::GetSchedule( void )
 
 			pSound = PBestScent();
 
-			if ( pSound && ( !FInViewCone( &pSound->m_vecOrigin ) || !FVisible( pSound->m_vecOrigin ) ) )
+			if ( pSound )
 			{
-				// scent is behind or occluded
-				return GetScheduleOfType( SCHED_SQUID_SNIFF_AND_EAT );
+				if ( !FInViewCone( &pSound->m_vecOrigin ) || !FVisible( pSound->m_vecOrigin ) )
+				{
+					// scent is behind or occluded
+					return GetScheduleOfType( SCHED_SQUID_SNIFF_AND_EAT );
+				}
+
+				// food is right out in the open. Just go get it.
+				return GetScheduleOfType( SCHED_SQUID_EAT );
 			}
 
-			// food is right out in the open. Just go get it.
-			return GetScheduleOfType( SCHED_SQUID_EAT );
+			ClearConditions( bits_COND_SMELL_FOOD );
 		}
 
 		if ( HasConditions( bits_COND_CAN_RANGE_ATTACK1 ) )

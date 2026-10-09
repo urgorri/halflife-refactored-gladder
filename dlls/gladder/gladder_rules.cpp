@@ -56,8 +56,14 @@ CGladderRules::CGladderRules()
       m_iCurrentSummaryCameraIndex( 0 ),
       m_flNextCameraSwitchTime( 0.0f ),
       m_vecDeathAngles( 0, 0, 0 ),
-      m_bPlayerDead( false )
+      m_bPlayerDead( false ),
+      m_bPlayerFrozen( false ),
+      m_iFrozenPlayerSequence( 0 ),
+      m_flFrozenPlayerFrame( 0.0f ),
+      m_iFrozenPlayerGaitSequence( 0 ),
+      m_bMatchConcluded( false )
 {
+	g_fGameOver = FALSE;
 	m_comboTracker.Reset();
 	m_modifiers.Reset();
 
@@ -124,6 +130,48 @@ void CGladderRules::Think( void )
 	m_waveManager.Tick( flTime );
 	m_comboTracker.Update( flTime );
 
+	// Handle match conclusion when session time limit expires (SPEC §2, §3, §9.2, Issue #85)
+	if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
+	{
+		HandleMatchConclusion( true );
+	}
+	else if ( m_bMatchConcluded )
+	{
+		FreezeMatchWorld();
+
+		if ( m_bPlayerFrozen && gpGlobals )
+		{
+			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			{
+				CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+				if ( pPlr && pPlr->edict() && pPlr->pev )
+				{
+					pPlr->pev->sequence = m_iFrozenPlayerSequence;
+					pPlr->pev->frame = m_flFrozenPlayerFrame;
+					pPlr->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
+					pPlr->pev->framerate = 0.0f;
+					pPlr->pev->velocity = g_vecZero;
+					pPlr->pev->avelocity = g_vecZero;
+				}
+			}
+		}
+		else if ( m_bPlayerDead && !g_fGameOver && gpGlobals )
+		{
+			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			{
+				CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+				if ( pPlr && pPlr->edict() )
+				{
+					CBasePlayer *pDeadPlayer = dynamic_cast<CBasePlayer *>( pPlr );
+					if ( pDeadPlayer && ( pDeadPlayer->m_fSequenceFinished || pDeadPlayer->pev->deadflag == DEAD_DEAD ) )
+					{
+						g_fGameOver = TRUE;
+					}
+				}
+			}
+		}
+	}
+
 	// Ensure spatial grid cache is loaded or built once all map entities are spawned and active.
 	// Only attempt once per map to prevent per-tick console spam if map yields 0 cells (Issue #63).
 	if ( !m_bGridIndexAttempted && gpGlobals && gpGlobals->mapname )
@@ -175,10 +223,21 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 		return;
 
 	m_bPlayerDead = false;
+	m_bMatchConcluded = false;
+	m_bPlayerFrozen = false;
+	m_iFrozenPlayerSequence = 0;
+	m_flFrozenPlayerFrame = 0.0f;
+	m_iFrozenPlayerGaitSequence = 0;
+	g_fGameOver = FALSE;
 	m_vecDeathAngles = g_vecZero;
 	m_summaryCameras.clear();
 	m_iCurrentSummaryCameraIndex = 0;
 	m_flNextCameraSwitchTime = 0.0f;
+	if ( pPlayer->pev )
+	{
+		pPlayer->pev->flags &= ~FL_FROZEN;
+		pPlayer->pev->flags &= ~FL_MONSTERCLIP;
+	}
 
 	// Strictly reject player spawning if a savegame restore was attempted (SPEC §10.3)
 	if ( m_bRestoreAttempted )
@@ -233,6 +292,16 @@ void CGladderRules::PlayerThink( CBasePlayer *pPlayer )
 	if ( !pPlayer || !pPlayer->pev )
 		return;
 
+	if ( m_bPlayerFrozen )
+	{
+		pPlayer->pev->sequence = m_iFrozenPlayerSequence;
+		pPlayer->pev->frame = m_flFrozenPlayerFrame;
+		pPlayer->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
+		pPlayer->pev->framerate = 0.0f;
+		pPlayer->pev->velocity = g_vecZero;
+		pPlayer->pev->avelocity = g_vecZero;
+	}
+
 	float curHealth = pPlayer->pev->health;
 	float curArmor  = pPlayer->pev->armorvalue;
 
@@ -270,6 +339,23 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 	{
 		ClientPrint( pPlayer->pev, HUD_PRINTCONSOLE, "Save/Load and Reload are disabled in Half-Life: Gladder.\n" );
 		return TRUE; // handled and suppressed
+	}
+
+	// Full map reload preserving brush entities (SPEC §10.4, Issue #82)
+	if ( FStrEq( pcmd, "gladder_restart" ) )
+	{
+		const char *pszMap = ( gpGlobals && gpGlobals->mapname ) ? STRING( gpGlobals->mapname ) : nullptr;
+		if ( pszMap && *pszMap )
+		{
+			char szCmd[128];
+			snprintf( szCmd, sizeof( szCmd ), "map %s\n", pszMap );
+			SERVER_COMMAND( szCmd );
+		}
+		else
+		{
+			SERVER_COMMAND( "restart\n" );
+		}
+		return TRUE;
 	}
 
 	// Camera test commands for level designers and verification (Issue #16, #52)
@@ -336,24 +422,138 @@ void CGladderRules::OnRestoreDenied( void )
 
 void CGladderRules::PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
 {
-	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_bPlayerDead = true;
-	if ( pVictim && pVictim->pev )
+	HandleMatchConclusion( false, pVictim );
+}
+
+void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer )
+{
+	if ( m_bMatchConcluded )
+		return;
+
+	m_bMatchConcluded = true;
+	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+
+	if ( !pPlayer && gpGlobals )
 	{
-		m_vecDeathAngles = pVictim->pev->angles;
-		// Terminate any active looping weapon audio on player death (SPEC §7.7, Issue #66)
-		EMIT_SOUND( ENT( pVictim->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
+		for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+		{
+			CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+			if ( pPlr && pPlr->edict() )
+			{
+				pPlayer = dynamic_cast<CBasePlayer *>( pPlr );
+				if ( pPlayer )
+					break;
+			}
+		}
 	}
-	m_waveManager.EndMatch( flTime, false );
+
+	if ( pPlayer && pPlayer->pev )
+	{
+		pPlayer->pev->velocity = g_vecZero;
+		pPlayer->pev->avelocity = g_vecZero;
+		pPlayer->EnableControl( FALSE );
+		// Terminate any active looping weapon audio (SPEC §7.7, Issue #66)
+		EMIT_SOUND( ENT( pPlayer->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
+
+		if ( m_bPlayerDead )
+		{
+			m_vecDeathAngles = pPlayer->pev->angles;
+			// Note: Do NOT set FL_FROZEN or freeze sequence/frame on dying player so
+			// CBasePlayer::Killed can properly execute SetAnimation( PLAYER_DIE ) and let the
+			// corpse animate and settle naturally into the floor death pose.
+		}
+		else
+		{
+			// Match concluded while player alive (e.g. timeout expiration or victory):
+			// Freeze player in place preserving their exact animation sequence and frame.
+			pPlayer->pev->flags |= FL_FROZEN;
+			pPlayer->pev->framerate = 0.0f;
+			m_bPlayerFrozen = true;
+			m_iFrozenPlayerSequence = pPlayer->pev->sequence;
+			m_flFrozenPlayerFrame = pPlayer->pev->frame;
+			m_iFrozenPlayerGaitSequence = pPlayer->pev->gaitsequence;
+			g_fGameOver = TRUE;
+		}
+	}
+
+	// Freeze match world: all monsters, projectiles, and dynamic combat entities (Issue #85, Timeout freeze)
+	FreezeMatchWorld();
+
+	if ( !m_waveManager.IsMatchOver() )
+	{
+		m_waveManager.EndMatch( flTime, bSurvived );
+	}
+
 	m_modifiers.RevertMutators();
-	GladderAudio::PlayCue( GLADDER_CUE_MATCH_END, pVictim );
-	CalculateFinalScore( false );
+	GladderAudio::PlayCue( GLADDER_CUE_MATCH_END, pPlayer );
+	CalculateFinalScore( bSurvived );
 
-	// Trigger Defeat Relays (event = 3)
-	Gladder_FireWaveRelays( 3, pVictim );
+	// Trigger Defeat (3) or Victory (2) relays
+	Gladder_FireWaveRelays( bSurvived ? 2 : 3, pPlayer );
 
-	BroadcastWaveUpdate( pVictim );
-	BroadcastTelemetryUpdate( pVictim );
+	BroadcastWaveUpdate( pPlayer );
+	BroadcastTelemetryUpdate( pPlayer );
+}
+
+void CGladderRules::FreezeMatchWorld( void )
+{
+	if ( !gpGlobals )
+		return;
+
+	int maxEdicts = ( gpGlobals->maxEntities > 0 ) ? gpGlobals->maxEntities : 512;
+	for ( int i = 1; i < maxEdicts; ++i )
+	{
+		edict_t *pEdict = INDEXENT( i );
+		if ( FNullEnt( pEdict ) || pEdict->free || !pEdict->v.pContainingEntity )
+			continue;
+
+		CBaseEntity *pEnt = CBaseEntity::Instance( pEdict );
+		if ( !pEnt || pEnt->IsPlayer() )
+			continue;
+
+		// 1. Freeze monsters in place: halt velocity, physics, animation, and schedules
+		CBaseMonster *pMonster = pEnt->MyMonsterPointer();
+		if ( pMonster )
+		{
+			pMonster->pev->velocity = g_vecZero;
+			pMonster->pev->avelocity = g_vecZero;
+			pMonster->pev->framerate = 0.0f;
+			pMonster->pev->movetype = MOVETYPE_NONE;
+			pMonster->pev->effects |= EF_NOINTERP;
+			pMonster->pev->takedamage = DAMAGE_NO;
+			pMonster->pev->flags |= FL_FROZEN;
+			pMonster->pev->nextthink = 0.0f;
+			pMonster->m_pSchedule = nullptr;
+			pMonster->m_iTaskStatus = TASKSTATUS_NEW;
+			pMonster->m_iScheduleIndex = 0;
+			// Note: Do NOT reset m_Activity or sequence so monster remains in exact frozen pose!
+			EMIT_SOUND( pMonster->edict(), CHAN_VOICE, "common/null.wav", 1.0f, ATTN_NORM );
+			EMIT_SOUND( pMonster->edict(), CHAN_BODY, "common/null.wav", 1.0f, ATTN_NORM );
+			continue;
+		}
+
+		// 2. Freeze in-flight combat projectiles, deployables, and thrown explosives
+		const char *pszClassname = STRING( pEnt->pev->classname );
+		if ( pszClassname && (
+		     strncmp( pszClassname, "projectile_", 11 ) == 0 ||
+		     strncmp( pszClassname, "monster_satchel", 15 ) == 0 ||
+		     strncmp( pszClassname, "monster_tripmine", 16 ) == 0 ||
+		     strncmp( pszClassname, "monster_snark", 13 ) == 0 ||
+		     strcmp( pszClassname, "grenade" ) == 0 ||
+		     strcmp( pszClassname, "rpg_rocket" ) == 0 ||
+		     strcmp( pszClassname, "bolt" ) == 0 ||
+		     strcmp( pszClassname, "hornet" ) == 0 ) )
+		{
+			pEnt->pev->velocity = g_vecZero;
+			pEnt->pev->avelocity = g_vecZero;
+			pEnt->pev->framerate = 0.0f;
+			pEnt->pev->movetype = MOVETYPE_NONE;
+			pEnt->pev->effects |= EF_NOINTERP;
+			pEnt->pev->takedamage = DAMAGE_NO;
+			pEnt->pev->nextthink = 0.0f;
+		}
+	}
 }
 
 void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
@@ -445,6 +645,9 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		// Fire start relays (event = 0)
 		Gladder_FireWaveRelays( 0, pActivator );
 
+		// Enforce FL_MONSTERCLIP across monsters and pushables for start/finish trigger clip boundaries
+		EnsureMonsterClipFlags();
+
 		BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ) );
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
@@ -515,11 +718,11 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	// Advance engine skill tier based on wave milestones
 	GladderModifiers::ApplySkillProgression( m_waveManager.GetWaveNumber() );
 
-	// If match completed due to time limit
-	if ( m_waveManager.IsMatchOver() )
+	// If match completed due to time limit or final wave
+	if ( m_waveManager.IsMatchOver() && !m_bMatchConcluded )
 	{
-		CalculateFinalScore( true );
-		Gladder_FireWaveRelays( 2, pActivator );
+		CBasePlayer *pPlayer = dynamic_cast<CBasePlayer *>( pActivator );
+		HandleMatchConclusion( true, pPlayer );
 	}
 
 	BroadcastWaveUpdate();
@@ -532,6 +735,38 @@ void CGladderRules::ResetWave( void )
 	RechargeWallStations();
 	ResetBreakableEntities();
 	RestoreStaticDecals();
+	ResetStartTriggers();
+}
+
+void CGladderRules::ResetStartTriggers( void )
+{
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		if ( !pEnt || !pEnt->pev )
+			return;
+
+		if ( FClassnameIs( pEnt->pev, "trigger_gladder_start" ) )
+		{
+			CTriggerGladderStart *pStart = dynamic_cast<CTriggerGladderStart *>( pEnt );
+			if ( pStart )
+			{
+				pStart->ResetTrigger();
+			}
+		}
+	} );
+}
+
+void CGladderRules::EnsureMonsterClipFlags( void )
+{
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		if ( !pEnt || !pEnt->pev || ( pEnt->pev->flags & FL_CLIENT ) || pEnt->IsPlayer() )
+			return;
+
+		if ( ( pEnt->MyMonsterPointer() || ( pEnt->pev->flags & FL_MONSTER ) || FClassnameIs( pEnt->pev, "func_pushable" ) ) &&
+		     !( pEnt->pev->flags & FL_CLIENT ) && !pEnt->IsPlayer() )
+		{
+			pEnt->pev->flags |= FL_MONSTERCLIP;
+		}
+	} );
 }
 
 void CGladderRules::PurgeWaveEntities( void )

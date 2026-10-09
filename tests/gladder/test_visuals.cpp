@@ -61,11 +61,15 @@ TEST_CASE( "GladderVisuals: ClassifyPickupModel categorization (SPEC §7.2)", "[
 		CHECK( ClassifyPickupModel( "models/w_desert_eagle.mdl" ) == GLADDER_PICKUP_WEAPON );
 		CHECK( ClassifyPickupModel( "models/w_m40a1.mdl" ) == GLADDER_PICKUP_WEAPON );
 		CHECK( ClassifyPickupModel( "models/w_saw.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_grenade.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_satchel.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_tripmine.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/v_tripmine.mdl" ) == GLADDER_PICKUP_WEAPON );
-		CHECK( ClassifyPickupModel( "models/w_sqknest.mdl" ) == GLADDER_PICKUP_WEAPON );
+	}
+
+	SECTION( "Consumable / Throwable Ordnance Models (SPEC §3, §7.2)" )
+	{
+		CHECK( ClassifyPickupModel( "models/w_grenade.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/w_satchel.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/w_tripmine.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/v_tripmine.mdl" ) == GLADDER_PICKUP_ORDNANCE );
+		CHECK( ClassifyPickupModel( "models/w_sqknest.mdl" ) == GLADDER_PICKUP_ORDNANCE );
 	}
 
 	SECTION( "Live Combat Monsters Excluded from Pickups (SPEC §7.2, Issue #40)" )
@@ -364,4 +368,77 @@ TEST_CASE( "GladderVisuals: Dead player corpse model orientation lock (SPEC §10
 	CHECK( GladderIsCorpseAnglesLatched() == false );
 
 	GladderResetCorpseVisualState();
+}
+
+TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qualification (SPEC §6, §7.2, Issue #81)", "[gladder][visuals][triggers]" )
+{
+	cl_entity_t ent;
+	memset( &ent, 0, sizeof( ent ) );
+	ent.curstate.renderfx = kRenderFxGlowShell;
+	ent.curstate.rendercolor.r = 255;
+	ent.curstate.rendercolor.g = 32;
+	ent.curstate.rendercolor.b = 32;
+	ent.curstate.frame = 0;
+
+	SECTION( "Brush entity with trigger red color qualifies for glow shell" )
+	{
+		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == true );
+		CHECK( ShouldApplyChargerGlowShell( &ent, "*12" ) == true );
+	}
+
+	SECTION( "Non-brush entity with trigger red color does not qualify" )
+	{
+		CHECK( ShouldApplyChargerGlowShell( &ent, "models/player.mdl" ) == false );
+	}
+
+	SECTION( "Trigger with renderfx none does not qualify" )
+	{
+		ent.curstate.renderfx = kRenderFxNone;
+		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == false );
+	}
+
+	SECTION( "Visual modifier registers red glow shell for trigger" )
+	{
+		GladderClearActiveChargers();
+		model_t mockModel;
+		memset( &mockModel, 0, sizeof( mockModel ) );
+		mockModel.mins[0] = -32.0f; mockModel.mins[1] = -32.0f; mockModel.mins[2] = 0.0f;
+		mockModel.maxs[0] = 32.0f;  mockModel.maxs[1] = 32.0f;  mockModel.maxs[2] = 64.0f;
+		ent.index = 88;
+		ent.model = &mockModel;
+
+		GladderChargerVisualModifier( 0, &ent, "*2" );
+		REQUIRE( GladderGetActiveChargerCount() == 1 );
+
+		GladderActiveChargerInfo info;
+		REQUIRE( GladderGetActiveChargerInfo( 0, info ) == true );
+		CHECK( info.entityIndex == 88 );
+		CHECK( info.r == 255 );
+		CHECK( info.g == 32 );
+		CHECK( info.b == 32 );
+		GladderClearActiveChargers();
+	}
+}
+
+TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct fiery crimson glow shell (SPEC §3, §7.2)", "[gladder][visuals][ordnance]" )
+{
+	cl_entity_t entGrenade;
+	memset( &entGrenade, 0, sizeof( entGrenade ) );
+	entGrenade.curstate.solid = SOLID_TRIGGER;
+
+	GladderPickupVisualModifier( 0, &entGrenade, "models/w_grenade.mdl" );
+	CHECK( entGrenade.curstate.renderfx == kRenderFxGlowShell );
+	CHECK( entGrenade.curstate.rendercolor.r == 255 );
+	CHECK( entGrenade.curstate.rendercolor.g == 48 );
+	CHECK( entGrenade.curstate.rendercolor.b == 48 );
+
+	cl_entity_t entShotgun;
+	memset( &entShotgun, 0, sizeof( entShotgun ) );
+	entShotgun.curstate.solid = SOLID_TRIGGER;
+
+	GladderPickupVisualModifier( 0, &entShotgun, "models/w_shotgun.mdl" );
+	CHECK( entShotgun.curstate.renderfx == kRenderFxGlowShell );
+	CHECK( entShotgun.curstate.rendercolor.r == 220 );
+	CHECK( entShotgun.curstate.rendercolor.g == 40 );
+	CHECK( entShotgun.curstate.rendercolor.b == 220 );
 }

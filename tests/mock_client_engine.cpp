@@ -34,6 +34,7 @@ std::string g_mockMapName = "mock_test_map";
 int g_mockPlayerCount     = 1;
 float g_mockClientTime    = 1.0f;
 SCREENINFO g_mockScreenInfo;
+MockHUD gHUD = { 0.0f };
 
 pfnInitialize_t g_pfnInitialize                                   = nullptr;
 pfnHUD_Init_t g_pfnHUD_Init                                       = nullptr;

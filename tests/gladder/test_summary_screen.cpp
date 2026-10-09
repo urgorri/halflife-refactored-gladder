@@ -315,3 +315,26 @@ TEST_CASE( "CHudGladderSummary: Leaderboard renders as column-aligned tabular gr
 	CHECK( foundStatus2 == true );
 }
 
+TEST_CASE( "CHudGladderSummary: gladder_restart resolves map and issues reload command (SPEC §10.4, Issue #82)", "[gladder][hud][restart]" )
+{
+	InitMockClientEngine();
+	CHudGladderSummary summary;
+	g_mockClientCmds.clear();
+
+	SECTION( "Resolves active map name and issues map reload" )
+	{
+		g_mockMapName = "maps/gl01.bsp";
+		CHudGladderSummary::RestartMatch();
+		REQUIRE_FALSE( g_mockClientCmds.empty() );
+		CHECK( g_mockClientCmds.back() == "map gl01\n" );
+	}
+
+	SECTION( "Falls back to restart if map name is empty" )
+	{
+		g_mockMapName = "";
+		CHudGladderSummary::RestartMatch();
+		REQUIRE_FALSE( g_mockClientCmds.empty() );
+		CHECK( g_mockClientCmds.back() == "restart\n" );
+	}
+}
+

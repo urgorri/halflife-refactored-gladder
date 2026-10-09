@@ -181,7 +181,19 @@ int CBasePlayerWeapon::AddToPlayer( CBasePlayer *pPlayer )
 	}
 
 	if ( bResult )
-		return AddWeapon();
+	{
+		if ( AddWeapon() )
+		{
+			if ( gmsgWeapPickup && m_iId > WEAPON_NONE && pPlayer && pPlayer->pev )
+			{
+				MESSAGE_BEGIN( MSG_ONE, gmsgWeapPickup, NULL, pPlayer->pev );
+				WRITE_BYTE( m_iId );
+				MESSAGE_END();
+			}
+			return TRUE;
+		}
+		return FALSE;
+	}
 	return FALSE;
 }
 

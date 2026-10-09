@@ -9,7 +9,7 @@
 	"2"
 	{
 		"label" "Restart Match"
-		"command" "engine restart"
+		"command" "engine gladder_restart"
 		"OnlyInGame" "1"
 	}
 	"3"

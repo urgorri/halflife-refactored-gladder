@@ -38,6 +38,7 @@ struct GladderPickupDef
 	bool isWeapon;
 	bool isAmmo;
 	bool isHealthArmor;
+	bool isConsumableWeapon;
 };
 
 // Map-specific configuration profile (SPEC §5)
@@ -92,6 +93,7 @@ class GladderSpawner
 	// Tier probability calculation (SPEC §3)
 	static float GetMonsterTierWeight( int tier, int iWaveNumber );
 	static float GetWeaponTierWeight( int tier, int iWaveNumber );
+	static float GetOrdnanceTierWeight( int tier, int iWaveNumber );
 
 	// Edict budget metrics (SPEC §11)
 	static int GetActiveEdictCount();
@@ -114,9 +116,9 @@ class GladderSpawner
 	// Entity properties query
 	static bool IsLargeMonster( const char *szClassname );
 
-	// Procedural rolling helpers (SPEC §3, Issue #39)
+	// Procedural rolling helpers (SPEC §3, Issue #39, #78, #79)
 	static const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
-	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config );
+	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr );
 
   private:
 	std::vector<EHANDLE> m_spawnedEntities;

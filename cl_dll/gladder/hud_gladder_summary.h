@@ -64,6 +64,7 @@ class CHudGladderSummary : public CHudBase
 	void Dismiss( void );
 	void UpdateScreenFade( void );
 	std::string GetCurrentMapName( void );
+	static void RestartMatch( void );
 
 	// Test/Simulation setters
 	void SetSummaryData( const GladderSummaryMsg &data, float flTime = 0.0f );

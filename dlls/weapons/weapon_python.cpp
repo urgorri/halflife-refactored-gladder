@@ -59,18 +59,6 @@ int CPython::GetItemInfo( ItemInfo *p )
 	return 1;
 }
 
-int CPython::AddToPlayer( CBasePlayer *pPlayer )
-{
-	if ( CBasePlayerWeapon::AddToPlayer( pPlayer ) )
-	{
-		MESSAGE_BEGIN( MSG_ONE, gmsgWeapPickup, NULL, pPlayer->pev );
-		WRITE_BYTE( m_iId );
-		MESSAGE_END();
-		return TRUE;
-	}
-	return FALSE;
-}
-
 void CPython::Spawn()
 {
 	pev->classname = MAKE_STRING( "weapon_357" ); // Retain legacy weapon entity classname alias
