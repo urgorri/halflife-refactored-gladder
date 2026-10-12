@@ -25,7 +25,7 @@ void CTriggerGladderStart::Spawn( void )
 	InitTrigger();
 	pev->renderfx = kRenderFxGlowShell;
 	pev->rendercolor = Vector( 255, 32, 32 );
-	pev->renderamt = 16;
+	pev->renderamt = 0;
 	pev->rendermode = kRenderTransTexture;
 	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderStart::StartTouch );
@@ -256,7 +256,7 @@ void CTriggerGladderFinish::Spawn( void )
 	InitTrigger();
 	pev->renderfx = kRenderFxGlowShell;
 	pev->rendercolor = Vector( 255, 32, 32 );
-	pev->renderamt = 16;
+	pev->renderamt = 0;
 	pev->rendermode = kRenderTransTexture;
 	ClearBits( pev->effects, EF_NODRAW );
 	SetTouch( &CTriggerGladderFinish::FinishTouch );

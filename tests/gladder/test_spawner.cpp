@@ -1033,3 +1033,155 @@ TEST_CASE( "Gladder Spawner: Consumable ordnance has higher category frequency t
 	CHECK( ordnanceCount > fixedWeaponCount );
 }
 
+TEST_CASE( "Gladder Spawner: Pickup and Lambda reject cells overlapping solid brush or breakables (SPEC §11.2, Issue #90)", "[gladder][spawner][breakables]" )
+{
+	ResetMockEngine();
+	GladderGridIndexer indexer;
+	indexer.Clear();
+
+	// Add 2 valid cells:
+	// Cell 0 is clear.
+	// Cell 1 is inside a solid breakable crate.
+	GladderGridCell c0;
+	c0.origin = Vector( 0.0f, 0.0f, 0.0f );
+	c0.normal = Vector( 0.0f, 0.0f, 1.0f );
+	c0.areaId = 1;
+	c0.flags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	c0.ceilingZ = 128.0f;
+	indexer.AddCell( c0 );
+
+	GladderGridCell c1;
+	c1.origin = Vector( 200.0f, 200.0f, 0.0f );
+	c1.normal = Vector( 0.0f, 0.0f, 1.0f );
+	c1.areaId = 1;
+	c1.flags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	c1.ceilingZ = 128.0f;
+	indexer.AddCell( c1 );
+
+	// Setup a solid breakable entity covering Cell 1
+	edict_t *pBreakableSlot = GetMockClientEntity( 2 );
+	REQUIRE( pBreakableSlot != nullptr );
+	pBreakableSlot->free = 0;
+	pBreakableSlot->v.solid = SOLID_BSP;
+	pBreakableSlot->v.classname = MAKE_STRING( "gladder_breakable" );
+	pBreakableSlot->v.pContainingEntity = pBreakableSlot;
+	pBreakableSlot->v.origin = Vector( 200.0f, 200.0f, 0.0f );
+	pBreakableSlot->v.absmin = Vector( 180.0f, 180.0f, -10.0f );
+	pBreakableSlot->v.absmax = Vector( 220.0f, 220.0f, 50.0f );
+
+	CGladderBreakable breakable;
+	pBreakableSlot->pvPrivateData = &breakable;
+	breakable.pev = &pBreakableSlot->v;
+
+	// Verify GladderIsPositionSolidOrBrush returns true inside the breakable bounds
+	CHECK( GladderIsPositionSolidOrBrush( Vector( 200.0f, 200.0f, 8.0f ) ) == true );
+	CHECK( GladderIsPositionSolidOrBrush( Vector( 0.0f, 0.0f, 8.0f ) ) == false );
+
+	// Spawner should reject cell 1 (inside the solid breakable)
+	GladderSpawner spawner;
+	GladderMapConfig config;
+	std::vector<bool> occupiedCells( indexer.GetCellCount(), false );
+
+	// Mark cell 0 as occupied, leaving only cell 1 (the occluded cell)
+	occupiedCells[0] = true;
+
+	// Attempt to spawn Lambda collectible in cell 1: must be rejected, and cell marked occupied!
+	spawner.SpawnLambdaCollectible( indexer, &occupiedCells );
+	CHECK( spawner.WasLambdaSpawned() == false );
+	CHECK( occupiedCells[1] == true );
+
+	// Reset occupiedCells[1] and attempt SpawnPickups: must also reject cell 1
+	occupiedCells[1] = false;
+	spawner.SpawnPickups( 1, indexer, config, 1, &occupiedCells );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 0 );
+	CHECK( occupiedCells[1] == true );
+}
+
+TEST_CASE( "Gladder Spawner: Monster placement performs 8-direction clearance check (SPEC §4.3, Issue #89)", "[gladder][spawner][clearance]" )
+{
+	ResetMockEngine();
+
+	// Diagonal offset clearance verification
+	float flRadius = 16.0f;
+	float flDiag = flRadius * 0.7071f;
+	Vector vecCenter( 100.0f, 100.0f, 36.0f );
+
+	// Place solid brush at diagonal (+X, +Y)
+	edict_t *pSolidSlot = GetMockClientEntity( 3 );
+	REQUIRE( pSolidSlot != nullptr );
+	pSolidSlot->free = 0;
+	pSolidSlot->v.solid = SOLID_BSP;
+	pSolidSlot->v.classname = MAKE_STRING( "func_wall" );
+	pSolidSlot->v.pContainingEntity = pSolidSlot;
+	pSolidSlot->v.origin = vecCenter + Vector( flDiag, flDiag, 0.0f );
+	pSolidSlot->v.absmin = pSolidSlot->v.origin - Vector( 4.0f, 4.0f, 4.0f );
+	pSolidSlot->v.absmax = pSolidSlot->v.origin + Vector( 4.0f, 4.0f, 4.0f );
+
+	CBaseEntity wall;
+	pSolidSlot->pvPrivateData = &wall;
+	wall.pev = &pSolidSlot->v;
+
+	// Position checking at diagonal must detect the solid obstacle
+	CHECK( GladderIsPositionSolidOrBrush( vecCenter + Vector( flDiag, flDiag, 0.0f ) ) == true );
+	// Opposite diagonal (-X, -Y) is clear
+	CHECK( GladderIsPositionSolidOrBrush( vecCenter - Vector( flDiag, flDiag, 0.0f ) ) == false );
+}
+
+static int MockWalkMoveRejectNegativeX( edict_t *ent, float yaw, float dist, int iMode )
+{
+	if ( ent && ent->v.origin.x < 0.0f )
+		return 0; // Simulate stuck in wall at negative X cell
+	return 1;
+}
+
+TEST_CASE( "Gladder Spawner: Monster placement uses Half-Life WALK_MOVE stuck-in-wall check and skips invalid cells (SPEC §4.3, Issue #89)", "[gladder][spawner][walkmove]" )
+{
+	ResetMockEngine();
+	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
+
+	// Configure WALK_MOVE mock to fail on cell 0 (x = -200) and succeed on cell 1 (x = +200)
+	g_engfuncs.pfnWalkMove = MockWalkMoveRejectNegativeX;
+
+	GladderGridIndexer indexer;
+	indexer.Clear();
+
+	GladderGridCell badCell;
+	badCell.origin = Vector( -200.0f, 0.0f, 0.0f );
+	badCell.normal = Vector( 0.0f, 0.0f, 1.0f );
+	badCell.areaId = 1;
+	badCell.flags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	badCell.ceilingZ = 128.0f;
+	indexer.AddCell( badCell );
+
+	GladderGridCell goodCell;
+	goodCell.origin = Vector( 200.0f, 0.0f, 0.0f );
+	goodCell.normal = Vector( 0.0f, 0.0f, 1.0f );
+	goodCell.areaId = 1;
+	goodCell.flags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	goodCell.ceilingZ = 128.0f;
+	indexer.AddCell( goodCell );
+
+	GladderMapConfig config;
+	GladderSpawner spawner;
+	std::vector<bool> occupied( indexer.GetCellCount(), false );
+
+	// Spawn 1 monster: even if badCell is tried first, it must be rejected by WALK_MOVE and fallback to goodCell
+	spawner.SpawnMonsters( 1, indexer, config, 1, &occupied, "monster_headcrab" );
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 1 );
+	REQUIRE( spawner.GetTrackedEntityCount() == 1 );
+	CBaseEntity *pSpawned = spawner.GetTrackedEntity( 0 );
+	REQUIRE( pSpawned != nullptr );
+	CHECK( pSpawned->pev->origin.x == Catch::Approx( 200.0f ) );
+	CHECK( ( pSpawned->pev->flags & FL_KILLME ) == 0 );
+
+	// If only badCell is available, SpawnMonsters must reject it and spawn 0 monsters
+	GladderSpawner spawner2;
+	std::vector<bool> occupiedOnlyBad( indexer.GetCellCount(), false );
+	occupiedOnlyBad[1] = true; // Mark goodCell occupied
+	spawner2.SpawnMonsters( 1, indexer, config, 1, &occupiedOnlyBad, "monster_headcrab" );
+	CHECK( spawner2.GetLastSpawnedMonsterCount() == 0 );
+	CHECK( spawner2.GetTrackedEntityCount() == 0 );
+	CHECK( occupiedOnlyBad[0] == true );
+
+	ResetMockEngine();
+}

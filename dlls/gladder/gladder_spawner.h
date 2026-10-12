@@ -120,6 +120,11 @@ class GladderSpawner
 	static const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
 	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr );
 
+	// Internal procedural generation routines (with cell occupancy tracking)
+	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );
+	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
+	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
+
   private:
 	std::vector<EHANDLE> m_spawnedEntities;
 	std::vector<Vector> m_spawnedMonsterPositions;
@@ -127,11 +132,6 @@ class GladderSpawner
 	int m_iLastPickupCount;
 	int m_iLastChampionCount;
 	bool m_bLambdaSpawned;
-
-	// Internal procedural generation routines (with cell occupancy tracking)
-	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );
-	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
-	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
 };
 
 #endif // GLADDER_SPAWNER_H

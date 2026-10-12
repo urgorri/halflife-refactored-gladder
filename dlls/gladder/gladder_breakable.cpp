@@ -127,7 +127,7 @@ void CGladderBreakable::Reset( void )
 	pev->mins   = m_vecOriginalMins;
 	pev->maxs   = m_vecOriginalMaxs;
 	UTIL_SetSize( pev, m_vecOriginalMins, m_vecOriginalMaxs );
-	pev->origin = m_vecOriginalOrigin;
+	UTIL_SetOrigin( pev, m_vecOriginalOrigin );
 	pev->angles = m_vecOriginalAngles;
 
 	// Restore touch handler
