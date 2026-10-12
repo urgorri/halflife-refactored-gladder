@@ -390,13 +390,19 @@ Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 
   * **Debris & Corpses**: Monster gibs (`gib`), player corpses, and temporary impact decals.
 * **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
 
-### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`func_breakable`)
+### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`gladder_breakable`)
 To maintain consistent level interactivity and route geometry without entity degradation or corruption across wave resets:
 * **Avoidance of Pushables (`func_pushable`)**: Movable pushable objects (`func_pushable`) are excluded from general mod design to prevent physics desynchronization and blocking geometry across repeated laps.
-* **Breakable Object Wave Regeneration (`func_breakable`)**:
-  * Breakable environmental objects (such as wooden crates, glass panes, or barricades) are retained across waves and regenerated at the start of each wave reset.
-  * **Non-Destructive Break Simulation**: When a `func_breakable` takes lethal damage during an active wave, it triggers its standard breaking visual/audio effects, debris particles, and collision removal, but the underlying server entity is preserved in memory rather than permanently deleted (`UTIL_Remove`).
-  * **State Hiding & Reset**: Upon destruction, the object enters a hidden/disabled state (`EF_NODRAW`, solid state set to `SOLID_NOT`). During wave reset garbage collection, all broken `func_breakable` entities are restored to their original visual appearance, collision bounds, and hit points, cleanly resetting the environment for the incoming wave.
+* **Breakable Object Wave Regeneration (`gladder_breakable`)**:
+  * Breakable environmental objects (such as wooden crates, glass panes, or barricades) are mapped with or subclassed as `gladder_breakable`, retained across waves, and regenerated cleanly at the start of each wave reset.
+  * **Non-Destructive Break Simulation**: When a `gladder_breakable` takes lethal damage during an active wave, it triggers its standard breaking visual/audio effects, debris particles, and collision removal, but the underlying server entity is preserved in memory rather than permanently deleted (`UTIL_Remove`).
+  * **State Hiding & Regeneration Protocol**:
+    * Upon destruction, the object enters a hidden, non-solid state (`EF_NODRAW`, solid state set to `SOLID_NOT`).
+    * During wave reset (`ResetWave`), all broken `gladder_breakable` entities are restored to their original visual appearance, collision bounds (`SOLID_BSP`), and full hit points.
+    * **Engine World Relinking (`UTIL_SetOrigin`)**: Upon restoring solid state, the entity MUST be actively relinked into the engine's BSP spatial partitioning tree via `UTIL_SetOrigin(pev, m_vecOriginalOrigin)`. Simply updating `pev->origin` without invoking engine set-origin leaves the entity unlinked in the spatial leaf hierarchy, rendering it non-solid to physics hull traces.
+  * **Spawner Collision Exclusion & Pre-Spawn Validation**:
+    * Procedural item and supply generation (`SpawnPickups`) must execute after breakable regeneration has fully restored and relinked all `gladder_breakable` entities in the world.
+    * In addition to hull traces, pickup spawning must explicitly verify that candidate spawn coordinates do not overlap or intersect solid brush entity bounding volumes (`GladderIsPositionSolidOrBrush`), strictly preventing items, weapons, or ammo from spawning embedded inside crates or breakable geometry.
 
 ### 11.3 Combat Decal Purging & Environmental Decal Preservation
 Intense combat across successive waves rapidly accumulates hundreds of dynamic surface decals (bullet impacts, monster blood splatters, explosion burns). If left uncleared, dynamic decals degrade rendering performance, clutter map navigation, and eventually cause erratic decal replacement as the engine hits internal decal limits.
