@@ -169,6 +169,8 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 {
   public:
 	bool m_bMatchConcluded = false;
+	bool m_bMatchFrozen = false;
+	float m_flMatchFreezeTime = 0.0f;
 	bool m_bPlayerDead = false;
 	bool m_bSurvived = false;
 	int m_firedRelayEvent = -1;
@@ -266,7 +268,9 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 			}
 		}
 
-		FreezeMatchWorld();
+		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+		m_flMatchFreezeTime = flTime + 1.0f;
+		m_bMatchFrozen = false;
 	}
 
 	void EnsureMonsterClipFlags( void )
@@ -304,7 +308,15 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 		}
 		else if ( m_bMatchConcluded )
 		{
-			FreezeMatchWorld();
+			if ( !m_bMatchFrozen && flTime >= m_flMatchFreezeTime )
+			{
+				FreezeMatchWorld();
+				m_bMatchFrozen = true;
+			}
+			else if ( m_bMatchFrozen )
+			{
+				FreezeMatchWorld();
+			}
 		}
 	}
 };
@@ -777,12 +789,29 @@ TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles o
 	CHECK( pProj->pev->velocity.Length() > 0.0f );
 	CHECK( pProj->pev->nextthink == 45.0f );
 
-	// Trigger match conclusion (e.g. time expired or death)
+	// Trigger match conclusion (e.g. time expired or death) at time 10.0s
+	gpGlobals->time = 10.0f;
 	rules.HandleMatchConclusion( true, pPlayer );
 
-	// Verify Player is frozen
+	// Verify Player controls are frozen immediately
 	CHECK( ( pPlayer->pev->flags & FL_FROZEN ) != 0 );
 	CHECK( pPlayer->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
+
+	// Issue #88: Match world freeze is delayed by 1.0s to allow poses & ragdolls to settle
+	CHECK( rules.m_bMatchFrozen == false );
+	CHECK( rules.m_flMatchFreezeTime == Catch::Approx( 11.0f ) );
+
+	// Before 1.0s delay expires (e.g. at 10.5s), world entities are NOT yet frozen
+	gpGlobals->time = 10.5f;
+	rules.Think();
+	CHECK( rules.m_bMatchFrozen == false );
+	CHECK( pMonster->pev->velocity.Length() > 0.0f );
+	CHECK( pProj->pev->velocity.Length() > 0.0f );
+
+	// Once 1.0s delay has elapsed (at 11.0s), world entities are frozen
+	gpGlobals->time = 11.0f;
+	rules.Think();
+	CHECK( rules.m_bMatchFrozen == true );
 
 	// Verify Monster is completely frozen in place
 	CHECK( ( pMonster->pev->flags & FL_FROZEN ) != 0 );
@@ -802,6 +831,7 @@ TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles o
 	CHECK( pProj->pev->nextthink == 0.0f );
 
 	// Subsequent Think calls maintain the frozen world
+	gpGlobals->time = 12.0f;
 	rules.Think();
 	CHECK( pMonster->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
 	CHECK( pMonster->pev->framerate == 0.0f );

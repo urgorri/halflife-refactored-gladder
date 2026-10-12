@@ -61,7 +61,9 @@ CGladderRules::CGladderRules()
       m_iFrozenPlayerSequence( 0 ),
       m_flFrozenPlayerFrame( 0.0f ),
       m_iFrozenPlayerGaitSequence( 0 ),
-      m_bMatchConcluded( false )
+      m_bMatchConcluded( false ),
+      m_bMatchFrozen( false ),
+      m_flMatchFreezeTime( 0.0f )
 {
 	g_fGameOver = FALSE;
 	m_comboTracker.Reset();
@@ -137,25 +139,54 @@ void CGladderRules::Think( void )
 	}
 	else if ( m_bMatchConcluded )
 	{
-		FreezeMatchWorld();
-
-		if ( m_bPlayerFrozen && gpGlobals )
+		if ( !m_bMatchFrozen && flTime >= m_flMatchFreezeTime )
 		{
-			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			FreezeMatchWorld();
+			m_bMatchFrozen = true;
+
+			// Snapshot current settled poses for players
+			if ( gpGlobals )
 			{
-				CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
-				if ( pPlr && pPlr->edict() && pPlr->pev )
+				for ( int i = 1; i <= gpGlobals->maxClients; ++i )
 				{
-					pPlr->pev->sequence = m_iFrozenPlayerSequence;
-					pPlr->pev->frame = m_flFrozenPlayerFrame;
-					pPlr->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
-					pPlr->pev->framerate = 0.0f;
-					pPlr->pev->velocity = g_vecZero;
-					pPlr->pev->avelocity = g_vecZero;
+					CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+					if ( pPlr && pPlr->edict() && pPlr->pev )
+					{
+						pPlr->pev->velocity = g_vecZero;
+						pPlr->pev->avelocity = g_vecZero;
+						pPlr->pev->framerate = 0.0f;
+						m_bPlayerFrozen = true;
+						m_iFrozenPlayerSequence = pPlr->pev->sequence;
+						m_flFrozenPlayerFrame = pPlr->pev->frame;
+						m_iFrozenPlayerGaitSequence = pPlr->pev->gaitsequence;
+					}
 				}
 			}
 		}
-		else if ( m_bPlayerDead && !g_fGameOver && gpGlobals )
+
+		if ( m_bMatchFrozen )
+		{
+			FreezeMatchWorld();
+
+			if ( m_bPlayerFrozen && gpGlobals )
+			{
+				for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+				{
+					CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
+					if ( pPlr && pPlr->edict() && pPlr->pev )
+					{
+						pPlr->pev->sequence = m_iFrozenPlayerSequence;
+						pPlr->pev->frame = m_flFrozenPlayerFrame;
+						pPlr->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
+						pPlr->pev->framerate = 0.0f;
+						pPlr->pev->velocity = g_vecZero;
+						pPlr->pev->avelocity = g_vecZero;
+					}
+				}
+			}
+		}
+
+		if ( m_bPlayerDead && !g_fGameOver && gpGlobals )
 		{
 			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
 			{
@@ -166,6 +197,13 @@ void CGladderRules::Think( void )
 					if ( pDeadPlayer && ( pDeadPlayer->m_fSequenceFinished || pDeadPlayer->pev->deadflag == DEAD_DEAD ) )
 					{
 						g_fGameOver = TRUE;
+						// If frozen, latch settled death pose so engine doesn't revert to idle sequence 0
+						if ( m_bMatchFrozen && pDeadPlayer->pev )
+						{
+							m_iFrozenPlayerSequence = pDeadPlayer->pev->sequence;
+							m_flFrozenPlayerFrame = pDeadPlayer->pev->frame;
+							m_iFrozenPlayerGaitSequence = pDeadPlayer->pev->gaitsequence;
+						}
 					}
 				}
 			}
@@ -224,6 +262,8 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 
 	m_bPlayerDead = false;
 	m_bMatchConcluded = false;
+	m_bMatchFrozen = false;
+	m_flMatchFreezeTime = 0.0f;
 	m_bPlayerFrozen = false;
 	m_iFrozenPlayerSequence = 0;
 	m_flFrozenPlayerFrame = 0.0f;
@@ -466,7 +506,7 @@ void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer 
 		else
 		{
 			// Match concluded while player alive (e.g. timeout expiration or victory):
-			// Freeze player in place preserving their exact animation sequence and frame.
+			// Halt player movement immediately. Pose freezing will settle once freeze delay expires.
 			pPlayer->pev->flags |= FL_FROZEN;
 			pPlayer->pev->framerate = 0.0f;
 			m_bPlayerFrozen = true;
@@ -477,8 +517,10 @@ void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer 
 		}
 	}
 
-	// Freeze match world: all monsters, projectiles, and dynamic combat entities (Issue #85, Timeout freeze)
-	FreezeMatchWorld();
+	// Delay world freeze by 1.0s to allow death animations, ragdoll-like collapses,
+	// and impact forces to settle naturally into authentic poses (SPEC §9.2, Issue #88).
+	m_flMatchFreezeTime = flTime + 1.0f;
+	m_bMatchFrozen = false;
 
 	if ( !m_waveManager.IsMatchOver() )
 	{

@@ -642,6 +642,17 @@ void GladderSpawner::SpawnLambdaCollectible( const GladderGridIndexer &indexer, 
 
 	// Elevate 36 units above surface for prominent floating/bobbing arcade display (SPEC §7.3)
 	Vector spawnPos = cell.origin + Vector( 0.0f, 0.0f, 36.0f );
+
+	// Ensure spawn position does not intersect solid world or breakables (SPEC §11.2, Issue #90)
+	if ( GladderIsPositionSolidOrBrush( spawnPos ) || GladderIsPositionSolidOrBrush( cell.origin + Vector( 0.0f, 0.0f, 8.0f ) ) )
+	{
+		if ( pOccupiedCells && cellIdx < static_cast<int>( pOccupiedCells->size() ) )
+		{
+			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+		}
+		return;
+	}
+
 	CBaseEntity *pLambda = CreateWaveEntity( "item_gladder_lambda", spawnPos, g_vecZero );
 	if ( pLambda )
 	{
@@ -860,14 +871,20 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 				continue;
 			}
 
-			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37)
+			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37, Issue #89)
+			// Checks 8 directions: 4 cardinal and 4 diagonal sweeps.
 			if ( !isBarnacle && !isFlying )
 			{
 				float flRadius = isLarge ? 32.0f : 16.0f;
+				float flDiag = flRadius * 0.7071f;
 				if ( GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) ||
 				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) ||
 				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) )
+				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flDiag, flDiag, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( -flDiag, flDiag, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flDiag, -flDiag, 0.0f ) ) ||
+				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flDiag, flDiag, 0.0f ) ) )
 				{
 					continue;
 				}
@@ -878,6 +895,21 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			CBaseEntity *pMonster = CreateWaveEntity( szSpecies, vecSpawnPos, vecAngles );
 			if ( pMonster )
 			{
+				// Post-spawn stuck verification (SPEC §4.3, Issue #89):
+				// In GoldSrc monster PostSpawn / WalkMove, if an entity is stuck in a wall/floor,
+				// the engine flags EF_BRIGHTFIELD or cannot find ground clearance.
+				if ( pMonster->pev && ( pMonster->pev->effects & EF_BRIGHTFIELD ) )
+				{
+					// Monster spawned stuck in wall or geometry; roll back this spawn and try another cell.
+					if ( !m_spawnedEntities.empty() && m_spawnedEntities.back() == pMonster )
+					{
+						m_spawnedEntities.pop_back();
+					}
+					UTIL_Remove( pMonster );
+					( *pOccupiedCells )[chosenIdx] = true;
+					continue;
+				}
+
 				m_iLastMonsterCount++;
 
 				if ( pMonster->MyMonsterPointer() && GladderModifiers::ShouldSpawnAsChampion( iWaveNumber ) )
@@ -978,6 +1010,13 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 		TraceResult trHull;
 		UTIL_TraceHull( vecSpawnPos + Vector( 0, 0, 16 ), vecSpawnPos + Vector( 0, 0, 16 ), dont_ignore_monsters, head_hull, NULL, &trHull );
 		if ( trHull.fStartSolid || trHull.fAllSolid )
+		{
+			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+			continue;
+		}
+
+		// Ensure pickup does not spawn inside solid brush geometry or breakables (SPEC §11.2, Issue #90)
+		if ( GladderIsPositionSolidOrBrush( vecSpawnPos ) || GladderIsPositionSolidOrBrush( vecSpawnPos + Vector( 0.0f, 0.0f, 8.0f ) ) )
 		{
 			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
 			continue;
