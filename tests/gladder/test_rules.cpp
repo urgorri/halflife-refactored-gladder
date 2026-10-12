@@ -256,15 +256,15 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 
 		if ( pPlayer && pPlayer->pev )
 		{
-			if ( m_bPlayerDead )
+			pPlayer->pev->flags |= FL_NOTARGET;
+			pPlayer->pev->button &= IN_SCORE;
+			pPlayer->pev->impulse = 0;
+			pPlayer->pev->maxspeed = 1.0f;
+
+			if ( !m_bPlayerDead )
 			{
-				// player is dead
-			}
-			else
-			{
-				pPlayer->pev->flags |= FL_FROZEN;
-				pPlayer->pev->framerate = 0.0f;
 				pPlayer->pev->velocity = g_vecZero;
+				pPlayer->pev->avelocity = g_vecZero;
 			}
 		}
 
@@ -297,6 +297,32 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 		}
 	}
 
+	BOOL FPlayerCanTakeDamage( CBasePlayer *pPlayer, CBaseEntity *pAttacker ) override
+	{
+		if ( m_bMatchConcluded )
+			return FALSE;
+		return TRUE;
+	}
+
+	BOOL FAllowFlashlight( void ) override
+	{
+		if ( m_bMatchConcluded )
+			return FALSE;
+		return TRUE;
+	}
+
+	void PlayerThink( CBasePlayer *pPlayer ) override
+	{
+		if ( m_bMatchConcluded && pPlayer && pPlayer->pev )
+		{
+			pPlayer->pev->button &= IN_SCORE;
+			pPlayer->m_afButtonPressed &= IN_SCORE;
+			pPlayer->m_afButtonReleased &= IN_SCORE;
+			pPlayer->pev->impulse = 0;
+			pPlayer->pev->maxspeed = 1.0f;
+		}
+	}
+
 	void Think( void ) override
 	{
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
@@ -305,18 +331,6 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 		if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
 		{
 			HandleMatchConclusion( true, nullptr );
-		}
-		else if ( m_bMatchConcluded )
-		{
-			if ( !m_bMatchFrozen && flTime >= m_flMatchFreezeTime )
-			{
-				FreezeMatchWorld();
-				m_bMatchFrozen = true;
-			}
-			else if ( m_bMatchFrozen )
-			{
-				FreezeMatchWorld();
-			}
 		}
 	}
 };
@@ -690,7 +704,7 @@ TEST_CASE( "GladderRules: gladder_restart executes full map reload command prese
 	}
 }
 
-TEST_CASE( "GladderRules: Session time limit expiration match conclusion and player freeze (SPEC §2, §3, §9.2, Issue #85)", "[gladder][rules][conclusion]" )
+TEST_CASE( "GladderRules: Session time limit expiration match conclusion and player input lock (SPEC §2, §3, §9.2, Issue #85, #88)", "[gladder][rules][conclusion]" )
 {
 	ResetMockEngine();
 
@@ -700,6 +714,7 @@ TEST_CASE( "GladderRules: Session time limit expiration match conclusion and pla
 	CBaseEntity dummyPlayer;
 	dummyPlayer.pev = &playerEdict.v;
 	playerEdict.v.flags = FL_CLIENT;
+	playerEdict.v.button = IN_FORWARD | IN_ATTACK | IN_SCORE;
 	playerEdict.pvPrivateData = &dummyPlayer;
 	rules.m_pTrackedPlayer = &dummyPlayer;
 
@@ -719,16 +734,15 @@ TEST_CASE( "GladderRules: Session time limit expiration match conclusion and pla
 	CHECK( rules.m_bMatchConcluded );
 	CHECK( rules.m_bSurvived == true );
 	CHECK( rules.m_firedRelayEvent == 2 ); // Victory relays
-	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) != 0 ); // Player automatically frozen on expiration
-
-	// Player respawn clears frozen state and resets concluded flag
-	dummyPlayer.pev->flags &= ~FL_FROZEN;
-	rules.m_bMatchConcluded = false;
+	// Player is NOT given FL_FROZEN (which forces PLAYER_IDLE in SetAnimation),
+	// Instead FL_NOTARGET and maxspeed=1.0f are set and only IN_SCORE (Tab) input is allowed.
 	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) == 0 );
-	CHECK_FALSE( rules.m_bMatchConcluded );
+	CHECK( ( dummyPlayer.pev->flags & FL_NOTARGET ) != 0 );
+	CHECK( dummyPlayer.pev->maxspeed == Catch::Approx( 1.0f ) );
+	CHECK( dummyPlayer.pev->button == IN_SCORE );
 }
 
-TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles on match conclusion (Timeout freeze)", "[gladder][rules][freeze]" )
+TEST_CASE( "Gladder Rules: Match conclusion preserves world simulation and death animations while locking inputs except Tab (Issue #88)", "[gladder][rules][conclusion]" )
 {
 	ResetMockEngine();
 
@@ -742,11 +756,30 @@ TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles o
 	pPlayerSlot->v.classname = MAKE_STRING( "player" );
 	pPlayerSlot->v.pContainingEntity = pPlayerSlot;
 	pPlayerSlot->v.velocity = Vector( 250.0f, 0.0f, 0.0f );
+	pPlayerSlot->v.button = IN_FORWARD | IN_JUMP | IN_ATTACK | IN_SCORE;
+	pPlayerSlot->v.impulse = 100;
 
-	CBaseEntity player;
-	pPlayerSlot->pvPrivateData = &player;
-	player.pev = &pPlayerSlot->v;
-	CBaseEntity *pPlayer = &player;
+	struct MockPlayerHolder
+	{
+		alignas( CBasePlayer ) uint8_t storage[sizeof( CBasePlayer )];
+		MockPlayerHolder()
+		{
+			std::memset( storage, 0, sizeof( storage ) );
+			CBaseEntity baseEnt;
+			std::memcpy( storage, &baseEnt, sizeof( CBaseEntity ) );
+		}
+		CBasePlayer *player()
+		{
+			return reinterpret_cast<CBasePlayer *>( storage );
+		}
+	};
+
+	MockPlayerHolder playerHolder;
+	CBasePlayer *pPlayer = playerHolder.player();
+	pPlayerSlot->pvPrivateData = pPlayer;
+	pPlayer->pev = &pPlayerSlot->v;
+	pPlayer->m_afButtonPressed = IN_FORWARD | IN_SCORE;
+	pPlayer->m_afButtonReleased = IN_ATTACK | IN_SCORE;
 
 	// Setup mock monster in slot 2
 	edict_t *pMonsterSlot = GetMockClientEntity( 2 );
@@ -781,63 +814,39 @@ TEST_CASE( "Gladder Rules: FreezeMatchWorld stops all monsters and projectiles o
 	proj.pev = &pProjSlot->v;
 	CBaseEntity *pProj = &proj;
 
-	// Before conclusion: entities are active and moving
-	CHECK( pPlayer->pev->velocity.Length() > 0.0f );
+	// Trigger match conclusion at time 10.0s
+	gpGlobals->time = 10.0f;
+	rules.HandleMatchConclusion( false, pPlayer );
+
+	// Verify FL_FROZEN is NOT set on the player so CBasePlayer::SetAnimation(PLAYER_DIE) is never forced to PLAYER_IDLE
+	CHECK( ( pPlayer->pev->flags & FL_FROZEN ) == 0 );
+	CHECK( ( pPlayer->pev->flags & FL_NOTARGET ) != 0 );
+	CHECK( pPlayer->pev->maxspeed == Catch::Approx( 1.0f ) );
+	CHECK( pPlayer->pev->button == IN_SCORE );
+	CHECK( pPlayer->pev->impulse == 0 );
+	CHECK( rules.FPlayerCanTakeDamage( pPlayer, nullptr ) == FALSE );
+	CHECK( rules.FAllowFlashlight() == FALSE );
+
+	// Verify PlayerThink continues to mask out all buttons except IN_SCORE (Tab)
+	pPlayer->pev->button = IN_FORWARD | IN_JUMP | IN_ATTACK | IN_USE | IN_SCORE;
+	pPlayer->m_afButtonPressed = IN_JUMP | IN_SCORE;
+	pPlayer->m_afButtonReleased = IN_USE;
+	pPlayer->pev->impulse = 201;
+	rules.PlayerThink( pPlayer );
+	CHECK( pPlayer->pev->button == IN_SCORE );
+	CHECK( pPlayer->m_afButtonPressed == IN_SCORE );
+	CHECK( pPlayer->m_afButtonReleased == 0 );
+	CHECK( pPlayer->pev->impulse == 0 );
+
+	// Verify world monsters and projectiles continue running normally without freezing
+	gpGlobals->time = 12.0f;
+	rules.Think();
+	CHECK( ( pMonster->pev->flags & FL_FROZEN ) == 0 );
 	CHECK( pMonster->pev->velocity.Length() > 0.0f );
 	CHECK( pMonster->pev->framerate == 1.0f );
 	CHECK( pMonster->pev->nextthink == 50.0f );
 	CHECK( pProj->pev->velocity.Length() > 0.0f );
 	CHECK( pProj->pev->nextthink == 45.0f );
-
-	// Trigger match conclusion (e.g. time expired or death) at time 10.0s
-	gpGlobals->time = 10.0f;
-	rules.HandleMatchConclusion( true, pPlayer );
-
-	// Verify Player controls are frozen immediately
-	CHECK( ( pPlayer->pev->flags & FL_FROZEN ) != 0 );
-	CHECK( pPlayer->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
-
-	// Issue #88: Match world freeze is delayed by 1.0s to allow poses & ragdolls to settle
-	CHECK( rules.m_bMatchFrozen == false );
-	CHECK( rules.m_flMatchFreezeTime == Catch::Approx( 11.0f ) );
-
-	// Before 1.0s delay expires (e.g. at 10.5s), world entities are NOT yet frozen
-	gpGlobals->time = 10.5f;
-	rules.Think();
-	CHECK( rules.m_bMatchFrozen == false );
-	CHECK( pMonster->pev->velocity.Length() > 0.0f );
-	CHECK( pProj->pev->velocity.Length() > 0.0f );
-
-	// Once 1.0s delay has elapsed (at 11.0s), world entities are frozen
-	gpGlobals->time = 11.0f;
-	rules.Think();
-	CHECK( rules.m_bMatchFrozen == true );
-
-	// Verify Monster is completely frozen in place
-	CHECK( ( pMonster->pev->flags & FL_FROZEN ) != 0 );
-	CHECK( pMonster->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
-	CHECK( pMonster->pev->avelocity == Vector( 0.0f, 0.0f, 0.0f ) );
-	CHECK( pMonster->pev->framerate == 0.0f );
-	CHECK( pMonster->pev->movetype == MOVETYPE_NONE );
-	CHECK( ( pMonster->pev->effects & EF_NOINTERP ) != 0 );
-	CHECK( pMonster->pev->takedamage == DAMAGE_NO );
-	CHECK( pMonster->pev->nextthink == 0.0f );
-
-	// Verify Projectile is frozen in mid-air
-	CHECK( pProj->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
-	CHECK( pProj->pev->movetype == MOVETYPE_NONE );
-	CHECK( ( pProj->pev->effects & EF_NOINTERP ) != 0 );
-	CHECK( pProj->pev->takedamage == DAMAGE_NO );
-	CHECK( pProj->pev->nextthink == 0.0f );
-
-	// Subsequent Think calls maintain the frozen world
-	gpGlobals->time = 12.0f;
-	rules.Think();
-	CHECK( pMonster->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
-	CHECK( pMonster->pev->framerate == 0.0f );
-	CHECK( pMonster->pev->nextthink == 0.0f );
-	CHECK( pProj->pev->velocity == Vector( 0.0f, 0.0f, 0.0f ) );
-	CHECK( pProj->pev->nextthink == 0.0f );
 }
 
 TEST_CASE( "Gladder Rules: EnsureMonsterClipFlags enforces FL_MONSTERCLIP across monsters and pushables", "[gladder][rules][clip]" )

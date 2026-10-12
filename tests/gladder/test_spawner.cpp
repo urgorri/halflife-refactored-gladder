@@ -1127,4 +1127,61 @@ TEST_CASE( "Gladder Spawner: Monster placement performs 8-direction clearance ch
 	CHECK( GladderIsPositionSolidOrBrush( vecCenter - Vector( flDiag, flDiag, 0.0f ) ) == false );
 }
 
+static int MockWalkMoveRejectNegativeX( edict_t *ent, float yaw, float dist, int iMode )
+{
+	if ( ent && ent->v.origin.x < 0.0f )
+		return 0; // Simulate stuck in wall at negative X cell
+	return 1;
+}
 
+TEST_CASE( "Gladder Spawner: Monster placement uses Half-Life WALK_MOVE stuck-in-wall check and skips invalid cells (SPEC §4.3, Issue #89)", "[gladder][spawner][walkmove]" )
+{
+	ResetMockEngine();
+	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
+
+	// Configure WALK_MOVE mock to fail on cell 0 (x = -200) and succeed on cell 1 (x = +200)
+	g_engfuncs.pfnWalkMove = MockWalkMoveRejectNegativeX;
+
+	GladderGridIndexer indexer;
+	indexer.Clear();
+
+	GladderGridCell badCell;
+	badCell.origin = Vector( -200.0f, 0.0f, 0.0f );
+	badCell.normal = Vector( 0.0f, 0.0f, 1.0f );
+	badCell.areaId = 1;
+	badCell.flags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	badCell.ceilingZ = 128.0f;
+	indexer.AddCell( badCell );
+
+	GladderGridCell goodCell;
+	goodCell.origin = Vector( 200.0f, 0.0f, 0.0f );
+	goodCell.normal = Vector( 0.0f, 0.0f, 1.0f );
+	goodCell.areaId = 1;
+	goodCell.flags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	goodCell.ceilingZ = 128.0f;
+	indexer.AddCell( goodCell );
+
+	GladderMapConfig config;
+	GladderSpawner spawner;
+	std::vector<bool> occupied( indexer.GetCellCount(), false );
+
+	// Spawn 1 monster: even if badCell is tried first, it must be rejected by WALK_MOVE and fallback to goodCell
+	spawner.SpawnMonsters( 1, indexer, config, 1, &occupied, "monster_headcrab" );
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 1 );
+	REQUIRE( spawner.GetTrackedEntityCount() == 1 );
+	CBaseEntity *pSpawned = spawner.GetTrackedEntity( 0 );
+	REQUIRE( pSpawned != nullptr );
+	CHECK( pSpawned->pev->origin.x == Catch::Approx( 200.0f ) );
+	CHECK( ( pSpawned->pev->flags & FL_KILLME ) == 0 );
+
+	// If only badCell is available, SpawnMonsters must reject it and spawn 0 monsters
+	GladderSpawner spawner2;
+	std::vector<bool> occupiedOnlyBad( indexer.GetCellCount(), false );
+	occupiedOnlyBad[1] = true; // Mark goodCell occupied
+	spawner2.SpawnMonsters( 1, indexer, config, 1, &occupiedOnlyBad, "monster_headcrab" );
+	CHECK( spawner2.GetLastSpawnedMonsterCount() == 0 );
+	CHECK( spawner2.GetTrackedEntityCount() == 0 );
+	CHECK( occupiedOnlyBad[0] == true );
+
+	ResetMockEngine();
+}

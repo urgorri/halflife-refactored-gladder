@@ -835,16 +835,16 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 					continue;
 				}
 
-				// Ground monsters:
+				// Ground monsters: ensure axis-aligned bounding boxes (AABBs) cannot overlap even on 45-degree diagonals
 				float flDist2D = ( vecSpawnPos - prev.pos ).Length2D();
-				float flMinSeparation = 48.0f;
+				float flMinSeparation = 54.0f;
 				if ( isLarge && prev.isLarge )
 				{
-					flMinSeparation = 72.0f;
+					flMinSeparation = 96.0f;
 				}
 				else if ( isLarge || prev.isLarge )
 				{
-					flMinSeparation = 56.0f;
+					flMinSeparation = 76.0f;
 				}
 
 				if ( flDist2D < flMinSeparation )
@@ -895,19 +895,38 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			CBaseEntity *pMonster = CreateWaveEntity( szSpecies, vecSpawnPos, vecAngles );
 			if ( pMonster )
 			{
-				// Post-spawn stuck verification (SPEC §4.3, Issue #89):
-				// In GoldSrc monster PostSpawn / WalkMove, if an entity is stuck in a wall/floor,
-				// the engine flags EF_BRIGHTFIELD or cannot find ground clearance.
-				if ( pMonster->pev && ( pMonster->pev->effects & EF_BRIGHTFIELD ) )
+				if ( pMonster->pev )
 				{
-					// Monster spawned stuck in wall or geometry; roll back this spawn and try another cell.
-					if ( !m_spawnedEntities.empty() && m_spawnedEntities.back() == pMonster )
+					pMonster->pev->flags |= FL_MONSTERCLIP;
+				}
+
+				// Use exact Half-Life CBaseMonster::StartMonster stuck-in-wall detection (SPEC §4.3, Issue #89):
+				// In monsters.cpp, StartMonster raises origin.z += 1, calls DROP_TO_FLOOR, and checks
+				// WALK_MOVE( ENT( pev ), 0, 0, WALKMOVE_NORMAL ) at MonsterInitThink (0.1s after spawn).
+				// Run this exact check immediately upon creation (with FL_MONSTERCLIP active); if it fails,
+				// disable and remove the entity immediately and skip to the next grid cell.
+				if ( pMonster->pev && !isBarnacle && !isFlying && pMonster->pev->movetype != MOVETYPE_FLY )
+				{
+					int iDrop = DROP_TO_FLOOR( ENT( pMonster->pev ) );
+					int iWalk = WALK_MOVE( ENT( pMonster->pev ), 0.0f, 0.0f, WALKMOVE_NORMAL );
+					if ( iDrop <= 0 || !iWalk || ( pMonster->pev->effects & EF_BRIGHTFIELD ) )
 					{
-						m_spawnedEntities.pop_back();
+						if ( !m_spawnedEntities.empty() && m_spawnedEntities.back() == pMonster )
+						{
+							m_spawnedEntities.pop_back();
+						}
+						pMonster->pev->solid = SOLID_NOT;
+						pMonster->pev->movetype = MOVETYPE_NONE;
+						pMonster->pev->takedamage = DAMAGE_NO;
+						pMonster->pev->effects |= EF_NODRAW;
+						pMonster->pev->nextthink = 0.0f;
+						pMonster->SetThink( NULL );
+						UTIL_SetOrigin( pMonster->pev, pMonster->pev->origin );
+						UTIL_Remove( pMonster );
+						( *pOccupiedCells )[chosenIdx] = true;
+						continue;
 					}
-					UTIL_Remove( pMonster );
-					( *pOccupiedCells )[chosenIdx] = true;
-					continue;
+					vecSpawnPos = pMonster->pev->origin;
 				}
 
 				m_iLastMonsterCount++;
@@ -921,7 +940,7 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 				( *pOccupiedCells )[chosenIdx] = true;
 
 				// Mark surrounding cells within separation radius as occupied so pickups and monsters cannot overlap
-				float flExclusionDist = isLarge ? 64.0f : 48.0f;
+				float flExclusionDist = isLarge ? 76.0f : 54.0f;
 				for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
 				{
 					if ( !( *pOccupiedCells )[k] )

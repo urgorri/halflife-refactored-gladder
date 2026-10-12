@@ -61,6 +61,8 @@ class CGladderRules : public CHalfLifeRules
 	BOOL FPlayerCanRespawn( CBasePlayer *pPlayer ) override { return FALSE; }
 	void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override;
 	BOOL ClientCommand( CBasePlayer *pPlayer, const char *pcmd ) override;
+	BOOL FPlayerCanTakeDamage( CBasePlayer *pPlayer, CBaseEntity *pAttacker ) override { return m_bMatchConcluded ? FALSE : TRUE; }
+	BOOL FAllowFlashlight( void ) override { return m_bMatchConcluded ? FALSE : TRUE; }
 
 	// Player lifecycle & initial loadout (Point A)
 	void PlayerSpawn( CBasePlayer *pPlayer ) override;

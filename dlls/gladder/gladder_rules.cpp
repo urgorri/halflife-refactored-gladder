@@ -132,81 +132,18 @@ void CGladderRules::Think( void )
 	m_waveManager.Tick( flTime );
 	m_comboTracker.Update( flTime );
 
-	// Handle match conclusion when session time limit expires (SPEC §2, §3, §9.2, Issue #85)
+	// Handle match conclusion when session time limit expires (SPEC §2, §3, §9.2, Issue #85, #88)
 	if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
 	{
 		HandleMatchConclusion( true );
 	}
 	else if ( m_bMatchConcluded )
 	{
+		// Do NOT freeze world entities or overwrite player animation sequence/frame (Issue #88).
+		// The world continues running naturally while player inputs (except Tab/Escape) are suppressed.
 		if ( !m_bMatchFrozen && flTime >= m_flMatchFreezeTime )
 		{
-			FreezeMatchWorld();
 			m_bMatchFrozen = true;
-
-			// Snapshot current settled poses for players
-			if ( gpGlobals )
-			{
-				for ( int i = 1; i <= gpGlobals->maxClients; ++i )
-				{
-					CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
-					if ( pPlr && pPlr->edict() && pPlr->pev )
-					{
-						pPlr->pev->velocity = g_vecZero;
-						pPlr->pev->avelocity = g_vecZero;
-						pPlr->pev->framerate = 0.0f;
-						m_bPlayerFrozen = true;
-						m_iFrozenPlayerSequence = pPlr->pev->sequence;
-						m_flFrozenPlayerFrame = pPlr->pev->frame;
-						m_iFrozenPlayerGaitSequence = pPlr->pev->gaitsequence;
-					}
-				}
-			}
-		}
-
-		if ( m_bMatchFrozen )
-		{
-			FreezeMatchWorld();
-
-			if ( m_bPlayerFrozen && gpGlobals )
-			{
-				for ( int i = 1; i <= gpGlobals->maxClients; ++i )
-				{
-					CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
-					if ( pPlr && pPlr->edict() && pPlr->pev )
-					{
-						pPlr->pev->sequence = m_iFrozenPlayerSequence;
-						pPlr->pev->frame = m_flFrozenPlayerFrame;
-						pPlr->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
-						pPlr->pev->framerate = 0.0f;
-						pPlr->pev->velocity = g_vecZero;
-						pPlr->pev->avelocity = g_vecZero;
-					}
-				}
-			}
-		}
-
-		if ( m_bPlayerDead && !g_fGameOver && gpGlobals )
-		{
-			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
-			{
-				CBaseEntity *pPlr = UTIL_PlayerByIndex( i );
-				if ( pPlr && pPlr->edict() )
-				{
-					CBasePlayer *pDeadPlayer = dynamic_cast<CBasePlayer *>( pPlr );
-					if ( pDeadPlayer && ( pDeadPlayer->m_fSequenceFinished || pDeadPlayer->pev->deadflag == DEAD_DEAD ) )
-					{
-						g_fGameOver = TRUE;
-						// If frozen, latch settled death pose so engine doesn't revert to idle sequence 0
-						if ( m_bMatchFrozen && pDeadPlayer->pev )
-						{
-							m_iFrozenPlayerSequence = pDeadPlayer->pev->sequence;
-							m_flFrozenPlayerFrame = pDeadPlayer->pev->frame;
-							m_iFrozenPlayerGaitSequence = pDeadPlayer->pev->gaitsequence;
-						}
-					}
-				}
-			}
 		}
 	}
 
@@ -276,7 +213,9 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 	if ( pPlayer->pev )
 	{
 		pPlayer->pev->flags &= ~FL_FROZEN;
+		pPlayer->pev->flags &= ~FL_NOTARGET;
 		pPlayer->pev->flags &= ~FL_MONSTERCLIP;
+		pPlayer->pev->maxspeed = 0.0f;
 	}
 
 	// Strictly reject player spawning if a savegame restore was attempted (SPEC §10.3)
@@ -332,14 +271,24 @@ void CGladderRules::PlayerThink( CBasePlayer *pPlayer )
 	if ( !pPlayer || !pPlayer->pev )
 		return;
 
-	if ( m_bPlayerFrozen )
+	if ( m_bMatchConcluded )
 	{
-		pPlayer->pev->sequence = m_iFrozenPlayerSequence;
-		pPlayer->pev->frame = m_flFrozenPlayerFrame;
-		pPlayer->pev->gaitsequence = m_iFrozenPlayerGaitSequence;
-		pPlayer->pev->framerate = 0.0f;
-		pPlayer->pev->velocity = g_vecZero;
-		pPlayer->pev->avelocity = g_vecZero;
+		// Suppress all player gameplay inputs except scoreboard/summary toggle (IN_SCORE / Tab)
+		// and engine pause menu (Escape). Do NOT set FL_FROZEN or g_fGameOver so that player
+		// death animations and world simulation continue naturally without resetting to idle.
+		pPlayer->pev->button &= IN_SCORE;
+		pPlayer->m_afButtonPressed &= IN_SCORE;
+		pPlayer->m_afButtonReleased &= IN_SCORE;
+		pPlayer->pev->impulse = 0;
+		pPlayer->pev->maxspeed = 1.0f;
+		pPlayer->m_flNextAttack = gpGlobals ? ( gpGlobals->time + 9999.0f ) : 9999.0f;
+
+		if ( !m_bPlayerDead )
+		{
+			pPlayer->pev->velocity.x = 0.0f;
+			pPlayer->pev->velocity.y = 0.0f;
+			pPlayer->pev->avelocity = g_vecZero;
+		}
 	}
 
 	float curHealth = pPlayer->pev->health;
@@ -444,6 +393,12 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 		return TRUE;
 	}
 
+	// Once match has concluded, suppress any other client commands (e.g. drop, weapon switches, kill)
+	if ( m_bMatchConcluded )
+	{
+		return TRUE;
+	}
+
 	return FALSE;
 }
 
@@ -490,35 +445,29 @@ void CGladderRules::HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer 
 
 	if ( pPlayer && pPlayer->pev )
 	{
-		pPlayer->pev->velocity = g_vecZero;
-		pPlayer->pev->avelocity = g_vecZero;
-		pPlayer->EnableControl( FALSE );
 		// Terminate any active looping weapon audio (SPEC §7.7, Issue #66)
 		EMIT_SOUND( ENT( pPlayer->pev ), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM );
+
+		// Make player untargetable by monsters and block all non-Tab inputs without setting FL_FROZEN!
+		// Setting FL_FROZEN (via EnableControl(FALSE)) causes CBasePlayer::SetAnimation(PLAYER_DIE)
+		// to force playerAnim = PLAYER_IDLE, which broke the death pose and showed idle instead.
+		pPlayer->pev->flags |= FL_NOTARGET;
+		pPlayer->pev->button &= IN_SCORE;
+		pPlayer->pev->impulse = 0;
+		pPlayer->pev->maxspeed = 1.0f;
+		pPlayer->m_flNextAttack = flTime + 9999.0f;
 
 		if ( m_bPlayerDead )
 		{
 			m_vecDeathAngles = pPlayer->pev->angles;
-			// Note: Do NOT set FL_FROZEN or freeze sequence/frame on dying player so
-			// CBasePlayer::Killed can properly execute SetAnimation( PLAYER_DIE ) and let the
-			// corpse animate and settle naturally into the floor death pose.
 		}
 		else
 		{
-			// Match concluded while player alive (e.g. timeout expiration or victory):
-			// Halt player movement immediately. Pose freezing will settle once freeze delay expires.
-			pPlayer->pev->flags |= FL_FROZEN;
-			pPlayer->pev->framerate = 0.0f;
-			m_bPlayerFrozen = true;
-			m_iFrozenPlayerSequence = pPlayer->pev->sequence;
-			m_flFrozenPlayerFrame = pPlayer->pev->frame;
-			m_iFrozenPlayerGaitSequence = pPlayer->pev->gaitsequence;
-			g_fGameOver = TRUE;
+			pPlayer->pev->velocity = g_vecZero;
+			pPlayer->pev->avelocity = g_vecZero;
 		}
 	}
 
-	// Delay world freeze by 1.0s to allow death animations, ragdoll-like collapses,
-	// and impact forces to settle naturally into authentic poses (SPEC §9.2, Issue #88).
 	m_flMatchFreezeTime = flTime + 1.0f;
 	m_bMatchFrozen = false;
 
