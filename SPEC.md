@@ -79,6 +79,10 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Health & Armor**: Balanced secondary consumable drops to recover from attrition.
     * **Consumable Ordnance**: Secondary tactical drops distributed according to ordnance tier weights.
     * **Weapons**: Assigned substantially lower procedural probability weights compared to ammunition, serving as rare, high-impact tactical upgrades rather than common drops.
+  * **End-to-End Supply Weight Audit & Ammo Coverage Guarantee**:
+    * All procedural supply weights (ammunition per type, health, armor, consumable ordnance, fixed weapons, and their per-wave probability curves) must be reviewed as a whole and kept in a single, documented, data-driven weight table rather than scattered magic numbers.
+    * **No Starved Pickups**: Every ammunition type usable by a weapon the player owns (including energy ammo for `weapon_gauss` / `weapon_egon`, shared uranium cells, ARs/grenades, crossbow bolts, RPG rockets, etc.) must have a realistic chance of appearing within a standard 10-wave run. Ammo types for owned weapons must be weighted up (loadout-aware), and ammo for weapons the player cannot use should be weighted down or excluded.
+    * **Verification**: A deterministic unit test must simulate the spawner over many seeded 10-wave runs and assert that each in-scope pickup class appears with at least a minimum target frequency (e.g. the probability of a given ammo type appearing at least once in 10 waves is >= 90% when the player owns a compatible weapon), and that the overall category ratios (ammo majority, weapons rare) from this section still hold.
     * **Monster Weapon Dropping Prohibition**: Monsters (specifically HECU Grunts or Barney) are strictly prohibited from dropping weapons or ammunition upon death (`DropItem` calls suppressed). All weapons, ammunition, and items present in the map must originate exclusively from the procedural spawner, ensuring complete deterministic authority over supply distribution and pacing.
 * **Special Waves & Random Mutators**:
   * Every few waves (at configurable intervals, e.g. every 5th wave), the mod rolls a random gameplay mutator:
@@ -219,6 +223,7 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
   * Collecting the Lambda grants a substantial score point bonus.
   * Increments the player's total match collectible counter.
 * **Acoustic Feedback**: Immediately triggers a dedicated, distinct pickup sound cue upon collection.
+* **Center-Screen Pickup Notification**: Upon collection, a brief text message (e.g. `LAMBDA COLLECTED`, optionally including the score bonus and updated collectible count) appears in the center of the screen and fades out after roughly 1.5-2 seconds. It is delivered through a dedicated user message and rendered by a client HUD element, must not overlap or block the wave start/complete overlay (§12), and must not stack indefinitely if multiple collectibles are picked up in quick succession (a new message replaces the current one).
 * **Wave Lifecycle**: If missed or left behind when Point B is reached, the collectible is wiped during wave garbage collection, and a single new Lambda collectible spawns at a newly randomized grid coordinate for the next wave.
 
 ### 7.4 Universal Weapon Reticle & Crosshair Delivery
