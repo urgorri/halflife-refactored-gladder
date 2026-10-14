@@ -1245,6 +1245,7 @@ TYPEDESCRIPTION CBaseMonster::m_SaveData[] = {
 
 std::vector<MockRadiusDamageCall> g_mockRadiusDamageCalls;
 short g_sModelIndexFireball = 1;
+short g_sModelIndexSmoke    = 2;
 
 
 void RadiusDamage( Vector vecSrc, entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, float flRadius, int iClassIgnore, int bitsDamageType )
