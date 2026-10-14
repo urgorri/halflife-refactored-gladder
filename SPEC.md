@@ -81,7 +81,30 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Weapons**: Assigned substantially lower procedural probability weights compared to ammunition, serving as rare, high-impact tactical upgrades rather than common drops.
   * **End-to-End Supply Weight Audit & Ammo Coverage Guarantee**:
     * All procedural supply weights (ammunition per type, health, armor, consumable ordnance, fixed weapons, and their per-wave probability curves) must be reviewed as a whole and kept in a single, documented, data-driven weight table rather than scattered magic numbers.
-    * **No Starved Pickups**: Every ammunition type usable by a weapon the player owns (including energy ammo for `weapon_gauss` / `weapon_egon`, shared uranium cells, ARs/grenades, crossbow bolts, RPG rockets, etc.) must have a realistic chance of appearing within a standard 10-wave run. Ammo types for owned weapons must be weighted up (loadout-aware), and ammo for weapons the player cannot use should be weighted down or excluded.
+    * **Category Allocations & Calibrated Weights**:
+      * **Ammunition**: 59.5% target allocation (guaranteeing ammo constitutes the strict majority of drops across all waves, SPEC > 55%).
+      * **Health & Armor**: 22.0% target allocation (balanced attrition recovery, SPEC ~20-25%).
+      * **Consumable Ordnance**: 11.5% target allocation (tactical expendables).
+      * **Fixed Weapons**: 7.0% target allocation (rare high-impact upgrades, keeping total weapons < 20%, strictly unowned, falling back to ordnance/ammo when exhausted).
+    * **Ammunition ↔ Weapon Mapping & Coverage Baseline**:
+      | Ammunition Entity | Ammo Pool Type | Usable by Weapons | Base Rel. Weight |
+      |---|---|---|---|
+      | `ammo_9mmclip` | 9mm | `weapon_glock`, `weapon_mp5` | 1.0 |
+      | `ammo_9mmAR` | 9mm | `weapon_glock`, `weapon_mp5` | 1.0 |
+      | `ammo_buckshot` | buckshot | `weapon_shotgun` | 1.0 |
+      | `ammo_357` | 357 | `weapon_357`, `weapon_eagle` | 0.8 |
+      | `ammo_ARgrenades` | ARgrenades | `weapon_mp5` | 0.6 |
+      | `ammo_crossbow` | bolts | `weapon_crossbow` | 0.6 |
+      | `ammo_gaussclip` | uranium | `weapon_gauss`, `weapon_egon` | 0.5 (shared) |
+      | `ammo_egonclip` | uranium | `weapon_gauss`, `weapon_egon` | 0.5 (shared) |
+      | `ammo_762` | 762 | `weapon_sniper` | 0.6 |
+      | `ammo_556` | 556 | `weapon_m249` | 0.7 |
+      | `ammo_rpgclip` | rockets | `weapon_rpg` | 0.5 |
+    * **Loadout Multipliers & Scarcity Boosts**:
+      * **Owned Weapon Multiplier**: 1.0x base weight for ammunition usable by player's active inventory.
+      * **Unowned Weapon Down-weighting**: 0.1x multiplier for ammunition whose weapons are unacquired, preventing clutter without hard starvation.
+      * **Scarcity Multiplier**: 3.0x boost applied when ammo reserve drops below 25% of maximum capacity.
+      * **Pity Protection Timer**: 3.0x boost applied when an owned weapon's ammo has not spawned for 3 consecutive waves.
     * **Verification**: A deterministic unit test must simulate the spawner over many seeded 10-wave runs and assert that each in-scope pickup class appears with at least a minimum target frequency (e.g. the probability of a given ammo type appearing at least once in 10 waves is >= 90% when the player owns a compatible weapon), and that the overall category ratios (ammo majority, weapons rare) from this section still hold.
     * **Monster Weapon Dropping Prohibition**: Monsters (specifically HECU Grunts or Barney) are strictly prohibited from dropping weapons or ammunition upon death (`DropItem` calls suppressed). All weapons, ammunition, and items present in the map must originate exclusively from the procedural spawner, ensuring complete deterministic authority over supply distribution and pacing.
 * **Special Waves & Random Mutators**:

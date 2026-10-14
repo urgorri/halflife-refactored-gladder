@@ -119,9 +119,14 @@ class GladderSpawner
 	// Roster query (SPEC §3, §7.1, §7.12)
 	static const GladderPickupDef *GetPickupRoster( size_t &outCount );
 
-	// Procedural rolling helpers (SPEC §3, Issue #39, #78, #79)
+	// Procedural rolling helpers (SPEC §3, Issue #39, #78, #79, #93)
 	static const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
 	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr );
+
+	// Pity tracking helpers (SPEC §3, Issue #93)
+	static void ResetPickupPity( void );
+	static void UpdateAmmoPityTracking( int iWaveNumber );
+	static void RecordAmmoSpawned( const char *szPickup );
 
 	// Internal procedural generation routines (with cell occupancy tracking)
 	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );

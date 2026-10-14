@@ -581,6 +581,7 @@ TEST_CASE( "GladderWeapons: Roster-versus-cheat coverage verification (SPEC §3,
 		CHECK( IsGrantedByCheat( "weapon_m249" ) == false );
 		CHECK( IsGrantedByCheat( "ammo_762" ) == false );
 		CHECK( IsGrantedByCheat( "ammo_556" ) == false );
+		CHECK( IsGrantedByCheat( "ammo_egonclip" ) == false );
 
 		// Vanilla weapons remain granted by the vanilla base set
 		CHECK( IsGrantedByCheat( "weapon_shotgun" ) == true );
@@ -590,6 +591,7 @@ TEST_CASE( "GladderWeapons: Roster-versus-cheat coverage verification (SPEC §3,
 		// Re-register for subsequent test cases
 		GladderRegisterImpulse101Items();
 		CHECK( IsGrantedByCheat( "weapon_pipewrench" ) == true );
+		CHECK( IsGrantedByCheat( "ammo_egonclip" ) == true );
 	}
 }
 

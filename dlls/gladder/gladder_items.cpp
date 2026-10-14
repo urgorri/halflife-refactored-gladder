@@ -105,6 +105,7 @@ void GladderRegisterImpulse101Items( void )
 	ItemRegistry::RegisterImpulse101Item( "ammo_762" );
 	ItemRegistry::RegisterImpulse101Item( "weapon_m249" );
 	ItemRegistry::RegisterImpulse101Item( "ammo_556" );
+	ItemRegistry::RegisterImpulse101Item( "ammo_egonclip" );
 }
 
 static struct GladderItemAutoReg

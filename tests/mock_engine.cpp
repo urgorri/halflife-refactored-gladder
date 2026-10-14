@@ -1404,3 +1404,30 @@ BOOL CBasePlayer::HasNamedPlayerItem( const char *pszItemName )
 	}
 	return FALSE;
 }
+
+AmmoInfo CBasePlayerItem::AmmoInfoArray[MAX_AMMO_SLOTS];
+
+int CBasePlayer::GetAmmoIndex( const char *psz )
+{
+	if ( !psz )
+		return -1;
+
+	for ( int i = 1; i < MAX_AMMO_SLOTS; i++ )
+	{
+		if ( !CBasePlayerItem::AmmoInfoArray[i].pszName )
+			continue;
+
+		if ( stricmp( psz, CBasePlayerItem::AmmoInfoArray[i].pszName ) == 0 )
+			return i;
+	}
+
+	return -1;
+}
+
+int CBasePlayer::AmmoInventory( int iAmmoIndex )
+{
+	if ( iAmmoIndex < 0 || iAmmoIndex >= MAX_AMMO_SLOTS )
+		return -1;
+
+	return m_rgAmmo[iAmmoIndex];
+}

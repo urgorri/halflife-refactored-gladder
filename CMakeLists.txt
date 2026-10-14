@@ -371,6 +371,7 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_breakable.cpp
         dlls/gladder/gladder_grid_indexer.cpp
         dlls/gladder/gladder_spawner.cpp
+        dlls/gladder/gladder_pickup_weights.cpp
         dlls/gladder/gladder_combo_tracker.cpp
         dlls/gladder/gladder_scoring.cpp
         dlls/gladder/gladder_modifiers.cpp
@@ -390,6 +391,7 @@ if(BUILD_TESTS)
         tests/gladder/test_gladder_breakable.cpp
         tests/gladder/test_grid_indexer.cpp
         tests/gladder/test_spawner.cpp
+        tests/gladder/test_pickup_weights.cpp
         tests/gladder/test_combo_tracker.cpp
         tests/gladder/test_scoring.cpp
         tests/gladder/test_modifiers.cpp

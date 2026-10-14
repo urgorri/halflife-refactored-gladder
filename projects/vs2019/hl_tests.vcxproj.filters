@@ -244,6 +244,9 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_spawner.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_pickup_weights.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\gladder\gladder_combo_tracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -266,6 +269,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\tests\gladder\test_spawner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\tests\gladder\test_pickup_weights.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\tests\gladder\test_combo_tracker.cpp">

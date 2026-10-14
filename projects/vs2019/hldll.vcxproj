@@ -294,6 +294,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\gladder\gladder_breakable.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_grid_indexer.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_spawner.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_pickup_weights.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_combo_tracker.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_scoring.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_modifiers.cpp" />
@@ -315,6 +316,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClInclude Include="..\..\dlls\gladder\gladder_breakable.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_grid_indexer.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_spawner.h" />
+    <ClInclude Include="..\..\dlls\gladder\gladder_pickup_weights.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_combo_tracker.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_scoring.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_modifiers.h" />
