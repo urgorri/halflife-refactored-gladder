@@ -122,6 +122,37 @@ EGladderPickupCategory ClassifyPickupModel( const char *pszModelName )
 	return GLADDER_PICKUP_NONE;
 }
 
+void GladderGetPickupGlowColor( EGladderPickupCategory cat, unsigned char &r, unsigned char &g, unsigned char &b )
+{
+	r = 255;
+	g = 255;
+	b = 255;
+
+	switch ( cat )
+	{
+	case GLADDER_PICKUP_HEALTH:
+		r = 32; g = 255; b = 32;   // Vibrant Green
+		break;
+	case GLADDER_PICKUP_HEV:
+		r = 32; g = 192; b = 255;  // Bright Cyan / Blue
+		break;
+	case GLADDER_PICKUP_AMMO:
+		r = 255; g = 180; b = 20;  // Golden Amber
+		break;
+	case GLADDER_PICKUP_LAMBDA:
+		r = 255; g = 140; b = 20;  // Vibrant Orange
+		break;
+	case GLADDER_PICKUP_WEAPON:
+		r = 220; g = 40; b = 220;  // Arcade Magenta / Violet
+		break;
+	case GLADDER_PICKUP_ORDNANCE:
+		r = 32; g = 128; b = 255;   // Radiant Blue / Azure (SPEC §7.2, Issue #98)
+		break;
+	default:
+		break;
+	}
+}
+
 bool ShouldApplyPickupVisuals( const struct cl_entity_s *ent, const char *pszModelName )
 {
 	if ( !pszModelName || !*pszModelName )
@@ -252,31 +283,9 @@ void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char 
 	ent->origin[2] += flSineOffset;
 	ent->curstate.origin[2] += flSineOffset;
 
-	// 3. Render glow shell color-coded by pickup category (SPEC §7.2)
+	// 3. Render glow shell color-coded by pickup category (SPEC §7.2, Issue #98)
 	unsigned char r = 255, g = 255, b = 255;
-	switch ( cat )
-	{
-	case GLADDER_PICKUP_HEALTH:
-		r = 32; g = 255; b = 32;   // Vibrant Green
-		break;
-	case GLADDER_PICKUP_HEV:
-		r = 32; g = 192; b = 255;  // Bright Cyan / Blue
-		break;
-	case GLADDER_PICKUP_AMMO:
-		r = 255; g = 180; b = 20;  // Golden Amber
-		break;
-	case GLADDER_PICKUP_LAMBDA:
-		r = 255; g = 140; b = 20;  // Vibrant Orange
-		break;
-	case GLADDER_PICKUP_WEAPON:
-		r = 220; g = 40; b = 220;  // Arcade Magenta / Violet
-		break;
-	case GLADDER_PICKUP_ORDNANCE:
-		r = 255; g = 48; b = 48;   // Fiery Crimson / Scarlet Red (SPEC §7.2)
-		break;
-	default:
-		break;
-	}
+	GladderGetPickupGlowColor( cat, r, g, b );
 
 	ent->curstate.renderfx = kRenderFxGlowShell;
 	ent->curstate.rendercolor.r = r;
@@ -749,29 +758,7 @@ void GladderPickupVisualModifier( int type, struct cl_entity_s *ent, const char 
 		return;
 
 	unsigned char r = 255, g = 255, b = 255;
-	switch ( cat )
-	{
-	case GLADDER_PICKUP_HEALTH:
-		r = 32; g = 255; b = 32;
-		break;
-	case GLADDER_PICKUP_HEV:
-		r = 32; g = 192; b = 255;
-		break;
-	case GLADDER_PICKUP_AMMO:
-		r = 255; g = 180; b = 20;
-		break;
-	case GLADDER_PICKUP_LAMBDA:
-		r = 255; g = 140; b = 20;
-		break;
-	case GLADDER_PICKUP_WEAPON:
-		r = 220; g = 40; b = 220;
-		break;
-	case GLADDER_PICKUP_ORDNANCE:
-		r = 255; g = 48; b = 48;
-		break;
-	default:
-		break;
-	}
+	GladderGetPickupGlowColor( cat, r, g, b );
 
 	ent->curstate.renderfx = kRenderFxGlowShell;
 	ent->curstate.rendercolor.r = r;

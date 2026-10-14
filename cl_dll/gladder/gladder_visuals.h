@@ -33,6 +33,9 @@ enum EGladderPickupCategory
 // Returns the glow color category for a given model path, or GLADDER_PICKUP_NONE.
 EGladderPickupCategory ClassifyPickupModel( const char *pszModelName );
 
+// Returns the RGB color tuple associated with a pickup category (SPEC §7.2, Issue #98)
+void GladderGetPickupGlowColor( EGladderPickupCategory cat, unsigned char &r, unsigned char &g, unsigned char &b );
+
 // Checks whether an entity and model qualify for Gladder pickup visual effects (floating, bobbing, glow).
 // Excludes in-flight or active combat ordnance (thrown grenades, active satchels, planted tripmines,
 // and live snarks), while allowing collectible weapon pickups on the ground (SPEC §7.2, Issue #40).
