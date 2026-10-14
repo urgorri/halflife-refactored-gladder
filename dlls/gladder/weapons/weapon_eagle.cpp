@@ -14,6 +14,7 @@
 #include "core/player.h"
 #include "gameplay/gamerules.h"
 #include "weapons/weapon_registry.h"
+#include "items/item_registry.h"
 #include "weapons/projectile_rocket.h"
 #include "gladder_weapons.h"
 #include "weapon_eagle.h"
@@ -21,6 +22,7 @@
 LINK_ENTITY_TO_CLASS( weapon_eagle, CEagle );
 #ifndef CLIENT_DLL
 REGISTER_WEAPON( weapon_eagle, 175 );
+REGISTER_IMPULSE101_ITEM( weapon_eagle );
 #endif
 
 void CEagle::Spawn()

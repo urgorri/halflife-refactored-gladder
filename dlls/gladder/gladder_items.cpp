@@ -9,7 +9,9 @@
 #include "gladder_audio.h"
 #include "gladder_rules.h"
 #include "gladder_scoring.h"
+#include "gladder_usermsg.h"
 #include "items/item_registry.h"
+
 
 LINK_ENTITY_TO_CLASS( item_gladder_lambda, CGladderItemLambda );
 LINK_ENTITY_TO_CLASS( item_gladder_collectible, CGladderItemLambda );
@@ -50,18 +52,29 @@ void CGladderItemLambda::ItemTouch( CBaseEntity *pOther )
 		return;
 
 	// Award score bonus & telemetry progression
+	int iCollectibleCount = 1;
 	if ( g_pGameRules )
 	{
 		CGladderRules *pRules = (CGladderRules *)g_pGameRules;
 		if ( pRules )
 		{
 			pRules->IncrementCollectibles();
+			iCollectibleCount = pRules->GetCollectiblesCount();
 		}
 	}
 
 	GladderAudio::PlayCue( GLADDER_CUE_COLLECTIBLE, pOther );
 	ALERT( at_console, "[Gladder] Collectible picked up by %s (+%d pts)\n",
 	       STRING( pOther->pev->netname ), GladderScoring::LAMBDA_COLLECTIBLE_POINTS );
+
+	// Center-Screen Lambda Pickup Notification (SPEC §7.3, Issue #92)
+	if ( gmsgGladderLambda && pOther->pev )
+	{
+		MESSAGE_BEGIN( MSG_ONE, gmsgGladderLambda, NULL, pOther->pev );
+		WRITE_LONG( GladderScoring::LAMBDA_COLLECTIBLE_POINTS );
+		WRITE_SHORT( iCollectibleCount );
+		MESSAGE_END();
+	}
 
 	SetTouch( nullptr );
 	UTIL_Remove( this );
@@ -82,10 +95,24 @@ void CGladderItemLambda::RegisterItems( void )
 	ItemRegistry::Register( descCollectible );
 }
 
+void GladderRegisterImpulse101Items( void )
+{
+	// Opposing Force Extended Arsenal and custom ammunition (SPEC §7.1, §7.12, Issue #94)
+	ItemRegistry::RegisterImpulse101Item( "weapon_pipewrench" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_knife" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_eagle" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_sniper" );
+	ItemRegistry::RegisterImpulse101Item( "ammo_762" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_m249" );
+	ItemRegistry::RegisterImpulse101Item( "ammo_556" );
+	ItemRegistry::RegisterImpulse101Item( "ammo_egonclip" );
+}
+
 static struct GladderItemAutoReg
 {
 	GladderItemAutoReg()
 	{
 		CGladderItemLambda::RegisterItems();
+		GladderRegisterImpulse101Items();
 	}
 } s_autoRegGladderItems;

@@ -459,6 +459,9 @@
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp">
       <Filter>Source Files\cl_dll\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_lambda.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp">
       <Filter>Source Files\cl_dll\gladder</Filter>
     </ClCompile>
@@ -498,6 +501,9 @@
       <Filter>Header Files\cl_dll\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_lambda.h">
       <Filter>Header Files\cl_dll\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_summary.h">

@@ -786,6 +786,9 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_spawner.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_pickup_weights.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\gladder\gladder_combo_tracker.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
@@ -843,6 +846,9 @@
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_spawner.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_pickup_weights.h">
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_combo_tracker.h">

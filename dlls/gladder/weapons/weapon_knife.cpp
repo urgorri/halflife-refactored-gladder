@@ -14,6 +14,7 @@
 #include "core/player.h"
 #include "gameplay/gamerules.h"
 #include "weapons/weapon_registry.h"
+#include "items/item_registry.h"
 #include "gladder_weapons.h"
 #include "weapon_knife.h"
 
@@ -23,6 +24,7 @@
 LINK_ENTITY_TO_CLASS( weapon_knife, CKnife );
 #ifndef CLIENT_DLL
 REGISTER_WEAPON( weapon_knife, 150 );
+REGISTER_IMPULSE101_ITEM( weapon_knife );
 #endif
 
 void CKnife::Spawn()

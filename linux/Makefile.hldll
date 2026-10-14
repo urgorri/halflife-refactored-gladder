@@ -106,6 +106,7 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_breakable.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_grid_indexer.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_spawner.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_pickup_weights.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_combo_tracker.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_scoring.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_modifiers.o \

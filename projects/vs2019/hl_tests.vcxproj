@@ -178,6 +178,7 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_breakable.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_grid_indexer.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_spawner.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_pickup_weights.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_combo_tracker.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_scoring.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_modifiers.cpp" />
@@ -186,6 +187,7 @@
     <ClCompile Include="..\..\tests\gladder\test_gladder_breakable.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_grid_indexer.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_spawner.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_pickup_weights.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_combo_tracker.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_scoring.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_modifiers.cpp" />
@@ -199,6 +201,7 @@
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_combo.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_lambda.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_items.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_visuals.cpp" />

@@ -14,6 +14,7 @@
 #include "core/player.h"
 #include "gameplay/gamerules.h"
 #include "weapons/weapon_registry.h"
+#include "items/item_registry.h"
 #include "gladder_weapons.h"
 #include "weapon_pipewrench.h"
 
@@ -23,6 +24,7 @@
 LINK_ENTITY_TO_CLASS( weapon_pipewrench, CPipewrench );
 #ifndef CLIENT_DLL
 REGISTER_WEAPON( weapon_pipewrench, 160 );
+REGISTER_IMPULSE101_ITEM( weapon_pipewrench );
 #endif
 
 void CPipewrench::Spawn()

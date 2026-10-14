@@ -22,6 +22,7 @@
 #include "world/trains.h"
 #include "ai/nodes.h"
 #include "weapons/weapon_base.h"
+#include "items/item_registry.h"
 #include "ai/soundent.h"
 #include "ai/monsters.h"
 #include "shake.h"
@@ -300,6 +301,11 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		for ( size_t i = 0; i < ARRAYSIZE( s_szImpulse101Items ); ++i )
 		{
 			GiveNamedItem( s_szImpulse101Items[i] );
+		}
+		// Extra items registered by mods; empty (zero iterations) in vanilla Half-Life.
+		for ( const char *pszExtraItem : ItemRegistry::GetImpulse101Items() )
+		{
+			GiveNamedItem( pszExtraItem );
 		}
 		gEvilImpulse101 = FALSE;
 		break;

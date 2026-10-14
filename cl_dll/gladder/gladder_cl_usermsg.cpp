@@ -142,3 +142,16 @@ bool Gladder_ParseSummaryMsg( const void *pbuf, int iSize, GladderSummaryMsg &ou
 
 	return true;
 }
+
+bool Gladder_ParseLambdaMsg( const void *pbuf, int iSize, GladderLambdaMsg &outMsg )
+{
+	if ( !pbuf || iSize < 6 )
+		return false;
+
+	const uint8_t *p = static_cast<const uint8_t *>( pbuf );
+	outMsg.iScoreBonus       = ReadInt32( p + 0 );
+	outMsg.iCollectibleCount = ReadInt16( p + 4 );
+
+	return true;
+}
+
