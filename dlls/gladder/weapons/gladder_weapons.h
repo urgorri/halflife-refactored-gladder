@@ -27,6 +27,22 @@
 #define SNIPER_WEIGHT     20
 #define M249_WEIGHT       25
 
+// HUD Selection Grid Slots & Positions (SPEC §7.13, Issue #96)
+#define PIPEWRENCH_SLOT     0
+#define PIPEWRENCH_POSITION 1
+
+#define KNIFE_SLOT          0
+#define KNIFE_POSITION      2
+
+#define EAGLE_SLOT          1
+#define EAGLE_POSITION      2
+
+#define M249_SLOT           2
+#define M249_POSITION       3
+
+#define SNIPER_SLOT         2
+#define SNIPER_POSITION     4
+
 // Ammo capacities & quantities
 #define _762_MAX_CARRY    30
 #define _556_MAX_CARRY    200

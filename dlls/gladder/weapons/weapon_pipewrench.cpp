@@ -66,8 +66,8 @@ int CPipewrench::GetItemInfo( ItemInfo *p )
 	p->pszAmmo2  = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip  = WEAPON_NOCLIP;
-	p->iSlot     = 0;
-	p->iPosition = 3;
+	p->iSlot     = PIPEWRENCH_SLOT;
+	p->iPosition = PIPEWRENCH_POSITION;
 	p->iId       = WEAPON_PIPEWRENCH;
 	p->iWeight   = PIPEWRENCH_WEIGHT;
 	return 1;

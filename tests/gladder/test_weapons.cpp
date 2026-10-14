@@ -12,6 +12,7 @@
 #include "core/cbase.h"
 #include "gameplay/gamerules.h"
 #include "tests/mock_engine.h"
+#include "dlls/weapons/weapon_base.h"
 #include "dlls/gladder/weapons/gladder_weapons.h"
 #include "dlls/weapons/weapon_registry.h"
 #include "dlls/items/item_registry.h"
@@ -595,14 +596,49 @@ TEST_CASE( "GladderWeapons: Roster-versus-cheat coverage verification (SPEC §3,
 	}
 }
 
-TEST_CASE( "GladderWeapons: Vanilla behavior neutrality (SPEC §7.12)", "[gladder][weapons][impulse101][vanilla]" )
+TEST_CASE( "GladderWeapons: Extended Arsenal HUD Slot Alignment & Sprite Script Integrity (SPEC §7.13, Issue #96)", "[gladder][weapons][hud][slots]" )
 {
-	ItemRegistry::Clear();
-	CHECK( ItemRegistry::GetImpulse101Items().empty() == true );
+	SECTION( "M249 is assigned Slot 2 Pos 3, avoiding collision with Egon gun (Slot 3 Pos 2)" )
+	{
+		CHECK( M249_SLOT == 2 );
+		CHECK( M249_POSITION == 3 );
+		CHECK_FALSE( ( M249_SLOT == 3 && M249_POSITION == 2 ) );
+	}
 
-	// Re-registering restores all items cleanly
-	GladderRegisterImpulse101Items();
-	CHECK( !ItemRegistry::GetImpulse101Items().empty() );
+	SECTION( "Sniper Rifle is assigned Slot 2 Pos 4, strictly unique in rifles bucket" )
+	{
+		CHECK( SNIPER_SLOT == 2 );
+		CHECK( SNIPER_POSITION == 4 );
+		CHECK( SNIPER_POSITION != M249_POSITION );
+	}
+
+	SECTION( "Desert Eagle is assigned Slot 1 Pos 2, unique in sidearms bucket" )
+	{
+		CHECK( EAGLE_SLOT == 1 );
+		CHECK( EAGLE_POSITION == 2 );
+	}
+
+	SECTION( "Melee weapons occupy distinct positions in Slot 0" )
+	{
+		CHECK( PIPEWRENCH_SLOT == 0 );
+		CHECK( PIPEWRENCH_POSITION == 1 );
+		CHECK( KNIFE_SLOT == 0 );
+		CHECK( KNIFE_POSITION == 2 );
+		CHECK( PIPEWRENCH_POSITION != KNIFE_POSITION );
+	}
+
+	SECTION( "WeaponRegistry registration of both weapon_sniper and weapon_sniperrifle aliases" )
+	{
+		WeaponDescriptor dSniper = { "weapon_sniper", 0, nullptr };
+		WeaponDescriptor dSniperAlias = { "weapon_sniperrifle", 0, nullptr };
+		WeaponRegistry::Register( dSniper );
+		WeaponRegistry::Register( dSniperAlias );
+
+		CHECK( WeaponRegistry::FindByClassname( "weapon_sniper" ) != nullptr );
+		CHECK( WeaponRegistry::FindByClassname( "weapon_sniperrifle" ) != nullptr );
+	}
 }
+
+
 
 

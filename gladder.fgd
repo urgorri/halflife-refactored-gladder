@@ -145,6 +145,7 @@
 @PointClass base(Weapon, Targetx, RenderFields) studio("models/w_pipe_wrench.mdl") = weapon_pipewrench : "Pipe Wrench" []
 @PointClass base(Weapon, Targetx, RenderFields) studio("models/w_desert_eagle.mdl") = weapon_eagle : "Desert Eagle .357" []
 @PointClass base(Weapon, Targetx, RenderFields) studio("models/w_m40a1.mdl") = weapon_sniper : "M40A1 Sniper Rifle" []
+@PointClass base(Weapon, Targetx, RenderFields) studio("models/w_m40a1.mdl") = weapon_sniperrifle : "M40A1 Sniper Rifle (OpFor Alias)" []
 @PointClass base(Weapon, Targetx, RenderFields) studio("models/w_saw.mdl") = weapon_m249 : "M249 SAW" []
 
 @PointClass base(Targetx, RenderFields) studio("models/w_m40a1clip.mdl") = ammo_762 : "7.62mm Sniper Ammo Clip" []
