@@ -196,3 +196,59 @@ TEST_CASE( "ItemRegistry: extensible auxiliary player custom item interface (#89
 		CHECK( ItemRegistry::GetPlayerCustomItemCount( pPlayer2, "item_scanner" ) == 0 );
 	}
 }
+
+TEST_CASE( "ItemRegistry: impulse 101 extra item registration (#199)", "[items][registry][impulse101]" )
+{
+	ItemRegistry::Clear();
+
+	SECTION( "Nothing registered leaves the extra list empty (vanilla behavior)" )
+	{
+		CHECK( ItemRegistry::GetImpulse101Items().empty() );
+	}
+
+	SECTION( "Registered classnames are kept in registration order" )
+	{
+		ItemRegistry::RegisterImpulse101Item( "weapon_knife" );
+		ItemRegistry::RegisterImpulse101Item( "weapon_eagle" );
+		ItemRegistry::RegisterImpulse101Item( "ammo_556" );
+
+		const auto &items = ItemRegistry::GetImpulse101Items();
+		REQUIRE( items.size() == 3 );
+		CHECK( std::strcmp( items[0], "weapon_knife" ) == 0 );
+		CHECK( std::strcmp( items[1], "weapon_eagle" ) == 0 );
+		CHECK( std::strcmp( items[2], "ammo_556" ) == 0 );
+	}
+
+	SECTION( "Duplicates (even from distinct pointers) are ignored" )
+	{
+		char copy[] = "weapon_knife";
+		ItemRegistry::RegisterImpulse101Item( "weapon_knife" );
+		ItemRegistry::RegisterImpulse101Item( copy );
+		ItemRegistry::RegisterImpulse101Item( "weapon_knife" );
+		CHECK( ItemRegistry::GetImpulse101Items().size() == 1 );
+	}
+
+	SECTION( "Null and empty classnames are ignored" )
+	{
+		ItemRegistry::RegisterImpulse101Item( nullptr );
+		ItemRegistry::RegisterImpulse101Item( "" );
+		CHECK( ItemRegistry::GetImpulse101Items().empty() );
+	}
+
+	SECTION( "REGISTER_IMPULSE101_ITEM macro registers its classname" )
+	{
+		REGISTER_IMPULSE101_ITEM( weapon_pipewrench )
+		REQUIRE( ItemRegistry::GetImpulse101Items().size() == 1 );
+		CHECK( std::strcmp( ItemRegistry::GetImpulse101Items()[0], "weapon_pipewrench" ) == 0 );
+	}
+
+	SECTION( "Clear resets the extra list" )
+	{
+		ItemRegistry::RegisterImpulse101Item( "weapon_sniper" );
+		REQUIRE( ItemRegistry::GetImpulse101Items().size() == 1 );
+		ItemRegistry::Clear();
+		CHECK( ItemRegistry::GetImpulse101Items().empty() );
+	}
+
+	ItemRegistry::Clear();
+}

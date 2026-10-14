@@ -32,6 +32,12 @@ static std::vector<ItemDescriptor> &GetRegistryStorage()
 	return s_items;
 }
 
+static std::vector<const char *> &GetImpulse101Storage()
+{
+	static std::vector<const char *> s_impulse101Items;
+	return s_impulse101Items;
+}
+
 void ItemRegistry::Register( const ItemDescriptor &desc )
 {
 	auto &storage = GetRegistryStorage();
@@ -93,6 +99,28 @@ const ItemDescriptor *ItemRegistry::FindByClassname( const char *szClassname )
 void ItemRegistry::Clear( void )
 {
 	GetRegistryStorage().clear();
+	GetImpulse101Storage().clear();
+}
+
+void ItemRegistry::RegisterImpulse101Item( const char *pszClassname )
+{
+	if ( !pszClassname || !*pszClassname )
+		return;
+
+	auto &storage = GetImpulse101Storage();
+	for ( const char *existing : storage )
+	{
+		if ( strcmp( existing, pszClassname ) == 0 )
+		{
+			return; // Avoid duplicate registration
+		}
+	}
+	storage.push_back( pszClassname );
+}
+
+const std::vector<const char *> &ItemRegistry::GetImpulse101Items( void )
+{
+	return GetImpulse101Storage();
 }
 
 static std::unordered_map<const CBasePlayer *, std::unordered_map<std::string, int>> &GetPlayerCustomItemsMap()

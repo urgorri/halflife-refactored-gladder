@@ -35,6 +35,12 @@ class ItemRegistry
 	static const ItemDescriptor *FindByClassname( const char *szClassname );
 	static void Clear( void );
 
+	// Extra classnames granted by "impulse 101" after the vanilla list (#199).
+	// Items are kept in registration order; duplicates are ignored.
+	// The classname pointer must remain valid (e.g. a string literal).
+	static void RegisterImpulse101Item( const char *pszClassname );
+	static const std::vector<const char *> &GetImpulse101Items( void );
+
 	// Player auxiliary custom inventory interface (#89)
 	static int GetPlayerCustomItemCount( const CBasePlayer *pPlayer, const char *pszItemName );
 	static void AddPlayerCustomItem( const CBasePlayer *pPlayer, const char *pszItemName, int count = 1 );
@@ -62,3 +68,13 @@ class ItemRegistry
 
 #define REGISTER_ITEM_DEFAULT( entityName )                                   \
 	REGISTER_ITEM( entityName, 0 )
+
+// Registers an extra classname for "impulse 101" at static-init time (#199).
+#define REGISTER_IMPULSE101_ITEM( classname )                                 \
+	static struct Impulse101AutoReg_##classname                               \
+	{                                                                         \
+		Impulse101AutoReg_##classname()                                       \
+		{                                                                     \
+			ItemRegistry::RegisterImpulse101Item( #classname );               \
+		}                                                                     \
+	} s_autoRegImpulse101_##classname;
