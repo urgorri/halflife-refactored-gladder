@@ -28,6 +28,30 @@
 #include <unistd.h>
 #endif
 extern cvar_t gladder_autoswitch_on_pickup;
+
+// High capacity ceiling tending to infinity for ammunition and ordnance (SPEC §3, §7.14, Issue #97)
+#define GLADDER_EXTENDED_AMMO_MAX 9999
+
+inline bool GladderIsExtendedAmmo( const char *pszAmmoName )
+{
+	if ( !pszAmmoName )
+		return false;
+
+	return ( !stricmp( pszAmmoName, "9mm" ) ||
+	         !stricmp( pszAmmoName, "357" ) ||
+	         !stricmp( pszAmmoName, "buckshot" ) ||
+	         !stricmp( pszAmmoName, "bolts" ) ||
+	         !stricmp( pszAmmoName, "rockets" ) ||
+	         !stricmp( pszAmmoName, "uranium" ) ||
+	         !stricmp( pszAmmoName, "ARgrenades" ) ||
+	         !stricmp( pszAmmoName, "762" ) ||
+	         !stricmp( pszAmmoName, "556" ) ||
+	         !stricmp( pszAmmoName, "Hand Grenade" ) ||
+	         !stricmp( pszAmmoName, "Satchel Charge" ) ||
+	         !stricmp( pszAmmoName, "Trip Mine" ) ||
+	         !stricmp( pszAmmoName, "Snarks" ) );
+}
+
 // Static world decal (infodecal) descriptor tracked across wave transitions (SPEC §11.3, Issue #49)
 struct GladderStaticDecal
 {
@@ -78,6 +102,9 @@ class CGladderRules : public CHalfLifeRules
 
 	// User-configurable autoswitch prevention on weapon pickup (SPEC §7.5, Issue #45)
 	BOOL FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon ) override;
+
+	// Extended ammo and explosive ordnance carrying capacity tending to infinity (SPEC §3, §7.14, Issue #97)
+	int GetMaxAmmo( const char *pszAmmoName, int iDefaultMaxCarry ) override;
 
 	// Wall chargers capacity degradation & recharge
 	float FlHealthChargerCapacity( void ) override;
