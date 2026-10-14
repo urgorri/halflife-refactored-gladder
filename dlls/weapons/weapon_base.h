@@ -200,6 +200,10 @@ void W_Precache( void );
 #ifdef CLIENT_DLL
 bool bIsMultiplayer( void );
 void LoadVModel( char *szViewModel, CBasePlayer *m_pPlayer );
+#define WEAPON_GET_MAX_AMMO( pszAmmoName, iDefaultCarry ) ( iDefaultCarry )
+#else
+#include "gameplay/gamerules.h"
+#define WEAPON_GET_MAX_AMMO( pszAmmoName, iDefaultCarry ) ( g_pGameRules ? g_pGameRules->GetMaxAmmo( ( pszAmmoName ), ( iDefaultCarry ) ) : ( iDefaultCarry ) )
 #endif
 
 #endif // WEAPON_BASE_H

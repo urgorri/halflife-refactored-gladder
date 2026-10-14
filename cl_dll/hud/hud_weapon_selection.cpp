@@ -482,8 +482,11 @@ int CHudAmmo::DrawWList( float flTime )
 
 				if ( gpActiveSel == p )
 				{
-					SPR_Set( p->hActive, r, g, b );
-					SPR_DrawAdditive( 0, x, y, &p->rcActive );
+					if ( p->hActive )
+					{
+						SPR_Set( p->hActive, r, g, b );
+						SPR_DrawAdditive( 0, x, y, &p->rcActive );
+					}
 
 					SPR_Set( gHUD.GetSprite( m_HUD_selection ), r, g, b );
 					SPR_DrawAdditive( 0, x, y, &gHUD.GetSpriteRect( m_HUD_selection ) );
@@ -498,8 +501,11 @@ int CHudAmmo::DrawWList( float flTime )
 						ScaleColors( r, g, b, 128 );
 					}
 
-					SPR_Set( p->hInactive, r, g, b );
-					SPR_DrawAdditive( 0, x, y, &p->rcInactive );
+					if ( p->hInactive )
+					{
+						SPR_Set( p->hInactive, r, g, b );
+						SPR_DrawAdditive( 0, x, y, &p->rcInactive );
+					}
 				}
 
 				DrawAmmoBar( p, x + giABWidth / 2, y, giABWidth, giABHeight );

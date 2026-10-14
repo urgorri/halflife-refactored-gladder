@@ -72,7 +72,7 @@ int CSqueak::GetItemInfo( ItemInfo *p )
 {
 	p->pszName   = STRING( pev->classname );
 	p->pszAmmo1  = "Snarks";
-	p->iMaxAmmo1 = SNARK_MAX_CARRY;
+	p->iMaxAmmo1 = WEAPON_GET_MAX_AMMO( "Snarks", SNARK_MAX_CARRY );
 	p->pszAmmo2  = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip  = WEAPON_NOCLIP;

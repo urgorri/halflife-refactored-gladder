@@ -20,6 +20,7 @@
 #include "weapons/weapon_handgrenade.h"
 #include "ai/nodes.h"
 #include "core/player.h"
+#include "gameplay/gamerules.h"
 
 #define HANDGRENADE_PRIMARY_VOLUME 450
 
@@ -66,7 +67,7 @@ int CHandGrenade::GetItemInfo( ItemInfo *p )
 {
 	p->pszName   = STRING( pev->classname );
 	p->pszAmmo1  = "Hand Grenade";
-	p->iMaxAmmo1 = HANDGRENADE_MAX_CARRY;
+	p->iMaxAmmo1 = WEAPON_GET_MAX_AMMO( "Hand Grenade", HANDGRENADE_MAX_CARRY );
 	p->pszAmmo2  = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip  = WEAPON_NOCLIP;

@@ -611,7 +611,8 @@ int CBasePlayer ::GiveAmmo( int iCount, char *szName, int iMax )
 	if ( i < 0 || i >= MAX_AMMO_SLOTS )
 		return -1;
 
-	int iAdd = min( iCount, iMax - m_rgAmmo[i] );
+	int iEffectiveMax = g_pGameRules->GetMaxAmmo( szName, iMax );
+	int iAdd = min( iCount, iEffectiveMax - m_rgAmmo[i] );
 	if ( iAdd < 1 )
 		return i;
 
@@ -621,8 +622,8 @@ int CBasePlayer ::GiveAmmo( int iCount, char *szName, int iMax )
 	{
 		// Send the message that ammo has been picked up
 		MESSAGE_BEGIN( MSG_ONE, gmsgAmmoPickup, NULL, pev );
-		WRITE_BYTE( GetAmmoIndex( szName ) ); // ammo ID
-		WRITE_BYTE( iAdd );                   // amount
+		WRITE_BYTE( GetAmmoIndex( szName ) );        // ammo ID
+		WRITE_SHORT( max( min( iAdd, 65535 ), 0 ) ); // amount
 		MESSAGE_END();
 	}
 
@@ -711,12 +712,12 @@ void CBasePlayer::SendAmmoUpdate( void )
 			m_rgAmmoLast[i] = m_rgAmmo[i];
 
 			ASSERT( m_rgAmmo[i] >= 0 );
-			ASSERT( m_rgAmmo[i] < 255 );
+			ASSERT( m_rgAmmo[i] <= 65535 );
 
 			// send "Ammo" update message
 			MESSAGE_BEGIN( MSG_ONE, gmsgAmmoX, NULL, pev );
 			WRITE_BYTE( i );
-			WRITE_BYTE( max( min( m_rgAmmo[i], 254 ), 0 ) ); // clamp the value to one byte
+			WRITE_SHORT( max( min( m_rgAmmo[i], 65535 ), 0 ) );
 			MESSAGE_END();
 		}
 	}

@@ -382,6 +382,7 @@ if(BUILD_TESTS)
         cl_dll/gladder/gladder_visuals.cpp
         cl_dll/gladder/gladder_crosshair.cpp
         cl_dll/gladder/gladder_cl_usermsg.cpp
+        cl_dll/hud/hud_weapon_selection.cpp
         cl_dll/gladder/hud_gladder_overlay.cpp
         cl_dll/gladder/hud_gladder_combo.cpp
         cl_dll/gladder/hud_gladder_wave_notify.cpp

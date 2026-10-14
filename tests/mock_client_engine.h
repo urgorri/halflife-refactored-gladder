@@ -85,6 +85,7 @@ void SetMockClientTime( float flTime );
 void SetMockScreenInfo( int width, int height );
 void SetMockSpriteList( struct client_sprite_s *pSprites, int count );
 void SetMockNamedSpriteList( const char *pszName, struct client_sprite_s *pSprites, int count );
+void SetMockSpriteListNull( bool bNull );
 void ResetMockSpriteList( void );
 
 // Dynamic library loading and client export resolution

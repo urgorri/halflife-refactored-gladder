@@ -30,6 +30,8 @@
 #include "core/skill.h"
 #include "core/user_message_registry.h"
 #include "entities/entity_visual_registry.h"
+#include "weapons/weapon_base.h"
+#include "weapons/weapon_defs.h"
 
 // Custom test rules to verify override behavior
 class CTestHookRules : public CGameRules
@@ -103,6 +105,13 @@ class CTestHookRules : public CGameRules
 		m_iRestoreDeniedCount++;
 	}
 
+	int m_customMaxAmmo = -1;
+	int GetMaxAmmo( const char *pszAmmoName, int iDefaultMaxCarry ) override
+	{
+		if ( m_customMaxAmmo >= 0 )
+			return m_customMaxAmmo;
+		return CGameRules::GetMaxAmmo( pszAmmoName, iDefaultMaxCarry );
+	}
 	std::vector<CBaseEntity *> m_spawnedEntities;
 	void OnEntitySpawned( CBaseEntity *pEntity ) override
 	{
@@ -1134,6 +1143,50 @@ TEST_CASE( "GameplayHooks: FFixMP5UnderwaterDebounce lifecycle and attack delay 
 		SimulateMP5SecondaryAttackUnderwater( &customRules );
 		CHECK( flNextPrimaryAttack == Catch::Approx( 15.15f ) );
 		CHECK( flNextSecondaryAttack == Catch::Approx( 15.15f ) );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
+}
+TEST_CASE( "GameplayHooks: CGameRules::GetMaxAmmo extensible capacity hook (#201)", "[gameplay][gamerules][ammo]" )
+{
+	InitMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	SECTION( "Default CGameRules::GetMaxAmmo guarantees 100% behavioral equivalence" )
+	{
+		CHECK( pVanillaRules->GetMaxAmmo( "9mm", _9MM_MAX_CARRY ) == _9MM_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "357", _357_MAX_CARRY ) == _357_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "buckshot", BUCKSHOT_MAX_CARRY ) == BUCKSHOT_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "bolts", BOLT_MAX_CARRY ) == BOLT_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "rockets", ROCKET_MAX_CARRY ) == ROCKET_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "uranium", URANIUM_MAX_CARRY ) == URANIUM_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "Hand Grenade", HANDGRENADE_MAX_CARRY ) == HANDGRENADE_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "Satchel Charge", SATCHEL_MAX_CARRY ) == SATCHEL_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "Trip Mine", TRIPMINE_MAX_CARRY ) == TRIPMINE_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "Snarks", SNARK_MAX_CARRY ) == SNARK_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "Hornets", HORNET_MAX_CARRY ) == HORNET_MAX_CARRY );
+		CHECK( pVanillaRules->GetMaxAmmo( "ARgrenades", M203_GRENADE_MAX_CARRY ) == M203_GRENADE_MAX_CARRY );
+	}
+
+	SECTION( "Custom game rules can extend ammo capacity beyond standard single-byte caps" )
+	{
+		CTestHookRules customRules;
+		customRules.m_customMaxAmmo = 500;
+
+		CHECK( customRules.GetMaxAmmo( "9mm", _9MM_MAX_CARRY ) == 500 );
+		CHECK( customRules.GetMaxAmmo( "rockets", ROCKET_MAX_CARRY ) == 500 );
+	}
+
+	SECTION( "Custom game rules fallback to default when not overridden for specific ammo" )
+	{
+		CTestHookRules customRules;
+		// m_customMaxAmmo is -1 by default
+		CHECK( customRules.GetMaxAmmo( "9mm", _9MM_MAX_CARRY ) == _9MM_MAX_CARRY );
+		CHECK( customRules.GetMaxAmmo( "rockets", ROCKET_MAX_CARRY ) == ROCKET_MAX_CARRY );
 	}
 
 	delete pVanillaRules;

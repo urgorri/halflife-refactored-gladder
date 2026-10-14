@@ -474,3 +474,4 @@ TEST_CASE( "Server: Dead player corpse angles locked against incoming user comma
 		CHECK( vecDeathAngles[2] == 0.0f );
 	}
 }
+

@@ -41,6 +41,7 @@ struct MockSoundCall
 	int pitch;
 };
 extern std::vector<MockSoundCall> g_mockEmittedSounds;
+
 void SetMockTraceLineResult( const TraceResult &tr );
 void ResetMockEngine();
 void InitMockEngine();
