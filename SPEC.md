@@ -265,6 +265,13 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * Striking and fatally gibbing entities with the charged attack must safely validate target entity pointers both before and after applying multi-damage (`ApplyMultiDamage`), preventing stale entity dereferences when the victim is gibbed into fragments or removed from memory.
 * Additionally, client prediction for the heavy swing must remain fully aligned with the server state machine, ensuring hit animations and impact acoustic cues predict cleanly without desynchronization.
 
+### 7.12 Developer Cheat: `impulse 101` Full Loadout
+* With `sv_cheats 1`, `impulse 101` must grant the **complete available equipment set**, not only the vanilla Half-Life arsenal.
+* **Vanilla set (unchanged)**: HEV suit, battery, crowbar, 9mm handgun, shotgun, MP5 and M203 grenades, hand grenades, tripmines, .357, crossbow, Egon, Gauss, RPG, satchel charges, snarks, hivehand, plus their ammunition.
+* **Gladder extended set (additive)**: every extended weapon implemented in the mod (`weapon_pipewrench`, `weapon_knife`, `weapon_eagle`, `weapon_sniper`, `weapon_m249`, and any future Opposing Force weapon such as the Spore Launcher, Shock Rifle or Displacer Cannon once implemented), plus the matching ammunition (`ammo_762`, `ammo_556`, and any other ammo entity those weapons use).
+* **Maintainability**: new weapons and ammo must be added to the cheat by registering them with the cheat loadout extension point, not by editing the vanilla list. Forgetting a new weapon must be caught by a unit test that compares the registered weapon roster (§3, §7.1) with the `impulse 101` grant list.
+* The cheat must respect the existing `MAX_WEAPONS` limit (weapon IDs up to 31) and must not alter vanilla behavior in non-Gladder game rules.
+
 ---
 
 ## 8. Arcade Audio Cues & Soundscapes

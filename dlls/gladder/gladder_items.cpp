@@ -82,10 +82,23 @@ void CGladderItemLambda::RegisterItems( void )
 	ItemRegistry::Register( descCollectible );
 }
 
+void GladderRegisterImpulse101Items( void )
+{
+	// Opposing Force Extended Arsenal and custom ammunition (SPEC §7.1, §7.12, Issue #94)
+	ItemRegistry::RegisterImpulse101Item( "weapon_pipewrench" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_knife" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_eagle" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_sniper" );
+	ItemRegistry::RegisterImpulse101Item( "ammo_762" );
+	ItemRegistry::RegisterImpulse101Item( "weapon_m249" );
+	ItemRegistry::RegisterImpulse101Item( "ammo_556" );
+}
+
 static struct GladderItemAutoReg
 {
 	GladderItemAutoReg()
 	{
 		CGladderItemLambda::RegisterItems();
+		GladderRegisterImpulse101Items();
 	}
 } s_autoRegGladderItems;

@@ -14,12 +14,14 @@
 #include "core/player.h"
 #include "gameplay/gamerules.h"
 #include "weapons/weapon_registry.h"
+#include "items/item_registry.h"
 #include "gladder_weapons.h"
 #include "weapon_m249.h"
 
 LINK_ENTITY_TO_CLASS( weapon_m249, CM249 );
 #ifndef CLIENT_DLL
 REGISTER_WEAPON( weapon_m249, 195 );
+REGISTER_IMPULSE101_ITEM( weapon_m249 );
 #endif
 
 void CM249::Spawn()
@@ -156,6 +158,9 @@ void CM249::WeaponIdle( void )
 // 5.56mm SAW Ammo Pickup (ammo_556)
 // ==============================================================================
 LINK_ENTITY_TO_CLASS( ammo_556, CAmmo556 );
+#ifndef CLIENT_DLL
+REGISTER_IMPULSE101_ITEM( ammo_556 );
+#endif
 
 void CAmmo556::Spawn( void )
 {

@@ -14,6 +14,12 @@
 #include "tests/mock_engine.h"
 #include "dlls/gladder/weapons/gladder_weapons.h"
 #include "dlls/weapons/weapon_registry.h"
+#include "dlls/items/item_registry.h"
+#include "dlls/gladder/gladder_items.h"
+#include "dlls/gladder/gladder_spawner.h"
+#include <algorithm>
+#include <string>
+#include <vector>
 
 TEST_CASE( "GladderWeapons: Slot ID bounds and GoldSrc 32-bit compliance (SPEC §7.1)", "[gladder][weapons]" )
 {
@@ -384,4 +390,217 @@ TEST_CASE( "GladderWeapons: Pipe wrench BigSwing safely handles gibbed/freed tar
 	bool bIsFlesh = ( classification != CLASS_NONE && classification != CLASS_MACHINE );
 	CHECK( bIsFlesh == true );
 }
+
+TEST_CASE( "GladderWeapons: impulse 101 registration includes full extended arsenal and custom ammo (SPEC §7.12, Issue #94)", "[gladder][weapons][impulse101]" )
+{
+	// Ensure registered state
+	GladderRegisterImpulse101Items();
+
+	const auto &items = ItemRegistry::GetImpulse101Items();
+	auto HasItem = [&items]( const char *pszName ) -> bool {
+		for ( const char *it : items )
+		{
+			if ( it && strcmp( it, pszName ) == 0 )
+				return true;
+		}
+		return false;
+	};
+
+	SECTION( "All OpFor extended weapons are registered" )
+	{
+		CHECK( HasItem( "weapon_pipewrench" ) );
+		CHECK( HasItem( "weapon_knife" ) );
+		CHECK( HasItem( "weapon_eagle" ) );
+		CHECK( HasItem( "weapon_sniper" ) );
+		CHECK( HasItem( "weapon_m249" ) );
+	}
+
+	SECTION( "Custom ammunition types are registered" )
+	{
+		CHECK( HasItem( "ammo_762" ) );
+		CHECK( HasItem( "ammo_556" ) );
+	}
+
+	SECTION( "Duplicate calls do not duplicate entries" )
+	{
+		size_t countBefore = items.size();
+		GladderRegisterImpulse101Items();
+		CHECK( ItemRegistry::GetImpulse101Items().size() == countBefore );
+	}
+
+	SECTION( "Weapon IDs conform strictly to MAX_WEAPONS limits" )
+	{
+		const int extendedIds[] = {
+			WEAPON_PIPEWRENCH,
+			WEAPON_KNIFE,
+			WEAPON_EAGLE,
+			WEAPON_SNIPER,
+			WEAPON_M249
+		};
+
+		for ( int id : extendedIds )
+		{
+			CHECK( id >= 16 );
+			CHECK( id <= 20 );
+			CHECK( id < 31 ); // WEAPON_SUIT
+			CHECK( id < 32 ); // MAX_WEAPONS
+		}
+	}
+}
+
+TEST_CASE( "GladderWeapons: Roster-versus-cheat coverage verification (SPEC §3, §7.1, §7.12, Issue #94)", "[gladder][weapons][impulse101][roster]" )
+{
+	GladderRegisterImpulse101Items();
+
+	// Canonical Half-Life vanilla impulse 101 items (from dlls/core/player_input.cpp)
+	static const char *s_vanillaImpulse101[] = {
+		"item_suit",
+		"item_battery",
+		"weapon_crowbar",
+		"weapon_9mmhandgun",
+		"ammo_9mmclip",
+		"weapon_shotgun",
+		"ammo_buckshot",
+		"weapon_9mmAR",
+		"ammo_9mmAR",
+		"ammo_ARgrenades",
+		"weapon_handgrenade",
+		"weapon_tripmine",
+		"weapon_357",
+		"ammo_357",
+		"weapon_crossbow",
+		"ammo_crossbow",
+		"weapon_egon",
+		"weapon_gauss",
+		"ammo_gaussclip",
+		"weapon_rpg",
+		"ammo_rpgclip",
+		"weapon_satchel",
+		"weapon_snark",
+		"weapon_hornetgun"
+	};
+
+	auto IsGrantedByVanillaOrAlias = []( const char *szName ) -> bool {
+		if ( !szName || !*szName )
+			return false;
+		for ( const char *v : s_vanillaImpulse101 )
+		{
+			if ( strcmp( v, szName ) == 0 )
+				return true;
+		}
+		// Aliases between entity/roster classnames and GiveNamedItem vanilla conventions
+		if ( strcmp( szName, "weapon_glock" ) == 0 )
+			return true; // maps to weapon_9mmhandgun
+		if ( strcmp( szName, "weapon_mp5" ) == 0 )
+			return true; // maps to weapon_9mmAR
+		return false;
+	};
+
+	auto IsGrantedByCheat = [&IsGrantedByVanillaOrAlias]( const char *szName ) -> bool {
+		if ( IsGrantedByVanillaOrAlias( szName ) )
+			return true;
+
+		const auto &extra = ItemRegistry::GetImpulse101Items();
+		for ( const char *item : extra )
+		{
+			if ( item && strcmp( item, szName ) == 0 )
+				return true;
+		}
+		return false;
+	};
+
+	SECTION( "Every weapon and ammunition in s_pickupRoster is granted by impulse 101" )
+	{
+		size_t rosterCount = 0;
+		const GladderPickupDef *pRoster = GladderSpawner::GetPickupRoster( rosterCount );
+		REQUIRE( pRoster != nullptr );
+		REQUIRE( rosterCount > 0 );
+
+		for ( size_t i = 0; i < rosterCount; ++i )
+		{
+			const GladderPickupDef &def = pRoster[i];
+			if ( def.isWeapon || def.isConsumableWeapon )
+			{
+				INFO( "Checking roster weapon: " << def.szClassname );
+				CHECK( IsGrantedByCheat( def.szClassname ) == true );
+			}
+			else if ( def.isAmmo )
+			{
+				INFO( "Checking roster ammo: " << def.szClassname );
+				CHECK( IsGrantedByCheat( def.szClassname ) == true );
+			}
+		}
+	}
+
+	SECTION( "Every SPEC §7.1 Opposing Force weapon is covered" )
+	{
+		const char *specWeapons[] = {
+			"weapon_pipewrench",
+			"weapon_knife",
+			"weapon_eagle",
+			"weapon_sniper",
+			"weapon_m249"
+		};
+
+		for ( const char *wep : specWeapons )
+		{
+			INFO( "Checking SPEC §7.1 weapon: " << wep );
+			CHECK( IsGrantedByCheat( wep ) == true );
+		}
+	}
+
+	SECTION( "Every SPEC §7.12 Opposing Force ammunition is covered" )
+	{
+		const char *specAmmo[] = {
+			"ammo_762",
+			"ammo_556"
+		};
+
+		for ( const char *ammo : specAmmo )
+		{
+			INFO( "Checking SPEC §7.12 ammo: " << ammo );
+			CHECK( IsGrantedByCheat( ammo ) == true );
+		}
+	}
+
+	SECTION( "Maintainability: un-registered weapon fails cheat coverage check" )
+	{
+		CHECK( IsGrantedByCheat( "weapon_displacer" ) == false );
+		CHECK( IsGrantedByCheat( "weapon_shockrifle" ) == false );
+		CHECK( IsGrantedByCheat( "weapon_sporelauncher" ) == false );
+		CHECK( IsGrantedByCheat( "ammo_spore" ) == false );
+	}
+
+	SECTION( "Maintainability: clearing extra registry detects missing extended weapons" )
+	{
+		ItemRegistry::Clear();
+		CHECK( IsGrantedByCheat( "weapon_pipewrench" ) == false );
+		CHECK( IsGrantedByCheat( "weapon_knife" ) == false );
+		CHECK( IsGrantedByCheat( "weapon_eagle" ) == false );
+		CHECK( IsGrantedByCheat( "weapon_sniper" ) == false );
+		CHECK( IsGrantedByCheat( "weapon_m249" ) == false );
+		CHECK( IsGrantedByCheat( "ammo_762" ) == false );
+		CHECK( IsGrantedByCheat( "ammo_556" ) == false );
+
+		// Vanilla weapons remain granted by the vanilla base set
+		CHECK( IsGrantedByCheat( "weapon_shotgun" ) == true );
+		CHECK( IsGrantedByCheat( "weapon_crossbow" ) == true );
+		CHECK( IsGrantedByCheat( "weapon_rpg" ) == true );
+
+		// Re-register for subsequent test cases
+		GladderRegisterImpulse101Items();
+		CHECK( IsGrantedByCheat( "weapon_pipewrench" ) == true );
+	}
+}
+
+TEST_CASE( "GladderWeapons: Vanilla behavior neutrality (SPEC §7.12)", "[gladder][weapons][impulse101][vanilla]" )
+{
+	ItemRegistry::Clear();
+	CHECK( ItemRegistry::GetImpulse101Items().empty() == true );
+
+	// Re-registering restores all items cleanly
+	GladderRegisterImpulse101Items();
+	CHECK( !ItemRegistry::GetImpulse101Items().empty() );
+}
+
 

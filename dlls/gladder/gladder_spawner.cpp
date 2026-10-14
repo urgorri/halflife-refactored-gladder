@@ -618,6 +618,12 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 	return s_pickupRoster[pSelectedList->back()].szClassname;
 }
 
+const GladderPickupDef *GladderSpawner::GetPickupRoster( size_t &outCount )
+{
+	outCount = s_pickupRosterCount;
+	return s_pickupRoster;
+}
+
 bool GladderSpawner::IsLargeMonster( const char *szClassname )
 {
 	if ( !szClassname || !*szClassname )

@@ -14,12 +14,14 @@
 #include "core/player.h"
 #include "gameplay/gamerules.h"
 #include "weapons/weapon_registry.h"
+#include "items/item_registry.h"
 #include "gladder_weapons.h"
 #include "weapon_sniper.h"
 
 LINK_ENTITY_TO_CLASS( weapon_sniper, CSniperRifle );
 #ifndef CLIENT_DLL
 REGISTER_WEAPON( weapon_sniper, 185 );
+REGISTER_IMPULSE101_ITEM( weapon_sniper );
 #endif
 
 void CSniperRifle::Spawn()
@@ -194,6 +196,9 @@ void CSniperRifle::WeaponIdle( void )
 // 7.62mm Sniper Ammo Pickup (ammo_762)
 // ==============================================================================
 LINK_ENTITY_TO_CLASS( ammo_762, CSniperAmmo );
+#ifndef CLIENT_DLL
+REGISTER_IMPULSE101_ITEM( ammo_762 );
+#endif
 
 void CSniperAmmo::Spawn( void )
 {

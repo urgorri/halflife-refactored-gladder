@@ -116,6 +116,9 @@ class GladderSpawner
 	// Entity properties query
 	static bool IsLargeMonster( const char *szClassname );
 
+	// Roster query (SPEC §3, §7.1, §7.12)
+	static const GladderPickupDef *GetPickupRoster( size_t &outCount );
+
 	// Procedural rolling helpers (SPEC §3, Issue #39, #78, #79)
 	static const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
 	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr );

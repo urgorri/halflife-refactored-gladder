@@ -26,4 +26,7 @@ class CGladderItemLambda : public CItem
 	static void RegisterItems( void );
 };
 
+// Registers all Gladder extended weapons and ammunitions for impulse 101 cheat loadout (SPEC §7.12)
+void GladderRegisterImpulse101Items( void );
+
 #endif // GLADDER_ITEMS_H
