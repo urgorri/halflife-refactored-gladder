@@ -109,6 +109,7 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/gladder/gladder_cl_usermsg.o \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_combo.o \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_wave_notify.o \
+	$(HL1_OBJ_DIR)/gladder/hud_gladder_lambda.o \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_summary.o \
 
 

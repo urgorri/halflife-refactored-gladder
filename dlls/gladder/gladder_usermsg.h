@@ -18,6 +18,7 @@ extern int gmsgGladderTelemetry;
 extern int gmsgGladderCombo;
 extern int gmsgGladderNotify;
 extern int gmsgGladderSummary;
+extern int gmsgGladderLambda;
 #endif
 
 // Message names (must be <= 11 characters in GoldSrc engine REG_USER_MSG)
@@ -26,6 +27,7 @@ extern int gmsgGladderSummary;
 #define GLADDER_MSG_COMBO_NAME "GladCombo"
 #define GLADDER_MSG_NOTIFY_NAME "GladNotify"
 #define GLADDER_MSG_SUMMARY_NAME "GladSumm"
+#define GLADDER_MSG_LAMBDA_NAME "GladLambda"
 
 // Fixed sizes for network messages (-1 means variable, or exact byte count)
 // GladderWave wire format (7 bytes total):
@@ -54,6 +56,11 @@ extern int gmsgGladderSummary;
 //   WRITE_BYTE  iWaveNumber      (1 byte: 1..255)
 //   WRITE_BYTE  iMutatorType     (1 byte: GladderMutatorType)
 #define GLADDER_MSG_NOTIFY_SIZE 3
+
+// GladderLambda wire format (6 bytes total, SPEC §7.3, Issue #92):
+//   WRITE_LONG  iScoreBonus       (4 bytes)
+//   WRITE_SHORT iCollectibleCount (2 bytes)
+#define GLADDER_MSG_LAMBDA_SIZE 6
 
 // GladderSummary wire format (Variable size: -1):
 //   WRITE_BYTE  bSurvived        (1 byte: 0 = KIA, 1 = Survived)

@@ -199,6 +199,7 @@
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_combo.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_lambda.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_items.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_visuals.cpp" />

@@ -384,6 +384,7 @@ if(BUILD_TESTS)
         cl_dll/gladder/hud_gladder_overlay.cpp
         cl_dll/gladder/hud_gladder_combo.cpp
         cl_dll/gladder/hud_gladder_wave_notify.cpp
+        cl_dll/gladder/hud_gladder_lambda.cpp
         cl_dll/gladder/hud_gladder_summary.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp

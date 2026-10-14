@@ -9,7 +9,9 @@
 #include "gladder_audio.h"
 #include "gladder_rules.h"
 #include "gladder_scoring.h"
+#include "gladder_usermsg.h"
 #include "items/item_registry.h"
+
 
 LINK_ENTITY_TO_CLASS( item_gladder_lambda, CGladderItemLambda );
 LINK_ENTITY_TO_CLASS( item_gladder_collectible, CGladderItemLambda );
@@ -50,18 +52,29 @@ void CGladderItemLambda::ItemTouch( CBaseEntity *pOther )
 		return;
 
 	// Award score bonus & telemetry progression
+	int iCollectibleCount = 1;
 	if ( g_pGameRules )
 	{
 		CGladderRules *pRules = (CGladderRules *)g_pGameRules;
 		if ( pRules )
 		{
 			pRules->IncrementCollectibles();
+			iCollectibleCount = pRules->GetCollectiblesCount();
 		}
 	}
 
 	GladderAudio::PlayCue( GLADDER_CUE_COLLECTIBLE, pOther );
 	ALERT( at_console, "[Gladder] Collectible picked up by %s (+%d pts)\n",
 	       STRING( pOther->pev->netname ), GladderScoring::LAMBDA_COLLECTIBLE_POINTS );
+
+	// Center-Screen Lambda Pickup Notification (SPEC §7.3, Issue #92)
+	if ( gmsgGladderLambda && pOther->pev )
+	{
+		MESSAGE_BEGIN( MSG_ONE, gmsgGladderLambda, NULL, pOther->pev );
+		WRITE_LONG( GladderScoring::LAMBDA_COLLECTIBLE_POINTS );
+		WRITE_SHORT( iCollectibleCount );
+		MESSAGE_END();
+	}
 
 	SetTouch( nullptr );
 	UTIL_Remove( this );

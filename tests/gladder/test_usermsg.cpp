@@ -174,3 +174,41 @@ TEST_CASE( "Gladder UserMsg: GladSumm Serialization Symmetry (#14, #16)", "[glad
 	CHECK( msg.speciesLog[2].speciesName == "Vortigaunts" );
 	CHECK( msg.speciesLog[2].kills == 18 );
 }
+
+TEST_CASE( "Gladder UserMsg: GladLambda Serialization Symmetry (SPEC §7.3, Issue #92)", "[gladder][hud][usermsg]" )
+{
+	std::vector<uint8_t> buf;
+	WriteInt32( buf, 1000 ); // Score bonus
+	WriteInt16( buf, 5 );    // Collectible count
+
+	REQUIRE( buf.size() == GLADDER_MSG_LAMBDA_SIZE );
+
+	GladderLambdaMsg msg;
+	SECTION( "Valid buffer parsing" )
+	{
+		REQUIRE( Gladder_ParseLambdaMsg( buf.data(), static_cast<int>( buf.size() ), msg ) == true );
+		CHECK( msg.iScoreBonus == 1000 );
+		CHECK( msg.iCollectibleCount == 5 );
+	}
+
+	SECTION( "Oversized buffer parsing" )
+	{
+		buf.push_back( 0xFF );
+		buf.push_back( 0xEE );
+		REQUIRE( Gladder_ParseLambdaMsg( buf.data(), static_cast<int>( buf.size() ), msg ) == true );
+		CHECK( msg.iScoreBonus == 1000 );
+		CHECK( msg.iCollectibleCount == 5 );
+	}
+
+	SECTION( "Truncated buffer fails gracefully" )
+	{
+		CHECK( Gladder_ParseLambdaMsg( buf.data(), 5, msg ) == false );
+		CHECK( Gladder_ParseLambdaMsg( buf.data(), 0, msg ) == false );
+	}
+
+	SECTION( "Null buffer fails gracefully" )
+	{
+		CHECK( Gladder_ParseLambdaMsg( nullptr, 6, msg ) == false );
+	}
+}
+

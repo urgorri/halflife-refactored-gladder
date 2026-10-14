@@ -77,11 +77,18 @@ struct GladderSummaryMsg
 	std::vector<GladderSpeciesFrag> speciesLog;
 };
 
+struct GladderLambdaMsg
+{
+	int iScoreBonus       = 0;
+	int iCollectibleCount = 0;
+};
+
 // Safe buffer parsing functions (used by client hooks and test suites)
 bool Gladder_ParseWaveMsg( const void *pbuf, int iSize, GladderWaveMsg &outMsg );
 bool Gladder_ParseTelemetryMsg( const void *pbuf, int iSize, GladderTelemetryMsg &outMsg );
 bool Gladder_ParseComboMsg( const void *pbuf, int iSize, GladderComboMsg &outMsg );
 bool Gladder_ParseNotifyMsg( const void *pbuf, int iSize, GladderNotifyMsg &outMsg );
 bool Gladder_ParseSummaryMsg( const void *pbuf, int iSize, GladderSummaryMsg &outMsg );
+bool Gladder_ParseLambdaMsg( const void *pbuf, int iSize, GladderLambdaMsg &outMsg );
 
 #endif // GLADDER_CL_USERMSG_H

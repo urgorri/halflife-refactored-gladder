@@ -113,6 +113,7 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/gladder_cl_usermsg.o \
 	$(TESTS_OBJ_DIR)/hud_gladder_combo.o \
 	$(TESTS_OBJ_DIR)/hud_gladder_wave_notify.o \
+	$(TESTS_OBJ_DIR)/hud_gladder_lambda.o \
 	$(TESTS_OBJ_DIR)/hud_gladder_summary.o \
 	$(TESTS_OBJ_DIR)/test_crosshair_fallback.o \
 	$(TESTS_OBJ_DIR)/test_leaderboard.o \
@@ -326,6 +327,9 @@ $(TESTS_OBJ_DIR)/hud_gladder_combo.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_c
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/hud_gladder_wave_notify.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_wave_notify.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/hud_gladder_lambda.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_lambda.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/hud_gladder_summary.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_summary.cpp | dirs
