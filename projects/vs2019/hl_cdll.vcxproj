@@ -215,6 +215,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_overlay.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_weapons.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_events.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_usermsg.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_combo.cpp" />

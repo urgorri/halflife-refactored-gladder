@@ -12,19 +12,7 @@
 #define WEAPON_SNIPER_H
 
 #include "weapons/weapon_base.h"
-
-enum SniperAnim
-{
-	SNIPER_IDLE1 = 0,
-	SNIPER_FIRE,
-	SNIPER_FIRELAST,
-	SNIPER_RELOAD1,
-	SNIPER_RELOAD2,
-	SNIPER_RELOAD3,
-	SNIPER_SLOWIDLE,
-	SNIPER_HOLSTER,
-	SNIPER_DRAW
-};
+#include "gladder_weapons.h"
 
 class CSniperRifle : public CBasePlayerWeapon
 {

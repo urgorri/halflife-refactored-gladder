@@ -105,6 +105,7 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_overlay.o \
 	$(HL1_OBJ_DIR)/gladder/gladder_visuals.o \
 	$(HL1_OBJ_DIR)/gladder/gladder_cl_weapons.o \
+	$(HL1_OBJ_DIR)/gladder/gladder_cl_events.o \
 	$(HL1_OBJ_DIR)/gladder/gladder_crosshair.o \
 	$(HL1_OBJ_DIR)/gladder/gladder_cl_usermsg.o \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_combo.o \

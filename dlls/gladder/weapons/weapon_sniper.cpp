@@ -22,12 +22,12 @@ LINK_ENTITY_TO_CLASS( weapon_sniper, CSniperRifle );
 LINK_ENTITY_TO_CLASS( weapon_sniperrifle, CSniperRifle );
 #ifndef CLIENT_DLL
 REGISTER_WEAPON( weapon_sniper, 185 );
-REGISTER_WEAPON( weapon_sniperrifle, 185 );
 REGISTER_IMPULSE101_ITEM( weapon_sniper );
 #endif
 
 void CSniperRifle::Spawn()
 {
+	pev->classname = MAKE_STRING( "weapon_sniper" );
 	Precache();
 	m_iId = WEAPON_SNIPER;
 	SET_MODEL( ENT( pev ), "models/w_m40a1.mdl" );
@@ -60,7 +60,7 @@ void CSniperRifle::Precache( void )
 
 int CSniperRifle::GetItemInfo( ItemInfo *p )
 {
-	p->pszName   = STRING( pev->classname );
+	p->pszName   = "weapon_sniper";
 	p->pszAmmo1  = "762";
 	p->iMaxAmmo1 = WEAPON_GET_MAX_AMMO( "762", _762_MAX_CARRY );
 	p->pszAmmo2  = NULL;

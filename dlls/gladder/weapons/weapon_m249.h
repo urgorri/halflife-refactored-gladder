@@ -12,25 +12,14 @@
 #define WEAPON_M249_H
 
 #include "weapons/weapon_base.h"
-
-enum M249Anim
-{
-	M249_SLOWIDLE = 0,
-	M249_IDLE2,
-	M249_LAUNCH,
-	M249_RELOAD1,
-	M249_HOLSTER,
-	M249_DRAW,
-	M249_SHOOT1,
-	M249_SHOOT2
-};
+#include "gladder_weapons.h"
 
 class CM249 : public CBasePlayerWeapon
 {
   public:
 	void Spawn( void ) override;
 	void Precache( void ) override;
-	int iItemSlot( void ) override { return 4; }
+	int iItemSlot( void ) override { return 3; }
 	int GetItemInfo( ItemInfo *p ) override;
 
 	BOOL Deploy( void ) override;

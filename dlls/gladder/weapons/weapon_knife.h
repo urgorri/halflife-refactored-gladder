@@ -12,23 +12,7 @@
 #define WEAPON_KNIFE_H
 
 #include "weapons/weapon_base.h"
-
-enum KnifeAnim
-{
-	KNIFE_IDLE1 = 0,
-	KNIFE_DRAW,
-	KNIFE_HOLSTER,
-	KNIFE_ATTACK1,
-	KNIFE_ATTACK1MISS,
-	KNIFE_ATTACK2,
-	KNIFE_ATTACK2HIT,
-	KNIFE_ATTACK3,
-	KNIFE_ATTACK3HIT,
-	KNIFE_IDLE2,
-	KNIFE_IDLE3,
-	KNIFE_CHARGE,
-	KNIFE_STAB
-};
+#include "gladder_weapons.h"
 
 class CKnife : public CBasePlayerWeapon
 {

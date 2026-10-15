@@ -12,21 +12,7 @@
 #define WEAPON_EAGLE_H
 
 #include "weapons/weapon_base.h"
-
-enum EagleAnim
-{
-	EAGLE_IDLE1 = 0,
-	EAGLE_IDLE2,
-	EAGLE_IDLE3,
-	EAGLE_IDLE4,
-	EAGLE_IDLE5,
-	EAGLE_SHOOT,
-	EAGLE_SHOOT_EMPTY,
-	EAGLE_RELOAD_NOSHOT,
-	EAGLE_RELOAD,
-	EAGLE_DRAW,
-	EAGLE_HOLSTER
-};
+#include "gladder_weapons.h"
 
 class CEagle : public CBasePlayerWeapon
 {

@@ -447,6 +447,9 @@
     <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_weapons.cpp">
       <Filter>Source Files\cl_dll\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_events.cpp">
+      <Filter>Source Files\cl_dll\gladder</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp">
       <Filter>Source Files\cl_dll\gladder</Filter>
     </ClCompile>
