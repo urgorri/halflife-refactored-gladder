@@ -587,6 +587,17 @@ BOOL CGladderRules::FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerItem *
 	return CHalfLifeRules::FShouldSwitchWeapon( pPlayer, pWeapon );
 }
 
+int CGladderRules::GetMaxAmmo( const char *pszAmmoName, int iDefaultMaxCarry )
+{
+	// Ammunition and explosive carry limits decoupled and extended towards infinity (SPEC §3, §7.14, Issue #97)
+	if ( GladderIsExtendedAmmo( pszAmmoName ) )
+	{
+		return GLADDER_EXTENDED_AMMO_MAX;
+	}
+
+	return CHalfLifeRules::GetMaxAmmo( pszAmmoName, iDefaultMaxCarry );
+}
+
 float CGladderRules::FlHealthChargerCapacity( void )
 {
 	return GladderModifiers::CalculateHealthChargerCapacity( m_waveManager.GetWaveNumber(), gSkillData.healthchargerCapacity );

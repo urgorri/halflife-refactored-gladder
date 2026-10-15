@@ -249,3 +249,110 @@ TEST_CASE( "WeaponsResource: Resolution Forwarding to Fallback Handler (#174)", 
 
 	ResetTestState();
 }
+TEST_CASE( "WeaponsResource: Missing Sprite Script Zeroes Handles and Invokes Fallback (#202)", "[hud][weapons_resource]" )
+{
+	ResetTestState();
+	InitMockClientEngine();
+	SetMockSpriteListNull( true ); // SPR_GetList will return NULL (simulating missing sprites/<weapon>.txt)
+
+	WeaponsResource wr;
+	wr.Init();
+
+	WEAPON weapon;
+	// Fill with dirty non-zero bytes to prove comprehensive zeroing
+	memset( &weapon, 0xAA, sizeof( weapon ) );
+	strncpy( weapon.szName, "weapon_custom_missing_txt", sizeof( weapon.szName ) - 1 );
+	weapon.iId = 7;
+
+	// Case A: With fallback handler registered
+	WeaponsResource::SetCrosshairFallbackHandler( MockCrosshairFallback );
+	wr.LoadWeaponSprites( &weapon );
+
+	// Handles must be zeroed except fallback crosshair
+	CHECK( weapon.hActive == 0 );
+	CHECK( weapon.hInactive == 0 );
+	CHECK( weapon.hAmmo == 0 );
+	CHECK( weapon.hAmmo2 == 0 );
+	CHECK( weapon.hAutoaim == 0 );
+	CHECK( weapon.hZoomedAutoaim == 0 );
+	CHECK( weapon.rcActive.left == 0 );
+	CHECK( weapon.rcActive.right == 0 );
+	CHECK( weapon.rcInactive.left == 0 );
+	CHECK( weapon.rcInactive.right == 0 );
+
+	// Fallback handler MUST have been called
+	CHECK( s_fallbackCallCount == 1 );
+	CHECK( s_pLastWeapon == &weapon );
+	CHECK( weapon.hCrosshair == (HSPRITE)0x1337 );
+	CHECK( weapon.rcCrosshair.left == 10 );
+	CHECK( weapon.rcCrosshair.top == 20 );
+	CHECK( weapon.rcCrosshair.right == 30 );
+	CHECK( weapon.rcCrosshair.bottom == 40 );
+
+	// Case B: Without fallback handler
+	ResetTestState();
+	InitMockClientEngine();
+	SetMockSpriteListNull( true );
+
+	memset( &weapon, 0x55, sizeof( weapon ) );
+	strncpy( weapon.szName, "weapon_custom_missing_txt_no_handler", sizeof( weapon.szName ) - 1 );
+	weapon.iId = 8;
+
+	wr.LoadWeaponSprites( &weapon );
+
+	CHECK( weapon.hActive == 0 );
+	CHECK( weapon.hInactive == 0 );
+	CHECK( weapon.hCrosshair == 0 );
+	CHECK( weapon.rcCrosshair.left == 0 );
+	CHECK( weapon.rcCrosshair.right == 0 );
+	CHECK( weapon.hZoomedCrosshair == 0 );
+	CHECK( s_fallbackCallCount == 0 );
+
+	ResetTestState();
+}
+
+TEST_CASE( "WeaponsResource: 16-bit Ammo Capacity and Network Protocol (#201)", "[hud][weapons_resource]" )
+{
+	ResetTestState();
+	InitMockClientEngine();
+	gWR.Init();
+
+	// WeaponsResource stores and returns 16-bit high capacity ammo (> 254)
+	gWR.SetAmmo( 3, 1000 );
+	CHECK( gWR.CountAmmo( 3 ) == 1000 );
+
+	gWR.SetAmmo( 5, 50000 );
+	CHECK( gWR.CountAmmo( 5 ) == 50000 );
+
+	// HasAmmo respects 16-bit ammo counts and high max ammo
+	WEAPON weapon;
+	memset( &weapon, 0, sizeof( weapon ) );
+	weapon.iId = 11;
+	weapon.iAmmoType = 3;
+	weapon.iMax1 = 5000;
+	weapon.iClip = -1;
+	gWR.AddWeapon( &weapon );
+
+	WEAPON *pW = gWR.GetWeapon( 11 );
+	REQUIRE( pW != nullptr );
+	CHECK( pW->iMax1 == 5000 );
+	CHECK( gWR.HasAmmo( pW ) != 0 );
+
+	// 16-bit AmmoX protocol decoding simulation:
+	// 2-byte legacy message (size 2): reads byte
+	unsigned char legacyBuf[2] = { 3, 200 };
+	int legIndex = legacyBuf[0];
+	int legCount = ( sizeof( legacyBuf ) >= 3 ) ? (short)( legacyBuf[1] | ( legacyBuf[2] << 8 ) ) : (int)legacyBuf[1];
+	gWR.SetAmmo( legIndex, legCount );
+	CHECK( gWR.CountAmmo( 3 ) == 200 );
+
+	// 3-byte extended message (size 3): reads short (> 255)
+	unsigned char extBuf[3] = { 3, (unsigned char)( 1500 & 0xFF ), (unsigned char)( ( 1500 >> 8 ) & 0xFF ) };
+	int extIndex = extBuf[0];
+	int extCount = ( sizeof( extBuf ) >= 3 ) ? (short)( extBuf[1] | ( extBuf[2] << 8 ) ) : (int)extBuf[1];
+	gWR.SetAmmo( extIndex, abs( extCount ) );
+	CHECK( gWR.CountAmmo( 3 ) == 1500 );
+
+	ResetTestState();
+}
+

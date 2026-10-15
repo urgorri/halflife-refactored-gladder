@@ -420,25 +420,62 @@ TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qua
 	}
 }
 
-TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct fiery crimson glow shell (SPEC §3, §7.2)", "[gladder][visuals][ordnance]" )
+TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct radiant blue glow shell (SPEC §3, §7.2, Issue #98)", "[gladder][visuals][ordnance]" )
 {
-	cl_entity_t entGrenade;
-	memset( &entGrenade, 0, sizeof( entGrenade ) );
-	entGrenade.curstate.solid = SOLID_TRIGGER;
+	SECTION( "GladderGetPickupGlowColor returns correct color tuples" )
+	{
+		unsigned char r = 0, g = 0, b = 0;
+		GladderGetPickupGlowColor( GLADDER_PICKUP_ORDNANCE, r, g, b );
+		CHECK( r == 32 );
+		CHECK( g == 128 );
+		CHECK( b == 255 );
 
-	GladderPickupVisualModifier( 0, &entGrenade, "models/w_grenade.mdl" );
-	CHECK( entGrenade.curstate.renderfx == kRenderFxGlowShell );
-	CHECK( entGrenade.curstate.rendercolor.r == 255 );
-	CHECK( entGrenade.curstate.rendercolor.g == 48 );
-	CHECK( entGrenade.curstate.rendercolor.b == 48 );
+		GladderGetPickupGlowColor( GLADDER_PICKUP_HEALTH, r, g, b );
+		CHECK( r == 32 );
+		CHECK( g == 255 );
+		CHECK( b == 32 );
 
-	cl_entity_t entShotgun;
-	memset( &entShotgun, 0, sizeof( entShotgun ) );
-	entShotgun.curstate.solid = SOLID_TRIGGER;
+		GladderGetPickupGlowColor( GLADDER_PICKUP_HEV, r, g, b );
+		CHECK( r == 32 );
+		CHECK( g == 192 );
+		CHECK( b == 255 );
 
-	GladderPickupVisualModifier( 0, &entShotgun, "models/w_shotgun.mdl" );
-	CHECK( entShotgun.curstate.renderfx == kRenderFxGlowShell );
-	CHECK( entShotgun.curstate.rendercolor.r == 220 );
-	CHECK( entShotgun.curstate.rendercolor.g == 40 );
-	CHECK( entShotgun.curstate.rendercolor.b == 220 );
+		GladderGetPickupGlowColor( GLADDER_PICKUP_AMMO, r, g, b );
+		CHECK( r == 255 );
+		CHECK( g == 180 );
+		CHECK( b == 20 );
+
+		GladderGetPickupGlowColor( GLADDER_PICKUP_LAMBDA, r, g, b );
+		CHECK( r == 255 );
+		CHECK( g == 140 );
+		CHECK( b == 20 );
+
+		GladderGetPickupGlowColor( GLADDER_PICKUP_WEAPON, r, g, b );
+		CHECK( r == 220 );
+		CHECK( g == 40 );
+		CHECK( b == 220 );
+	}
+
+	SECTION( "Visual modifier applies radiant blue glow to ordnance pickups" )
+	{
+		cl_entity_t entGrenade;
+		memset( &entGrenade, 0, sizeof( entGrenade ) );
+		entGrenade.curstate.solid = SOLID_TRIGGER;
+
+		GladderPickupVisualModifier( 0, &entGrenade, "models/w_grenade.mdl" );
+		CHECK( entGrenade.curstate.renderfx == kRenderFxGlowShell );
+		CHECK( entGrenade.curstate.rendercolor.r == 32 );
+		CHECK( entGrenade.curstate.rendercolor.g == 128 );
+		CHECK( entGrenade.curstate.rendercolor.b == 255 );
+
+		cl_entity_t entShotgun;
+		memset( &entShotgun, 0, sizeof( entShotgun ) );
+		entShotgun.curstate.solid = SOLID_TRIGGER;
+
+		GladderPickupVisualModifier( 0, &entShotgun, "models/w_shotgun.mdl" );
+		CHECK( entShotgun.curstate.renderfx == kRenderFxGlowShell );
+		CHECK( entShotgun.curstate.rendercolor.r == 220 );
+		CHECK( entShotgun.curstate.rendercolor.g == 40 );
+		CHECK( entShotgun.curstate.rendercolor.b == 220 );
+	}
 }

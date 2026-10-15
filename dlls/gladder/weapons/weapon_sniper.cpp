@@ -19,6 +19,7 @@
 #include "weapon_sniper.h"
 
 LINK_ENTITY_TO_CLASS( weapon_sniper, CSniperRifle );
+LINK_ENTITY_TO_CLASS( weapon_sniperrifle, CSniperRifle );
 #ifndef CLIENT_DLL
 REGISTER_WEAPON( weapon_sniper, 185 );
 REGISTER_IMPULSE101_ITEM( weapon_sniper );
@@ -26,6 +27,7 @@ REGISTER_IMPULSE101_ITEM( weapon_sniper );
 
 void CSniperRifle::Spawn()
 {
+	pev->classname = MAKE_STRING( "weapon_sniper" );
 	Precache();
 	m_iId = WEAPON_SNIPER;
 	SET_MODEL( ENT( pev ), "models/w_m40a1.mdl" );
@@ -58,14 +60,14 @@ void CSniperRifle::Precache( void )
 
 int CSniperRifle::GetItemInfo( ItemInfo *p )
 {
-	p->pszName   = STRING( pev->classname );
+	p->pszName   = "weapon_sniper";
 	p->pszAmmo1  = "762";
-	p->iMaxAmmo1 = _762_MAX_CARRY;
+	p->iMaxAmmo1 = WEAPON_GET_MAX_AMMO( "762", _762_MAX_CARRY );
 	p->pszAmmo2  = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip  = SNIPER_MAX_CLIP;
-	p->iSlot     = 2;
-	p->iPosition = 3;
+	p->iSlot     = SNIPER_SLOT;
+	p->iPosition = SNIPER_POSITION;
 	p->iFlags    = 0;
 	p->iId       = m_iId = WEAPON_SNIPER;
 	p->iWeight   = SNIPER_WEIGHT;

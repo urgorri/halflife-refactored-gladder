@@ -141,7 +141,7 @@ int CRpg::GetItemInfo( ItemInfo *p )
 {
 	p->pszName   = STRING( pev->classname );
 	p->pszAmmo1  = "rockets";
-	p->iMaxAmmo1 = ROCKET_MAX_CARRY;
+	p->iMaxAmmo1 = WEAPON_GET_MAX_AMMO( "rockets", ROCKET_MAX_CARRY );
 	p->pszAmmo2  = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip  = RPG_MAX_CLIP;

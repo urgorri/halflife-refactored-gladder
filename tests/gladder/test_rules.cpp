@@ -22,14 +22,7 @@
 #include "dlls/gladder/gladder_wave_manager.h"
 #include "dlls/gladder/gladder_entities.h"
 
-// GladderStaticDecal struct definition matching gladder_rules.h (SPEC §11.3, Issue #49)
-struct GladderStaticDecal
-{
-	Vector origin;
-	int decalIndex;
-	int entityIndex;
-	int modelIndex;
-};
+#include "dlls/gladder/gladder_rules.h"
 
 namespace
 {
@@ -1024,3 +1017,164 @@ TEST_CASE( "Gladder Triggers: Wave start trigger requires complete crossing and 
 		CHECK( CheckCrossing( yMins, yMaxs, entryPos, crossPos ) );
 	}
 }
+
+TEST_CASE( "GladderRules: Extended Ammunition & Explosives Carrying Capacity (SPEC §3, §7.14, Issue #97)", "[gladder][gamerules][ammo][capacity]" )
+{
+	SECTION( "GladderIsExtendedAmmo recognizes all standard ammunition and consumable ordnance pools" )
+	{
+		CHECK( GladderIsExtendedAmmo( "9mm" ) == true );
+		CHECK( GladderIsExtendedAmmo( "357" ) == true );
+		CHECK( GladderIsExtendedAmmo( "buckshot" ) == true );
+		CHECK( GladderIsExtendedAmmo( "bolts" ) == true );
+		CHECK( GladderIsExtendedAmmo( "rockets" ) == true );
+		CHECK( GladderIsExtendedAmmo( "uranium" ) == true );
+		CHECK( GladderIsExtendedAmmo( "ARgrenades" ) == true );
+		CHECK( GladderIsExtendedAmmo( "762" ) == true );
+		CHECK( GladderIsExtendedAmmo( "556" ) == true );
+		CHECK( GladderIsExtendedAmmo( "Hand Grenade" ) == true );
+		CHECK( GladderIsExtendedAmmo( "Satchel Charge" ) == true );
+		CHECK( GladderIsExtendedAmmo( "Trip Mine" ) == true );
+		CHECK( GladderIsExtendedAmmo( "Snarks" ) == true );
+
+		// Case-insensitive verification
+		CHECK( GladderIsExtendedAmmo( "9MM" ) == true );
+		CHECK( GladderIsExtendedAmmo( "hand grenade" ) == true );
+		CHECK( GladderIsExtendedAmmo( "SATCHEL CHARGE" ) == true );
+
+		// Exclusions: null, empty, unknown ammo pools
+		CHECK( GladderIsExtendedAmmo( nullptr ) == false );
+		CHECK( GladderIsExtendedAmmo( "" ) == false );
+		CHECK( GladderIsExtendedAmmo( "unknown_ammo" ) == false );
+		CHECK( GladderIsExtendedAmmo( "Hornets" ) == false );
+	}
+
+	SECTION( "GameRules GetMaxAmmo returns GLADDER_EXTENDED_AMMO_MAX (9999) for all extended ammo pools" )
+	{
+		class CTestGladderAmmoRules : public CTestGladderRulesAutoswitch
+		{
+		  public:
+			int GetMaxAmmo( const char *pszAmmoName, int iDefaultMaxCarry ) override
+			{
+				if ( GladderIsExtendedAmmo( pszAmmoName ) )
+					return GLADDER_EXTENDED_AMMO_MAX;
+				return CTestGladderRulesAutoswitch::GetMaxAmmo( pszAmmoName, iDefaultMaxCarry );
+			}
+		};
+
+		CTestGladderAmmoRules rules;
+
+		// Standard ammunition pools decoupled from small default carry limits
+		CHECK( rules.GetMaxAmmo( "9mm", 250 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "357", 36 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "buckshot", 125 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "bolts", 50 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "rockets", 5 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "uranium", 100 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "ARgrenades", 10 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "762", 30 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "556", 200 ) == GLADDER_EXTENDED_AMMO_MAX );
+
+		// Consumable explosive ordnance decoupled from low caps
+		CHECK( rules.GetMaxAmmo( "Hand Grenade", 10 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "Satchel Charge", 5 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "Trip Mine", 5 ) == GLADDER_EXTENDED_AMMO_MAX );
+		CHECK( rules.GetMaxAmmo( "Snarks", 15 ) == GLADDER_EXTENDED_AMMO_MAX );
+
+		// Fallback for non-extended or custom types
+		CHECK( rules.GetMaxAmmo( "Hornets", 8 ) == 8 );
+		CHECK( rules.GetMaxAmmo( "unknown_ammo", 42 ) == 42 );
+		CHECK( rules.GetMaxAmmo( nullptr, 100 ) == 100 );
+	}
+
+	SECTION( "Player inventory collection beyond 1000 rounds of ammo and explosives" )
+	{
+		InitMockEngine();
+
+		CBasePlayerItem::AmmoInfoArray[1].pszName = "bolts";
+		CBasePlayerItem::AmmoInfoArray[2].pszName = "Hand Grenade";
+		CBasePlayerItem::AmmoInfoArray[3].pszName = "762";
+
+		class CTestGladderAmmoRules : public CTestGladderRulesAutoswitch
+		{
+		  public:
+			int GetMaxAmmo( const char *pszAmmoName, int iDefaultMaxCarry ) override
+			{
+				if ( GladderIsExtendedAmmo( pszAmmoName ) )
+					return GLADDER_EXTENDED_AMMO_MAX;
+				return CTestGladderRulesAutoswitch::GetMaxAmmo( pszAmmoName, iDefaultMaxCarry );
+			}
+
+			BOOL CanHaveAmmo( CBasePlayer *pPlayer, const char *pszAmmoName, int iMaxCarry ) override
+			{
+				if ( !pszAmmoName || !pPlayer )
+					return FALSE;
+
+				int iAmmoIndex = pPlayer->GetAmmoIndex( pszAmmoName );
+				if ( iAmmoIndex > -1 )
+				{
+					if ( pPlayer->AmmoInventory( iAmmoIndex ) < GetMaxAmmo( pszAmmoName, iMaxCarry ) )
+						return TRUE;
+				}
+				return FALSE;
+			}
+		};
+
+		CTestGladderAmmoRules rules;
+		g_pGameRules = &rules;
+
+		// Mock player edict and instance
+		edict_t *pPlayerSlot = GetMockClientEntity( 1 );
+		REQUIRE( pPlayerSlot != nullptr );
+		pPlayerSlot->free = 0;
+		pPlayerSlot->v.flags = FL_CLIENT;
+		pPlayerSlot->v.classname = MAKE_STRING( "player" );
+		pPlayerSlot->v.pContainingEntity = pPlayerSlot;
+		struct MockPlayerHolder
+		{
+			alignas( CBasePlayer ) uint8_t storage[sizeof( CBasePlayer )];
+			MockPlayerHolder()
+			{
+				std::memset( storage, 0, sizeof( storage ) );
+				CBaseEntity baseEnt;
+				std::memcpy( storage, &baseEnt, sizeof( CBaseEntity ) );
+			}
+			CBasePlayer *player()
+			{
+				return reinterpret_cast<CBasePlayer *>( storage );
+			}
+		};
+
+		MockPlayerHolder playerHolder;
+		CBasePlayer *pPlayer = playerHolder.player();
+		pPlayerSlot->pvPrivateData = pPlayer;
+		pPlayer->pev = &pPlayerSlot->v;
+
+		// Simulate player holding 50 bolts (vanilla max)
+		pPlayer->m_rgAmmo[1] = 50;
+		// Under Gladder rules, CanHaveAmmo permits collection because limit is 9999
+		CHECK( rules.CanHaveAmmo( pPlayer, "bolts", 50 ) == TRUE );
+
+		// Simulate stockpiling up to 1500 bolts
+		pPlayer->m_rgAmmo[1] = 1500;
+		CHECK( rules.CanHaveAmmo( pPlayer, "bolts", 50 ) == TRUE );
+
+		// Hand grenades beyond classic cap of 10
+		pPlayer->m_rgAmmo[2] = 10;
+		CHECK( rules.CanHaveAmmo( pPlayer, "Hand Grenade", 10 ) == TRUE );
+		pPlayer->m_rgAmmo[2] = 1200;
+		CHECK( rules.CanHaveAmmo( pPlayer, "Hand Grenade", 10 ) == TRUE );
+
+		// 7.62 rounds beyond classic cap of 30
+		pPlayer->m_rgAmmo[3] = 30;
+		CHECK( rules.CanHaveAmmo( pPlayer, "762", 30 ) == TRUE );
+		pPlayer->m_rgAmmo[3] = 3000;
+		CHECK( rules.CanHaveAmmo( pPlayer, "762", 30 ) == TRUE );
+
+		// When reached GLADDER_EXTENDED_AMMO_MAX, CanHaveAmmo returns FALSE
+		pPlayer->m_rgAmmo[1] = GLADDER_EXTENDED_AMMO_MAX;
+		CHECK( rules.CanHaveAmmo( pPlayer, "bolts", 50 ) == FALSE );
+
+		g_pGameRules = nullptr;
+	}
+}
+

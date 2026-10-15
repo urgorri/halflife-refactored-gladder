@@ -51,6 +51,7 @@ int g_weaponselect = 0;
 
 #define SPR_GetList (*g_mockClientEngineFuncs.pfnSPR_GetList)
 #define SPR_Load (*g_mockClientEngineFuncs.pfnSPR_Load)
+#define gEngfuncs g_mockClientEngineFuncs
 
 int ScreenWidth = 640;
 int ScreenHeight = 480;
@@ -130,12 +131,27 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	pWeapon->hActive   = 0;
 	pWeapon->hAmmo     = 0;
 	pWeapon->hAmmo2    = 0;
+	pWeapon->hCrosshair = 0;
+	memset( &pWeapon->rcCrosshair, 0, sizeof( wrect_t ) );
+	pWeapon->hAutoaim = 0;
+	memset( &pWeapon->rcAutoaim, 0, sizeof( wrect_t ) );
+	pWeapon->hZoomedCrosshair = 0;
+	memset( &pWeapon->rcZoomedCrosshair, 0, sizeof( wrect_t ) );
+	pWeapon->hZoomedAutoaim = 0;
+	memset( &pWeapon->rcZoomedAutoaim, 0, sizeof( wrect_t ) );
 
 	sprintf( sz, "sprites/%s.txt", pWeapon->szName );
 	client_sprite_t *pList = SPR_GetList( sz, &i );
 
 	if ( !pList )
+	{
+		if ( s_pfnCrosshairFallback )
+		{
+			s_pfnCrosshairFallback( pWeapon, iRes );
+		}
+		gEngfuncs.Con_DPrintf( "WeaponsResource::LoadWeaponSprites: could not find sprite list %s\n", sz );
 		return;
+	}
 
 	client_sprite_t *p;
 
@@ -400,7 +416,7 @@ int CHudAmmo::MsgFunc_AmmoX( const char *pszName, int iSize, void *pbuf )
 	BEGIN_READ( pbuf, iSize );
 
 	int iIndex = READ_BYTE();
-	int iCount = READ_BYTE();
+	int iCount = ( iSize >= 3 ) ? READ_SHORT() : READ_BYTE();
 
 	gWR.SetAmmo( iIndex, abs( iCount ) );
 
@@ -411,7 +427,7 @@ int CHudAmmo::MsgFunc_AmmoPickup( const char *pszName, int iSize, void *pbuf )
 {
 	BEGIN_READ( pbuf, iSize );
 	int iIndex = READ_BYTE();
-	int iCount = READ_BYTE();
+	int iCount = ( iSize >= 3 ) ? READ_SHORT() : READ_BYTE();
 
 	// Add ammo to the history
 	gHR.AddToHistory( HISTSLOT_AMMO, iIndex, abs( iCount ) );
@@ -559,6 +575,17 @@ int CHudAmmo::MsgFunc_WeaponList( const char *pszName, int iSize, void *pbuf )
 	Weapon.iId      = READ_CHAR();
 	Weapon.iFlags   = READ_BYTE();
 	Weapon.iClip    = 0;
+
+	int iExtMax1 = READ_SHORT();
+	if ( READ_OK() )
+	{
+		Weapon.iMax1 = iExtMax1;
+		int iExtMax2 = READ_SHORT();
+		if ( READ_OK() )
+		{
+			Weapon.iMax2 = iExtMax2;
+		}
+	}
 
 	if ( Weapon.iId < 0 || Weapon.iId >= MAX_WEAPONS )
 		return 0;
@@ -991,8 +1018,11 @@ int HistoryResource ::DrawAmmoHistory( float flTime )
 
 				int ypos = ScreenHeight - ( AMMO_PICKUP_PICK_HEIGHT + ( AMMO_PICKUP_GAP * i ) );
 				int xpos = ScreenWidth - ( weap->rcInactive.right - weap->rcInactive.left );
-				SPR_Set( weap->hInactive, r, g, b );
-				SPR_DrawAdditive( 0, xpos, ypos, &weap->rcInactive );
+				if ( weap->hInactive )
+				{
+					SPR_Set( weap->hInactive, r, g, b );
+					SPR_DrawAdditive( 0, xpos, ypos, &weap->rcInactive );
+				}
 			}
 			else if ( rgAmmoHistory[i].type == HISTSLOT_ITEM )
 			{

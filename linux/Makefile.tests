@@ -202,6 +202,7 @@ $(TESTS_OBJ_DIR)/test_weapons_resource.o: $(TESTS_SRC_DIR)/test_weapons_resource
 
 $(TESTS_OBJ_DIR)/test_weapons_pickup.o: $(TESTS_SRC_DIR)/test_weapons_pickup.cpp | dirs
 	$(DO_TESTS_CXX)
+
 $(TESTS_OBJ_DIR)/user_message_registry.o: $(HLCORE_SRC_DIR)/user_message_registry.cpp | dirs
 	$(DO_TESTS_CXX)
 

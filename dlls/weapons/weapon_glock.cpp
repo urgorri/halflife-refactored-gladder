@@ -21,6 +21,7 @@
 #include "weapons/weapon_glock.h"
 #include "ai/nodes.h"
 #include "core/player.h"
+#include "gameplay/gamerules.h"
 
 enum glock_e
 {
@@ -77,7 +78,7 @@ int CGlock::GetItemInfo( ItemInfo *p )
 {
 	p->pszName   = STRING( pev->classname );
 	p->pszAmmo1  = "9mm";
-	p->iMaxAmmo1 = _9MM_MAX_CARRY;
+	p->iMaxAmmo1 = WEAPON_GET_MAX_AMMO( "9mm", _9MM_MAX_CARRY );
 	p->pszAmmo2  = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip  = GLOCK_MAX_CLIP;
