@@ -92,14 +92,16 @@ static const size_t s_pickupRosterCount = sizeof( s_pickupRoster ) / sizeof( s_p
 // GladderMapConfig Implementation
 //
 GladderMapConfig::GladderMapConfig()
-    : baseMonsters( 6 ),
-      monstersPerWave( 1.5f ),
+    : baseMonsters( 10 ),
+      monstersPerWave( 2.0f ),
       maxMonsters( 32 ),
-      basePickups( 4 ),
-      pickupsPerWave( 0.8f ),
+      basePickups( 6 ),
+      pickupsPerWave( 1.0f ),
       maxPickups( 16 ),
       allowBarnacles( true ),
-      allowFlying( true )
+      allowFlying( true ),
+      routeBiasFraction( 0.60f ),
+      routeCorridorRadius( 512.0f )
 {
 }
 
@@ -188,6 +190,14 @@ bool GladderMapConfig::LoadFromFile( const char *pszFilePath )
 			int val;
 			if ( iss >> val ) allowFlying = ( val != 0 );
 		}
+		else if ( key == "route_bias_fraction" )
+		{
+			iss >> routeBiasFraction;
+		}
+		else if ( key == "route_corridor_radius" )
+		{
+			iss >> routeCorridorRadius;
+		}
 	}
 
 	return true;
@@ -260,8 +270,54 @@ GladderSpawner::GladderSpawner()
     : m_iLastMonsterCount( 0 ),
       m_iLastPickupCount( 0 ),
       m_iLastChampionCount( 0 ),
-      m_bLambdaSpawned( false )
+      m_bLambdaSpawned( false ),
+      m_vecSimulatedStart( g_vecZero ),
+      m_vecSimulatedFinish( g_vecZero ),
+      m_bHasSimulatedRoute( false )
 {
+}
+
+static float GladderDistanceToSegment2D( const Vector &P, const Vector &A, const Vector &B )
+{
+	Vector2D v( B.x - A.x, B.y - A.y );
+	Vector2D w( P.x - A.x, P.y - A.y );
+	float c1 = w.x * v.x + w.y * v.y;
+	if ( c1 <= 0.0f )
+		return w.Length();
+	float c2 = v.x * v.x + v.y * v.y;
+	if ( c2 <= c1 )
+	{
+		Vector2D pb( P.x - B.x, P.y - B.y );
+		return pb.Length();
+	}
+	float b = c1 / c2;
+	Vector2D pb( A.x + b * v.x - P.x, A.y + b * v.y - P.y );
+	return pb.Length();
+}
+
+bool GladderSpawner::GetActiveRoute( Vector &outStart, Vector &outFinish ) const
+{
+	if ( m_bHasSimulatedRoute )
+	{
+		outStart  = m_vecSimulatedStart;
+		outFinish = m_vecSimulatedFinish;
+		return true;
+	}
+
+	CBaseEntity *pStart  = UTIL_FindEntityByClassname( nullptr, "trigger_gladder_start" );
+	CBaseEntity *pFinish = UTIL_FindEntityByClassname( nullptr, "trigger_gladder_finish" );
+	if ( pStart && pFinish )
+	{
+		outStart = ( pStart->pev->absmin.x < pStart->pev->absmax.x ) ?
+		               ( pStart->pev->absmin + pStart->pev->absmax ) * 0.5f :
+		               pStart->pev->origin;
+		outFinish = ( pFinish->pev->absmin.x < pFinish->pev->absmax.x ) ?
+		                ( pFinish->pev->absmin + pFinish->pev->absmax ) * 0.5f :
+		                pFinish->pev->origin;
+		return ( outFinish - outStart ).Length2D() > 100.0f;
+	}
+
+	return false;
 }
 
 GladderSpawner::~GladderSpawner()
@@ -649,6 +705,12 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 	std::vector<SpawnedMonsterRecord> spawned;
 	spawned.reserve( count );
 
+	Vector vecRouteA, vecRouteB;
+	bool bHasRoute = GetActiveRoute( vecRouteA, vecRouteB );
+	int routeQuota = ( bHasRoute && config.routeBiasFraction > 0.0f ) ?
+	                     static_cast<int>( count * config.routeBiasFraction + 0.5f ) :
+	                     0;
+
 	for ( int i = 0; i < count; ++i )
 	{
 		if ( GetFreeEdictCount() <= SAFE_FREE_EDICT_THRESHOLD )
@@ -737,6 +799,25 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			ALERT( at_console, "[Gladder] No free grid cells remaining for monster %d (%s). Stopping wave spawns.\n",
 			       i + 1, szSpecies );
 			break;
+		}
+
+		// Prioritize candidate cells in the Point A -> Point B corridor (SPEC §3, Issue #103)
+		if ( bHasRoute && i < routeQuota )
+		{
+			std::vector<size_t> corridorCandidates;
+			corridorCandidates.reserve( candidates.size() );
+			for ( size_t idx : candidates )
+			{
+				const auto &c = indexer.GetCell( idx );
+				if ( GladderDistanceToSegment2D( c.origin, vecRouteA, vecRouteB ) <= config.routeCorridorRadius )
+				{
+					corridorCandidates.push_back( idx );
+				}
+			}
+			if ( !corridorCandidates.empty() )
+			{
+				candidates = std::move( corridorCandidates );
+			}
 		}
 
 		// Test candidate cells without duplicates to find one that satisfies distance and clearance
@@ -950,63 +1031,108 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 		pOccupiedCells = &localOccupied;
 	}
 
+	Vector vecRouteA, vecRouteB;
+	bool bHasRoute = GetActiveRoute( vecRouteA, vecRouteB );
+	int pickupRouteQuota = ( bHasRoute && config.routeBiasFraction > 0.0f ) ?
+	                           static_cast<int>( count * config.routeBiasFraction + 0.5f ) :
+	                           0;
+
 	for ( int i = 0; i < count; ++i )
 	{
 		if ( GetFreeEdictCount() <= SAFE_FREE_EDICT_THRESHOLD )
 			break;
 
-		int cellIdx = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, pOccupiedCells );
-		if ( cellIdx < 0 )
+		bool bSpawnSuccess = false;
+		for ( int attempt = 0; attempt < 10; ++attempt )
 		{
-			// No more unoccupied cells for pickups
-			break;
-		}
-
-		const auto &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
-		CBasePlayer *pLocalPlayer = gpGlobals ? (CBasePlayer *)UTIL_PlayerByIndex( 1 ) : nullptr;
-		const char *szPickup = RollPickupItem( iWaveNumber, config, pLocalPlayer );
-
-		Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
-		Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
-
-		// Ensure candidate cell does not overlap any spawned monster position
-		bool bMonsterNearby = false;
-		for ( const auto &mPos : m_spawnedMonsterPositions )
-		{
-			if ( ( vecSpawnPos - mPos ).Length2D() < 48.0f )
+			int cellIdx = -1;
+			if ( bHasRoute && i < pickupRouteQuota )
 			{
-				bMonsterNearby = true;
+				std::vector<size_t> corridorCells;
+				for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
+				{
+					if ( ( *pOccupiedCells )[k] )
+						continue;
+					const auto &c = indexer.GetCell( k );
+					if ( ( c.flags & ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) ) == ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) )
+					{
+						if ( GladderDistanceToSegment2D( c.origin, vecRouteA, vecRouteB ) <= config.routeCorridorRadius )
+						{
+							corridorCells.push_back( k );
+						}
+					}
+				}
+				if ( !corridorCells.empty() )
+				{
+					size_t pick = static_cast<size_t>( RANDOM_LONG( 0, static_cast<long>( corridorCells.size() - 1 ) ) );
+					cellIdx = static_cast<int>( corridorCells[pick] );
+				}
+			}
+
+			if ( cellIdx < 0 )
+			{
+				cellIdx = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, pOccupiedCells );
+			}
+
+			if ( cellIdx < 0 )
+			{
+				// No more unoccupied cells for pickups
+				break;
+			}
+
+			const auto &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
+			CBasePlayer *pLocalPlayer = gpGlobals ? (CBasePlayer *)UTIL_PlayerByIndex( 1 ) : nullptr;
+			const char *szPickup = RollPickupItem( iWaveNumber, config, pLocalPlayer );
+
+			Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
+			Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
+
+			// Ensure candidate cell does not overlap any spawned monster position
+			bool bMonsterNearby = false;
+			for ( const auto &mPos : m_spawnedMonsterPositions )
+			{
+				if ( ( vecSpawnPos - mPos ).Length2D() < 48.0f )
+				{
+					bMonsterNearby = true;
+					break;
+				}
+			}
+
+			if ( bMonsterNearby )
+			{
+				( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+				continue;
+			}
+
+			// Live hull check for pickup (point_hull or head_hull)
+			TraceResult trHull;
+			UTIL_TraceHull( vecSpawnPos + Vector( 0, 0, 16 ), vecSpawnPos + Vector( 0, 0, 16 ), dont_ignore_monsters, head_hull, NULL, &trHull );
+			if ( trHull.fStartSolid || trHull.fAllSolid )
+			{
+				( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+				continue;
+			}
+
+			// Ensure pickup does not spawn inside solid brush geometry or breakables (SPEC §11.2, Issue #90)
+			if ( GladderIsPositionSolidOrBrush( vecSpawnPos ) || GladderIsPositionSolidOrBrush( vecSpawnPos + Vector( 0.0f, 0.0f, 8.0f ) ) )
+			{
+				( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+				continue;
+			}
+
+			CBaseEntity *pItem = CreateWaveEntity( szPickup, vecSpawnPos, vecAngles );
+			if ( pItem )
+			{
+				m_iLastPickupCount++;
+				( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+				bSpawnSuccess = true;
 				break;
 			}
 		}
 
-		if ( bMonsterNearby )
+		if ( !bSpawnSuccess )
 		{
-			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
 			continue;
-		}
-
-		// Live hull check for pickup (point_hull or head_hull)
-		TraceResult trHull;
-		UTIL_TraceHull( vecSpawnPos + Vector( 0, 0, 16 ), vecSpawnPos + Vector( 0, 0, 16 ), dont_ignore_monsters, head_hull, NULL, &trHull );
-		if ( trHull.fStartSolid || trHull.fAllSolid )
-		{
-			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
-			continue;
-		}
-
-		// Ensure pickup does not spawn inside solid brush geometry or breakables (SPEC §11.2, Issue #90)
-		if ( GladderIsPositionSolidOrBrush( vecSpawnPos ) || GladderIsPositionSolidOrBrush( vecSpawnPos + Vector( 0.0f, 0.0f, 8.0f ) ) )
-		{
-			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
-			continue;
-		}
-
-		CBaseEntity *pItem = CreateWaveEntity( szPickup, vecSpawnPos, vecAngles );
-		if ( pItem )
-		{
-			m_iLastPickupCount++;
-			( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
 		}
 	}
 }

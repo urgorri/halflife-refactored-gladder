@@ -313,6 +313,9 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_grid_debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -331,6 +334,9 @@
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_grid_debug_client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\tests\gladder\test_crosshair_fallback.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -347,6 +353,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\tests\gladder\test_summary_screen.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\tests\gladder\test_early_wave_pacing.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\tests\gladder\test_grid_debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\pm_shared\pm_debug.c">

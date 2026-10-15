@@ -127,8 +127,21 @@ TEST_CASE( "Gladder Grid Indexer: Corrupted or invalid cache rejection", "[gladd
 	REQUIRE( f != nullptr );
 	const char badMagic[8] = { 'B', 'A', 'D', 'M', 'A', 'G', 'I', 'C' };
 	fwrite( badMagic, 1, 8, f );
-	uint32_t version = 1;
+	uint32_t version = 2;
 	fwrite( &version, sizeof( version ), 1, f );
+	fclose( f );
+
+	CHECK( indexer.LoadFromFile( badFile ) == false );
+
+	// 2b. Outdated format version (v1 cache must be rejected and invalidated, SPEC §4.2, Issue #102)
+	f = fopen( badFile, "wb" );
+	REQUIRE( f != nullptr );
+	GladderGridHeader oldHdr;
+	std::memset( &oldHdr, 0, sizeof( oldHdr ) );
+	std::memcpy( oldHdr.magic, "GLADGRID", 8 );
+	oldHdr.version   = 1;
+	oldHdr.cellCount = 0;
+	fwrite( &oldHdr, sizeof( oldHdr ), 1, f );
 	fclose( f );
 
 	CHECK( indexer.LoadFromFile( badFile ) == false );
@@ -139,7 +152,7 @@ TEST_CASE( "Gladder Grid Indexer: Corrupted or invalid cache rejection", "[gladd
 	GladderGridHeader hdr;
 	std::memset( &hdr, 0, sizeof( hdr ) );
 	std::memcpy( hdr.magic, "GLADGRID", 8 );
-	hdr.version   = 1;
+	hdr.version   = 2;
 	hdr.cellCount = 10;
 	fwrite( &hdr, sizeof( hdr ), 1, f );
 	fclose( f );
@@ -513,7 +526,7 @@ TEST_CASE( "Gladder Grid Indexer: trigger_gladder_area volumetric bounds & netna
 	std::memset( &localPev, 0, sizeof( localPev ) );
 	area.pev = &localPev;
 
-	// Test netname KeyValue handling
+	// Test netname KeyValue handling (the single designer parameter)
 	KeyValueData kvdNetname;
 	std::memset( &kvdNetname, 0, sizeof( kvdNetname ) );
 	kvdNetname.szKeyName = const_cast<char *>( "netname" );
@@ -522,14 +535,28 @@ TEST_CASE( "Gladder Grid Indexer: trigger_gladder_area volumetric bounds & netna
 	CHECK( kvdNetname.fHandled == TRUE );
 	CHECK( std::string( area.GetAreaName() ) == "Sector 1 - Pasillo Central" );
 
-	// Test areaid KeyValue handling
+	// Test that legacy areaname and areaid KeyValues are handled without error but ignored (SPEC §4.2, Issue #102)
+	CHECK( area.GetAreaId() == 0 ); // Default unassigned ID is 0
+
+	KeyValueData kvdLegacyName;
+	std::memset( &kvdLegacyName, 0, sizeof( kvdLegacyName ) );
+	kvdLegacyName.szKeyName = const_cast<char *>( "areaname" );
+	kvdLegacyName.szValue   = const_cast<char *>( "Legacy Name Should Be Ignored" );
+	area.KeyValue( &kvdLegacyName );
+	CHECK( kvdLegacyName.fHandled == TRUE );
+	CHECK( std::string( area.GetAreaName() ) == "Sector 1 - Pasillo Central" ); // Unchanged
+
 	KeyValueData kvdId;
 	std::memset( &kvdId, 0, sizeof( kvdId ) );
 	kvdId.szKeyName = const_cast<char *>( "areaid" );
 	kvdId.szValue   = const_cast<char *>( "42" );
 	area.KeyValue( &kvdId );
 	CHECK( kvdId.fHandled == TRUE );
-	CHECK( area.GetAreaId() == 42 );
+	CHECK( area.GetAreaId() == 0 ); // Ignored: designers do not author numeric IDs
+
+	// Engine automatically assigns incremental area IDs (1, 2, 3...)
+	area.SetAreaId( 1 );
+	CHECK( area.GetAreaId() == 1 );
 
 	// Test volumetric bounds calculation (origin: 576, -260, -12; size: 904, 406, 142)
 	area.pev->origin = Vector( 576.0f, -260.0f, -12.0f );

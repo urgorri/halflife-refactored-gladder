@@ -7,6 +7,7 @@
  ****/
 
 #include "gladder_monster_modifiers.h"
+#include "ai/monsters.h"
 #include "ai/schedule.h"
 #include "ai/activity.h"
 #include <algorithm>
@@ -169,9 +170,47 @@ bool GladderMonsterModifiers::IsMovementSchedule( Schedule_t *pSchedule, CBaseMo
 
 int GladderMonsterModifiers::GetScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask )
 {
+	// Guard against modifying scripted, frozen, or deliberate-wait monsters (SPEC §3, Issue #104)
+	if ( pMonster )
+	{
+		if ( pMonster->m_MonsterState == MONSTERSTATE_SCRIPT )
+			return iDefaultMask;
+
+		if ( pMonster->pev && ( pMonster->pev->flags & FL_FROZEN ) )
+			return iDefaultMask;
+
+		if ( pMonster->pev && ( pMonster->pev->spawnflags & SF_MONSTER_WAIT_TILL_SEEN ) )
+			return iDefaultMask;
+	}
+
 	if ( IsMovementSchedule( pSchedule, pMonster ) )
 	{
-		return iDefaultMask | bits_COND_LIGHT_DAMAGE | bits_COND_HEAVY_DAMAGE;
+		int mask = iDefaultMask | bits_COND_LIGHT_DAMAGE | bits_COND_HEAVY_DAMAGE |
+		           bits_COND_NEW_ENEMY |
+		           bits_COND_CAN_RANGE_ATTACK1 | bits_COND_CAN_RANGE_ATTACK2 |
+		           bits_COND_CAN_MELEE_ATTACK1 | bits_COND_CAN_MELEE_ATTACK2;
+
+		// Guard against schedule thrashing (SPEC §3, Issue #104):
+		// When a monster is actively chasing an enemy (e.g. SCHED_CHASE_ENEMY), seeing the enemy
+		// is the expected condition and should not abort the chase every single frame.
+		// For all other movement schedules (idle walk, patrol, goal-walking, route traversal),
+		// seeing an enemy must immediately break the route so the monster acquires and attacks.
+		bool bIsChaseSchedule = false;
+		if ( pSchedule && pSchedule->pName )
+		{
+			if ( strstr( pSchedule->pName, "Chase" ) || strstr( pSchedule->pName, "chase" ) ||
+			     strstr( pSchedule->pName, "Hunt" ) )
+			{
+				bIsChaseSchedule = true;
+			}
+		}
+
+		if ( !bIsChaseSchedule )
+		{
+			mask |= bits_COND_SEE_ENEMY;
+		}
+
+		return mask;
 	}
 
 	return iDefaultMask;

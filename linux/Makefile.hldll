@@ -114,6 +114,7 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_audio.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_items.o \
 	$(HLDLL_OBJ_DIR)/gladder/gladder_leaderboard.o \
+	$(HLDLL_OBJ_DIR)/gladder/gladder_grid_debug.o \
 	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_knife.o \
 	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_pipewrench.o \
 	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_eagle.o \

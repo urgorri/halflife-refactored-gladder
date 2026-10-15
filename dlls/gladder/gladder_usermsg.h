@@ -19,6 +19,7 @@ extern int gmsgGladderCombo;
 extern int gmsgGladderNotify;
 extern int gmsgGladderSummary;
 extern int gmsgGladderLambda;
+extern int gmsgGladderGridDebug;
 #endif
 
 // Message names (must be <= 11 characters in GoldSrc engine REG_USER_MSG)
@@ -28,6 +29,10 @@ extern int gmsgGladderLambda;
 #define GLADDER_MSG_NOTIFY_NAME "GladNotify"
 #define GLADDER_MSG_SUMMARY_NAME "GladSumm"
 #define GLADDER_MSG_LAMBDA_NAME "GladLambda"
+#define GLADDER_MSG_GRID_DEBUG_NAME "GladGrid"
+
+// Fixed sizes for network messages (-1 means variable, or exact byte count)
+#define GLADDER_MSG_GRID_DEBUG_SIZE -1
 
 // Fixed sizes for network messages (-1 means variable, or exact byte count)
 // GladderWave wire format (7 bytes total):

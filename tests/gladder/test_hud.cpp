@@ -9,6 +9,7 @@
 #include "cl_dll/gladder/hud_gladder_combo.h"
 #include "cl_dll/gladder/hud_gladder_overlay.h"
 #include "cl_dll/gladder/hud_gladder_lambda.h"
+#include "cl_dll/gladder/gladder_grid_debug_client.h"
 
 
 TEST_CASE( "CHudGladderCombo: Multiplier and Decay Meter Tracking (#15)", "[gladder][hud][combo]" )
@@ -106,5 +107,68 @@ TEST_CASE( "CHudGladderLambda: Center-screen notification lifecycle & replacemen
 		CHECK( lambda.GetText()[0] == '\0' );
 		CHECK( lambda.IsDisplaying( 20.5f ) == false );
 	}
+}
+
+TEST_CASE( "Spatial Grid Debug - Client State & Zero-Cost Lifecycle", "[gladder][hud][grid_debug]" )
+{
+	GladderGridDebug_ClientReset();
+	GladderGridDebug_SetClientActive( false );
+
+	REQUIRE_FALSE( GladderGridDebug_IsClientActive() );
+	REQUIRE( GladderGridDebug_GetClientCellCount() == 0 );
+
+	SECTION( "Deallocates memory upon deactivation" )
+	{
+		GladderGridDebug_SetClientActive( true );
+		REQUIRE( GladderGridDebug_IsClientActive() );
+
+		// Simulate receiving a chunk
+		uint8_t packet[2 + 9] = { 0 };
+		packet[0] = GLADDER_GRID_DBG_OP_CHUNK;
+		packet[1] = 1; // 1 cell
+		// coord x = 100.0 (raw = 800)
+		int16_t rx = 800;
+		packet[2] = rx & 0xFF;
+		packet[3] = ( rx >> 8 ) & 0xFF;
+		// coord y = 0
+		packet[4] = 0; packet[5] = 0;
+		// coord z = 32.0 (raw = 256)
+		int16_t rz = 256;
+		packet[6] = rz & 0xFF;
+		packet[7] = ( rz >> 8 ) & 0xFF;
+		packet[8] = 1; // areaId
+		packet[9] = GLADDER_CELL_FLAG_CLEARANCE_OK; // flags
+		packet[10] = 0; // occupied
+
+		REQUIRE( GladderGridDebug_ParseUserMessage( packet, sizeof( packet ) ) );
+		REQUIRE( GladderGridDebug_GetClientCellCount() == 1 );
+
+		// Turning off frees buffer
+		GladderGridDebug_SetClientActive( false );
+		REQUIRE_FALSE( GladderGridDebug_IsClientActive() );
+		REQUIRE( GladderGridDebug_GetClientCellCount() == 0 );
+		REQUIRE( GladderGridDebug_GetClientCells().capacity() == 0 );
+	}
+
+	SECTION( "Opcode Clear discards cache" )
+	{
+		uint8_t clearPacket[1] = { GLADDER_GRID_DBG_OP_CLEAR };
+		REQUIRE( GladderGridDebug_ParseUserMessage( clearPacket, sizeof( clearPacket ) ) );
+		REQUIRE( GladderGridDebug_GetClientCellCount() == 0 );
+	}
+
+	SECTION( "Malformed packets return false safely" )
+	{
+		uint8_t truncated[1] = { GLADDER_GRID_DBG_OP_CHUNK };
+		REQUIRE_FALSE( GladderGridDebug_ParseUserMessage( truncated, sizeof( truncated ) ) );
+
+		uint8_t truncatedChunk[4] = { GLADDER_GRID_DBG_OP_CHUNK, 2, 0, 0 }; // Claims 2 cells but missing payload
+		REQUIRE_FALSE( GladderGridDebug_ParseUserMessage( truncatedChunk, sizeof( truncatedChunk ) ) );
+
+		REQUIRE_FALSE( GladderGridDebug_ParseUserMessage( nullptr, 0 ) );
+	}
+
+	GladderGridDebug_ClientReset();
+	GladderGridDebug_SetClientActive( false );
 }
 

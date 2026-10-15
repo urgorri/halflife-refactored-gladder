@@ -62,9 +62,7 @@
 
 @SolidClass base(Targetname) = trigger_gladder_area : "Gladder: Spatial Area Volume / Indexer"
 [
-	netname(string) : "Area Name" : "" : "Unique sector label or identifier for this spatial section (e.g., Sector 1 - Pasillo Central)."
-	areaname(string) : "Area Name (Legacy)" : "" : "Alternative identifier for this spatial section."
-	areaid(integer) : "Area ID" : 0 : "Numeric index for spatial entity indexing and procedural monster spawn budgets."
+	netname(string) : "Area Name" : "" : "Descriptive sector label for this spatial section (e.g., courtyard_lower, ventilation_shaft, warehouse_floor)."
 ]
 
 //=============================================================================

@@ -195,6 +195,7 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_audio.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_items.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\gladder_grid_debug.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_usermsg.cpp" />
@@ -203,6 +204,7 @@
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_lambda.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\gladder_grid_debug_client.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_items.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_visuals.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_weapons.cpp" />
@@ -213,6 +215,8 @@
     <ClCompile Include="..\..\tests\gladder\test_wave_notify_msg.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_hud.cpp" />
     <ClCompile Include="..\..\tests\gladder\test_summary_screen.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_early_wave_pacing.cpp" />
+    <ClCompile Include="..\..\tests\gladder\test_grid_debug.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

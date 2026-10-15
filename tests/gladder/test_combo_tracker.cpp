@@ -388,3 +388,71 @@ TEST_CASE( "GladderComboTracker: Exclude dead monster props and projectile entit
 	CHECK( tracker.GetCurrentStreak() == 1 );
 	CHECK( tracker.GetSpeciesKills( "monster_headcrab" ) == 1 );
 }
+
+TEST_CASE( "GladderComboTracker: Exclude player-deployed ordnance (snarks, satchels, tripmines, grenades) from frags and combos (SPEC §9.1, Issue #100)", "[gladder][combo][ordnance]" )
+{
+	ResetMockEngine();
+	CTestPlayerClient player;
+	GladderComboTracker tracker;
+
+	// 1. Snark dynamic Classify() regression:
+	// CSqueakGrenade::Classify() can return CLASS_INSECT or classes copied from enemies.
+	// Must be excluded by classname independent of Classify() result.
+	int testClasses[] = { CLASS_INSECT, CLASS_NONE, CLASS_PLAYER, CLASS_ALIEN_MONSTER, CLASS_HUMAN_MILITARY };
+	for ( int cls : testClasses )
+	{
+		CTestComboMonster snark( "monster_snark" );
+		snark.m_iClassify = cls;
+		snark.pev->deadflag = DEAD_NO;
+		snark.m_MonsterState = MONSTERSTATE_COMBAT;
+
+		CHECK_FALSE( GladderComboTracker::IsValidCombatant( &snark ) );
+
+		tracker.OnMonsterKilled( &snark, &player.edict.v, nullptr, 1.0f );
+		CHECK( tracker.GetTotalFrags() == 0 );
+		CHECK( tracker.GetCurrentStreak() == 0 );
+		CHECK( tracker.GetStats().speciesKills.empty() );
+	}
+
+	// 2. Other player-deployed ordnance and combat projectiles
+	const char *ordnanceClassnames[] = {
+		"monster_satchel",
+		"monster_tripmine",
+		"grenade",
+		"hornet",
+		"bolt",
+		"rpg_rocket"
+	};
+
+	for ( const char *szClass : ordnanceClassnames )
+	{
+		CTestComboMonster ord( szClass );
+		ord.m_iClassify = CLASS_NONE;
+		ord.pev->deadflag = DEAD_NO;
+		ord.m_MonsterState = MONSTERSTATE_COMBAT;
+
+		CHECK_FALSE( GladderComboTracker::IsValidCombatant( &ord ) );
+
+		tracker.OnMonsterKilled( &ord, &player.edict.v, nullptr, 2.0f );
+		CHECK( tracker.GetTotalFrags() == 0 );
+		CHECK( tracker.GetCurrentStreak() == 0 );
+		CHECK( tracker.GetStats().speciesKills.empty() );
+	}
+
+	// 3. Real enemies (headcrabs, babycrabs, zombies) remain valid combatants
+	CTestComboMonster babycrab( "monster_babycrab" );
+	babycrab.m_iClassify = CLASS_ALIEN_MONSTER;
+	babycrab.pev->deadflag = DEAD_NO;
+	babycrab.m_MonsterState = MONSTERSTATE_COMBAT;
+	CHECK( GladderComboTracker::IsValidCombatant( &babycrab ) );
+
+	tracker.OnMonsterKilled( &babycrab, &player.edict.v, nullptr, 3.0f );
+	CHECK( tracker.GetTotalFrags() == 1 );
+	CHECK( tracker.GetCurrentStreak() == 1 );
+	CHECK( tracker.GetSpeciesKills( "monster_babycrab" ) == 1 );
+
+	// 4. Verify friendly species name does not map monster_snark to "Snarks"
+	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_snark" ) != "Snarks" );
+	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_headcrab" ) == "Headcrabs" );
+	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_babycrab" ) == "Baby Headcrabs" );
+}

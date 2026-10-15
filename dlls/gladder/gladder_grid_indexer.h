@@ -44,7 +44,7 @@ struct GladderGridCell
 struct GladderGridHeader
 {
 	char magic[8];        // "GLADGRID"
-	uint32_t version;     // Format version (currently 1)
+	uint32_t version;     // Format version (version 2: auto-incremented area IDs)
 	uint32_t cellCount;   // Number of serialized cells
 	uint32_t areaCount;   // Number of indexed areas
 	uint32_t flags;       // Reserved flags
