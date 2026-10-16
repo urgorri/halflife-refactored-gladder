@@ -17,6 +17,7 @@
 #include "gladder_grid_indexer.h"
 #include <vector>
 #include <cstdint>
+#include <cstddef>
 
 // Protocol Opcodes for GladGrid user message
 #define GLADDER_GRID_DBG_OP_CLEAR       0

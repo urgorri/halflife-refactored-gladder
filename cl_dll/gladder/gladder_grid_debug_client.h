@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <cstddef>
 #include "hud/hud_base.h"
 #include "hud/hud_registry.h"
 
