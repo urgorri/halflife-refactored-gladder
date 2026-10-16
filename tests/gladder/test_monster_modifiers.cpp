@@ -10,6 +10,7 @@
 #include "core/util.h"
 #include "core/cbase.h"
 #include "ai/basemonster.h"
+#include "ai/monsters.h"
 #include "ai/schedule.h"
 #include "tests/mock_engine.h"
 #include "dlls/gladder/gladder_monster_modifiers.h"
@@ -258,6 +259,53 @@ TEST_CASE( "GladderMonsterModifiers: Damage interruption during movement schedul
 		int dieMask = GladderMonsterModifiers::GetScheduleInterruptMask( nullptr, &dieSched, dieSched.iInterruptMask );
 		CHECK( ( dieMask & bits_COND_LIGHT_DAMAGE ) == 0 );
 		CHECK( ( dieMask & bits_COND_HEAVY_DAMAGE ) == 0 );
+		CHECK( ( dieMask & bits_COND_SEE_ENEMY ) == 0 );
+		CHECK( ( dieMask & bits_COND_NEW_ENEMY ) == 0 );
+	}
+
+	SECTION( "Perception-driven movement interruption and thrashing guard (SPEC §3, Issue #104)" )
+	{
+		// Non-chase movement schedule (e.g. idle walk / patrol / route traversal)
+		Schedule_t idleWalkSched = {
+			nullptr,
+			0,
+			bits_COND_LIGHT_DAMAGE,
+			0,
+			"Idle Walk"
+		};
+
+		int idleWalkMask = GladderMonsterModifiers::GetScheduleInterruptMask( nullptr, &idleWalkSched, idleWalkSched.iInterruptMask );
+		CHECK( ( idleWalkMask & bits_COND_NEW_ENEMY ) != 0 );
+		CHECK( ( idleWalkMask & bits_COND_SEE_ENEMY ) != 0 );
+		CHECK( ( idleWalkMask & bits_COND_CAN_RANGE_ATTACK1 ) != 0 );
+		CHECK( ( idleWalkMask & bits_COND_CAN_RANGE_ATTACK2 ) != 0 );
+		CHECK( ( idleWalkMask & bits_COND_CAN_MELEE_ATTACK1 ) != 0 );
+		CHECK( ( idleWalkMask & bits_COND_CAN_MELEE_ATTACK2 ) != 0 );
+
+		// Chase schedule (guard against schedule thrashing: SEE_ENEMY is suppressed while in chase)
+		int chaseMask = GladderMonsterModifiers::GetScheduleInterruptMask( nullptr, &chaseSched, chaseSched.iInterruptMask );
+		CHECK( ( chaseMask & bits_COND_NEW_ENEMY ) != 0 );
+		CHECK( ( chaseMask & bits_COND_SEE_ENEMY ) == 0 ); // Suppressed to avoid per-frame oscillation
+		CHECK( ( chaseMask & bits_COND_CAN_MELEE_ATTACK1 ) != 0 );
+
+		// Monster state guards:
+		// 1. Scripted monster state must NOT have schedules altered
+		CTestYawMonster scriptedMonster( "monster_zombie" );
+		scriptedMonster.m_MonsterState = MONSTERSTATE_SCRIPT;
+		int scriptedMask = GladderMonsterModifiers::GetScheduleInterruptMask( &scriptedMonster, &idleWalkSched, 0x100 );
+		CHECK( scriptedMask == 0x100 );
+
+		// 2. Frozen monsters (e.g. during wave intermission) must NOT have schedules altered
+		CTestYawMonster frozenMonster( "monster_headcrab" );
+		frozenMonster.pev->flags |= FL_FROZEN;
+		int frozenMask = GladderMonsterModifiers::GetScheduleInterruptMask( &frozenMonster, &idleWalkSched, 0x200 );
+		CHECK( frozenMask == 0x200 );
+
+		// 3. Deliberate wait monsters (SF_MONSTER_WAIT_TILL_SEEN) must NOT have schedules altered
+		CTestYawMonster waitMonster( "monster_zombie" );
+		waitMonster.pev->spawnflags |= SF_MONSTER_WAIT_TILL_SEEN;
+		int waitMask = GladderMonsterModifiers::GetScheduleInterruptMask( &waitMonster, &idleWalkSched, 0x400 );
+		CHECK( waitMask == 0x400 );
 	}
 
 	SECTION( "Gamemode hook FlMonsterScheduleInterruptMask delegates to GladderMonsterModifiers" )

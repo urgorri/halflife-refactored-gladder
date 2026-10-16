@@ -12,7 +12,7 @@
 int GladderScoring::GetSpeciesBasePoints( const std::string &szClassname )
 {
 	// Tier 1: Fodder
-	if ( szClassname == "monster_headcrab" || szClassname == "monster_babycrab" || szClassname == "monster_snark" )
+	if ( szClassname == "monster_headcrab" || szClassname == "monster_babycrab" )
 		return 50;
 
 	// Tier 2: Basic threats

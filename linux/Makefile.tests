@@ -117,12 +117,16 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/hud_gladder_wave_notify.o \
 	$(TESTS_OBJ_DIR)/hud_gladder_lambda.o \
 	$(TESTS_OBJ_DIR)/hud_gladder_summary.o \
+	$(TESTS_OBJ_DIR)/gladder_grid_debug.o \
+	$(TESTS_OBJ_DIR)/gladder_grid_debug_client.o \
 	$(TESTS_OBJ_DIR)/test_crosshair_fallback.o \
 	$(TESTS_OBJ_DIR)/test_leaderboard.o \
 	$(TESTS_OBJ_DIR)/test_usermsg.o \
 	$(TESTS_OBJ_DIR)/test_wave_notify_msg.o \
 	$(TESTS_OBJ_DIR)/test_hud.o \
-	$(TESTS_OBJ_DIR)/test_summary_screen.o
+	$(TESTS_OBJ_DIR)/test_summary_screen.o \
+	$(TESTS_OBJ_DIR)/test_early_wave_pacing.o \
+	$(TESTS_OBJ_DIR)/test_grid_debug.o
 
 PM_OBJS = \
 	$(PM_OBJ_DIR)/pm_shared.o \
@@ -360,6 +364,18 @@ $(TESTS_OBJ_DIR)/test_hud.o: $(TESTS_SRC_DIR)/gladder/test_hud.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(TESTS_OBJ_DIR)/test_summary_screen.o: $(TESTS_SRC_DIR)/gladder/test_summary_screen.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_grid_debug.o: $(HLDLL_SRC_DIR)/gladder/gladder_grid_debug.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/gladder_grid_debug_client.o: $(SOURCE_DIR)/cl_dll/gladder/gladder_grid_debug_client.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_early_wave_pacing.o: $(TESTS_SRC_DIR)/gladder/test_early_wave_pacing.cpp | dirs
+	$(DO_TESTS_CXX)
+
+$(TESTS_OBJ_DIR)/test_grid_debug.o: $(TESTS_SRC_DIR)/gladder/test_grid_debug.cpp | dirs
 	$(DO_TESTS_CXX)
 
 $(PM_OBJ_DIR)/%.o: $(PM_SRC_DIR)/%.c | dirs

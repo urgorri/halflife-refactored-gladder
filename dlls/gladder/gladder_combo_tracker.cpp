@@ -94,8 +94,18 @@ bool GladderComboTracker::IsValidCombatant( CBaseMonster *pVictim )
 	if ( iClass == CLASS_PLAYER_BIOWEAPON || iClass == CLASS_ALIEN_BIOWEAPON )
 		return false;
 
-	if ( FClassnameIs( pVictim->pev, "hornet" ) )
+	// Exclude player-deployed ordnance and combat projectiles (SPEC §9.1, Issue #100)
+	// Independent of Classify() which is dynamic on CSqueakGrenade
+	if ( FClassnameIs( pVictim->pev, "monster_snark" ) ||
+	     FClassnameIs( pVictim->pev, "monster_satchel" ) ||
+	     FClassnameIs( pVictim->pev, "monster_tripmine" ) ||
+	     FClassnameIs( pVictim->pev, "grenade" ) ||
+	     FClassnameIs( pVictim->pev, "hornet" ) ||
+	     FClassnameIs( pVictim->pev, "bolt" ) ||
+	     FClassnameIs( pVictim->pev, "rpg_rocket" ) )
+	{
 		return false;
+	}
 
 	// Exclude pre-placed dead corpses and dead props (SPEC §3, §9.1, Issue #77)
 	if ( pVictim->m_MonsterState == MONSTERSTATE_DEAD || pVictim->pev->deadflag == DEAD_DEAD )
@@ -231,7 +241,6 @@ std::string GladderComboTracker::GetFriendlySpeciesName( const std::string &clas
 		{ "monster_gargantua",         "Gargantuas" },
 		{ "monster_bigmomma",          "Big Mommas" },
 		{ "monster_barnacle",          "Barnacles" },
-		{ "monster_snark",             "Snarks" },
 		{ "monster_ichthyosaur",       "Ichthyosaurs" },
 		{ "monster_tentacle",          "Tentacles" },
 		{ "monster_bloater",           "Bloaters" },

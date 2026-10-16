@@ -298,19 +298,21 @@ std::vector<GladderWeightedPickup> ComputePickupWeights( const GladderPickupWeig
 	weaponItemWeights.reserve( fixedWeaponCount );
 	eligibleWeaponIndices.reserve( fixedWeaponCount );
 	float sumWeapon = 0.0f;
-
-	for ( size_t i = 0; i < fixedWeaponCount; ++i )
+	if ( input.allowFixedWeapons )
 	{
-		const auto &def = s_fixedWeaponDefs[i];
-		if ( input.IsWeaponAllowed( def.szClassname ) && !input.HasWeapon( def.szClassname ) )
+		for ( size_t i = 0; i < fixedWeaponCount; ++i )
 		{
-			float tierW = GetWeaponTierWeight( def.tier, input.iWaveNumber );
-			float itemWeight = tierW * def.relativeWeight;
-			if ( itemWeight > 0.0f )
+			const auto &def = s_fixedWeaponDefs[i];
+			if ( input.IsWeaponAllowed( def.szClassname ) && !input.HasWeapon( def.szClassname ) )
 			{
-				eligibleWeaponIndices.push_back( i );
-				weaponItemWeights.push_back( itemWeight );
-				sumWeapon += itemWeight;
+				float tierW = GetWeaponTierWeight( def.tier, input.iWaveNumber );
+				float itemWeight = tierW * def.relativeWeight;
+				if ( itemWeight > 0.0f )
+				{
+					eligibleWeaponIndices.push_back( i );
+					weaponItemWeights.push_back( itemWeight );
+					sumWeapon += itemWeight;
+				}
 			}
 		}
 	}

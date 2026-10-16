@@ -478,4 +478,66 @@ TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct radiant blue g
 		CHECK( entShotgun.curstate.rendercolor.g == 40 );
 		CHECK( entShotgun.curstate.rendercolor.b == 220 );
 	}
+
+	SECTION( "Snark nest weapon pickup gets arcade visuals in all states while live snark remains excluded (SPEC §7.2, Issue #101)" )
+	{
+		// 1. Snark nest (weapon_snark, models/w_sqknest.mdl)
+		// Falling state (FallInit: MOVETYPE_TOSS, SOLID_BBOX)
+		cl_entity_t nestFalling;
+		memset( &nestFalling, 0, sizeof( nestFalling ) );
+		nestFalling.curstate.movetype = MOVETYPE_TOSS;
+		nestFalling.curstate.solid = SOLID_BBOX;
+		nestFalling.curstate.owner = 0;
+
+		CHECK( ShouldApplyPickupVisuals( &nestFalling, "models/w_sqknest.mdl" ) );
+		GladderPickupVisualModifier( 0, &nestFalling, "models/w_sqknest.mdl" );
+		CHECK( nestFalling.curstate.renderfx == kRenderFxGlowShell );
+		CHECK( nestFalling.curstate.rendercolor.r == 32 );
+		CHECK( nestFalling.curstate.rendercolor.g == 128 );
+		CHECK( nestFalling.curstate.rendercolor.b == 255 );
+
+		// Landed state (Materialize: MOVETYPE_NONE, SOLID_TRIGGER)
+		cl_entity_t nestLanded;
+		memset( &nestLanded, 0, sizeof( nestLanded ) );
+		nestLanded.curstate.movetype = MOVETYPE_NONE;
+		nestLanded.curstate.solid = SOLID_TRIGGER;
+		nestLanded.curstate.owner = 0;
+
+		CHECK( ShouldApplyPickupVisuals( &nestLanded, "models/w_sqknest.mdl" ) );
+		GladderPickupVisualModifier( 0, &nestLanded, "models/w_sqknest.mdl" );
+		CHECK( nestLanded.curstate.renderfx == kRenderFxGlowShell );
+		CHECK( nestLanded.curstate.rendercolor.r == 32 );
+		CHECK( nestLanded.curstate.rendercolor.g == 128 );
+		CHECK( nestLanded.curstate.rendercolor.b == 255 );
+
+		// Dropped by player with temporary owner edict set
+		cl_entity_t nestDropped;
+		memset( &nestDropped, 0, sizeof( nestDropped ) );
+		nestDropped.curstate.movetype = MOVETYPE_TOSS;
+		nestDropped.curstate.solid = SOLID_BBOX;
+		nestDropped.curstate.owner = 1;
+
+		CHECK( ShouldApplyPickupVisuals( &nestDropped, "models/w_sqknest.mdl" ) );
+		GladderPickupVisualModifier( 0, &nestDropped, "models/w_sqknest.mdl" );
+		CHECK( nestDropped.curstate.renderfx == kRenderFxGlowShell );
+
+		// 2. Live snark (monster_snark, models/w_squeak.mdl) must remain strictly excluded
+		cl_entity_t liveSnark;
+		memset( &liveSnark, 0, sizeof( liveSnark ) );
+		liveSnark.curstate.movetype = MOVETYPE_STEP;
+		liveSnark.curstate.solid = SOLID_BBOX;
+		liveSnark.curstate.owner = 1;
+
+		CHECK_FALSE( ShouldApplyPickupVisuals( &liveSnark, "models/w_squeak.mdl" ) );
+		GladderPickupVisualModifier( 0, &liveSnark, "models/w_squeak.mdl" );
+		CHECK( liveSnark.curstate.renderfx != kRenderFxGlowShell );
+
+		// Even if live snark is resting or has SOLID_TRIGGER, it must remain excluded by model
+		cl_entity_t liveSnarkResting;
+		memset( &liveSnarkResting, 0, sizeof( liveSnarkResting ) );
+		liveSnarkResting.curstate.movetype = MOVETYPE_NONE;
+		liveSnarkResting.curstate.solid = SOLID_TRIGGER;
+		liveSnarkResting.curstate.owner = 0;
+		CHECK_FALSE( ShouldApplyPickupVisuals( &liveSnarkResting, "models/w_squeak.mdl" ) );
+	}
 }

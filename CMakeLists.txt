@@ -379,6 +379,7 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_audio.cpp
         dlls/gladder/gladder_items.cpp
         dlls/gladder/gladder_leaderboard.cpp
+        dlls/gladder/gladder_grid_debug.cpp
         cl_dll/gladder/gladder_visuals.cpp
         cl_dll/gladder/gladder_crosshair.cpp
         cl_dll/gladder/gladder_cl_usermsg.cpp
@@ -387,10 +388,13 @@ if(BUILD_TESTS)
         cl_dll/gladder/hud_gladder_wave_notify.cpp
         cl_dll/gladder/hud_gladder_lambda.cpp
         cl_dll/gladder/hud_gladder_summary.cpp
+        cl_dll/gladder/gladder_grid_debug_client.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
         tests/gladder/test_grid_indexer.cpp
         tests/gladder/test_spawner.cpp
+        tests/gladder/test_early_wave_pacing.cpp
+        tests/gladder/test_grid_debug.cpp
         tests/gladder/test_pickup_weights.cpp
         tests/gladder/test_combo_tracker.cpp
         tests/gladder/test_scoring.cpp

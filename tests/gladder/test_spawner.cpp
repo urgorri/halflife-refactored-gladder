@@ -114,27 +114,38 @@ TEST_CASE( "Gladder Spawner: Edict budget safety protection (SPEC §11)", "[glad
 	GladderSpawner spawner;
 
 	// In mock engine, simulate low free edict budget by setting maxEntities low
+	// Mock engine has 32 active mock client entities (indices 1..32).
 	if ( gpGlobals )
 	{
-		gpGlobals->maxEntities = 70; // 70 total edicts; threshold is 64
+		gpGlobals->maxEntities = 50; // 50 total edicts, 32 active -> 18 free <= 24 -> Throttling triggers!
 	}
 
-	// First entities succeed while free edicts > 64
-	// If 70 total and 10 active, free = 60 <= 64 -> Throttling triggers!
-	// Let's activate edicts 1 to 10
+	// Free edicts = 50 - 32 = 18 <= 24 (SAFE_FREE_EDICT_THRESHOLD) -> CreateWaveEntity must throttle
+	CBaseEntity *pEnt = spawner.CreateWaveEntity( "monster_headcrab", Vector( 0, 0, 0 ) );
+	CHECK( pEnt == nullptr );
+
+	// Verify that entities marked with FL_KILLME do not count towards active edicts
 	for ( int i = 1; i <= 10; ++i )
 	{
 		edict_t *ed = GetMockClientEntity( i );
 		if ( ed )
 		{
-			ed->free = 0;
-			ed->v.pContainingEntity = ed;
+			ed->v.flags |= FL_KILLME;
 		}
 	}
+	// Active edicts now 32 - 10 = 22. Free = 50 - 22 = 28 > 24 -> Spawn succeeds!
+	CBaseEntity *pEnt2 = spawner.CreateWaveEntity( "monster_headcrab", Vector( 0, 0, 0 ) );
+	CHECK( pEnt2 != nullptr );
 
-	// Free edicts = 70 - 10 = 60 <= 64 -> CreateWaveEntity must throttle
-	CBaseEntity *pEnt = spawner.CreateWaveEntity( "monster_headcrab", Vector( 0, 0, 0 ) );
-	CHECK( pEnt == nullptr );
+	// Restore normal budget and flags
+	for ( int i = 1; i <= 10; ++i )
+	{
+		edict_t *ed = GetMockClientEntity( i );
+		if ( ed )
+		{
+			ed->v.flags &= ~FL_KILLME;
+		}
+	}
 
 	// Restore normal budget
 	if ( gpGlobals )
@@ -1186,5 +1197,79 @@ TEST_CASE( "Gladder Spawner: Monster placement uses Half-Life WALK_MOVE stuck-in
 	CHECK( spawner2.GetTrackedEntityCount() == 0 );
 	CHECK( occupiedOnlyBad[0] == true );
 
+	ResetMockEngine();
+}
+
+TEST_CASE( "Gladder Spawner: Fixed weapon capping and pickup spatial separation (SPEC §3)", "[gladder][spawner][pickups]" )
+{
+	ResetMockEngine();
+
+	const char *pickupTypes[] = {
+		"item_healthkit", "item_battery", "ammo_9mmclip", "ammo_buckshot", "ammo_357",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5",
+		"weapon_handgrenade", "weapon_satchel", "weapon_tripmine"
+	};
+	for ( const char *szP : pickupTypes )
+	{
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+	}
+
+	GladderGridIndexer indexer;
+	// Create a dense grid of 200 cells (32 units apart)
+	for ( float x = 0.0f; x <= 640.0f; x += 32.0f )
+	{
+		for ( float y = 0.0f; y <= 320.0f; y += 32.0f )
+		{
+			GladderGridCell cell;
+			cell.origin   = Vector( x, y, 0.0f );
+			cell.normal   = Vector( 0.0f, 0.0f, 1.0f );
+			cell.ceilingZ = 256.0f;
+			cell.areaId   = 1;
+			cell.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+			indexer.AddCell( cell );
+		}
+	}
+
+	GladderMapConfig config;
+	GladderSpawner spawner;
+	std::vector<bool> occupied( indexer.GetCellCount(), false );
+
+	// Spawn 8 pickups (typical wave 2 quota)
+	spawner.SpawnPickups( 2, indexer, config, 8, &occupied );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 8 );
+
+	// 1. Verify fixed weapon cap: at most 1 fixed weapon across the 8 pickups
+	int fixedWeaponCount = 0;
+	std::vector<Vector> pickupPositions;
+
+	for ( size_t i = 0; i < spawner.GetTrackedEntityCount(); ++i )
+	{
+		CBaseEntity *pEnt = spawner.GetTrackedEntity( i );
+		REQUIRE( pEnt != nullptr );
+		const char *szClass = STRING( pEnt->pev->classname );
+		if ( szClass && ( strncmp( szClass, "weapon_glock", 12 ) == 0 ||
+		                  strncmp( szClass, "weapon_shotgun", 14 ) == 0 ||
+		                  strncmp( szClass, "weapon_mp5", 10 ) == 0 ||
+		                  strncmp( szClass, "weapon_knife", 12 ) == 0 ||
+		                  strncmp( szClass, "weapon_pipewrench", 17 ) == 0 ) )
+		{
+			fixedWeaponCount++;
+		}
+		pickupPositions.push_back( pEnt->pev->origin );
+	}
+
+	CHECK( fixedWeaponCount <= 1 );
+
+	// 2. Verify spatial separation: all spawned pickups must be >= 80 units apart
+	for ( size_t i = 0; i < pickupPositions.size(); ++i )
+	{
+		for ( size_t j = i + 1; j < pickupPositions.size(); ++j )
+		{
+			float dist = ( pickupPositions[i] - pickupPositions[j] ).Length2D();
+			CHECK( dist >= 80.0f );
+		}
+	}
+
+	ClearMockEntityFactories();
 	ResetMockEngine();
 }

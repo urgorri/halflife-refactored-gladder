@@ -153,8 +153,8 @@ bool GladderGridIndexer::LoadFromFile( const char *pszFilePath )
 		return false;
 	}
 
-	// Verify magic and format version
-	if ( memcmp( header.magic, "GLADGRID", 8 ) != 0 || header.version != 1 )
+	// Verify magic and format version (v2: auto-incremented area IDs, Issue #102)
+	if ( memcmp( header.magic, "GLADGRID", 8 ) != 0 || header.version != 2 )
 	{
 		ALERT( at_console, "[Gladder] Corrupt or incompatible grid cache header in '%s'\n", pszFilePath );
 		fclose( pFile );
@@ -216,9 +216,16 @@ bool GladderGridIndexer::SaveToFile( const char *pszFilePath ) const
 	GladderGridHeader header;
 	memset( &header, 0, sizeof( header ) );
 	memcpy( header.magic, "GLADGRID", 8 );
-	header.version   = 1;
+	header.version   = 2;
 	header.cellCount = static_cast<uint32_t>( m_cells.size() );
-	header.areaCount = 0; // Calculated on load if needed
+
+	int32_t maxAreaId = 0;
+	for ( const auto &c : m_cells )
+	{
+		if ( c.areaId > maxAreaId )
+			maxAreaId = c.areaId;
+	}
+	header.areaCount = static_cast<uint32_t>( maxAreaId );
 	header.flags     = 0;
 
 	if ( fwrite( &header, sizeof( header ), 1, pFile ) != 1 )
@@ -265,6 +272,7 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 	m_mapName = pszMapName ? pszMapName : "";
 
 	// 1. Scan for all registered trigger_gladder_area bounding volumes
+	// Assign area IDs automatically and incrementally (1, 2, 3...) in deterministic scan order (SPEC §4.2, Issue #102)
 	int areaCount = 0;
 	CBaseEntity *pEnt = nullptr;
 
@@ -273,6 +281,8 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 		CTriggerGladderArea *pArea = static_cast<CTriggerGladderArea *>( pEnt );
 		if ( pArea )
 		{
+			areaCount++;
+			pArea->SetAreaId( areaCount );
 			Vector mins = pArea->GetMins();
 			Vector maxs = pArea->GetMaxs();
 			const char *pszAreaName = pArea->GetAreaName();
@@ -283,7 +293,6 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 			       mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z );
 
 			IndexArea( mins, maxs, areaId );
-			areaCount++;
 		}
 	}
 

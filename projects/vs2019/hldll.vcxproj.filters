@@ -810,6 +810,9 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\gladder_grid_debug.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_knife.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
@@ -870,6 +873,9 @@
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_leaderboard.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\gladder_grid_debug.h">
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h">

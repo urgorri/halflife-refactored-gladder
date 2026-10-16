@@ -62,6 +62,9 @@ class GladderMapConfig
 	bool allowBarnacles;
 	bool allowFlying;
 
+	float routeBiasFraction;   // Fraction of spawns biased to the Point A -> Point B corridor (default 0.60f) (SPEC §3, Issue #103)
+	float routeCorridorRadius; // Maximum distance to route axis to be considered in-corridor (default 512.0f)
+
 	GladderMapConfig();
 
 	// Load configuration profile from "gladder/maps/<mapname>.cfg"
@@ -76,7 +79,7 @@ class GladderSpawner
 {
   public:
 	// Threshold of minimum free edicts required before safety clamp halts spawning
-	static constexpr int SAFE_FREE_EDICT_THRESHOLD = 64;
+	static constexpr int SAFE_FREE_EDICT_THRESHOLD = 24;
 
 	GladderSpawner();
 	~GladderSpawner();
@@ -85,7 +88,7 @@ class GladderSpawner
 	void Precache( void );
 
 	// Spawn full procedural wave across indexed spatial grid cells (SPEC §2, §3, §7.3)
-	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies = "" );
+	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies = "", CBasePlayer *pPlayer = nullptr );
 
 	// Comprehensive GoldSrc edict garbage collection (SPEC §2, §11)
 	void PurgeWaveEntities();
@@ -121,7 +124,7 @@ class GladderSpawner
 
 	// Procedural rolling helpers (SPEC §3, Issue #39, #78, #79, #93)
 	static const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
-	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr );
+	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr, bool allowFixedWeapons = true, const std::vector<std::string> *pExtraOwnedWeapons = nullptr );
 
 	// Pity tracking helpers (SPEC §3, Issue #93)
 	static void ResetPickupPity( void );
@@ -130,8 +133,22 @@ class GladderSpawner
 
 	// Internal procedural generation routines (with cell occupancy tracking)
 	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );
-	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr );
+	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, CBasePlayer *pPlayer = nullptr );
 	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
+
+	// Route detection and simulation helpers (SPEC §3, Issue #103)
+	void SetSimulatedRoute( const Vector &vecStart, const Vector &vecFinish )
+	{
+		m_vecSimulatedStart  = vecStart;
+		m_vecSimulatedFinish = vecFinish;
+		m_bHasSimulatedRoute = true;
+	}
+	void ClearSimulatedRoute( void )
+	{
+		m_bHasSimulatedRoute = false;
+	}
+	bool HasSimulatedRoute( void ) const { return m_bHasSimulatedRoute; }
+	bool GetActiveRoute( Vector &outStart, Vector &outFinish ) const;
 
   private:
 	std::vector<EHANDLE> m_spawnedEntities;
@@ -140,6 +157,9 @@ class GladderSpawner
 	int m_iLastPickupCount;
 	int m_iLastChampionCount;
 	bool m_bLambdaSpawned;
+	Vector m_vecSimulatedStart;
+	Vector m_vecSimulatedFinish;
+	bool m_bHasSimulatedRoute;
 };
 
 #endif // GLADDER_SPAWNER_H

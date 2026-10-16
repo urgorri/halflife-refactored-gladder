@@ -11,6 +11,7 @@
 #include "gladder_usermsg.h"
 #include "gladder_audio.h"
 #include "gladder_leaderboard.h"
+#include "gladder_grid_debug.h"
 #include <ctime>
 #include "core/skill_manager.h"
 #include "items/item_base.h"
@@ -118,6 +119,7 @@ CGladderRules::CGladderRules()
 
 CGladderRules::~CGladderRules()
 {
+	GladderGridDebug_ServerReset();
 }
 
 void CGladderRules::Think( void )
@@ -171,6 +173,29 @@ void CGladderRules::Think( void )
 
 	// Maintain wall charger active state and glow extinction upon depletion (SPEC §3, Issue #46)
 	GladderModifiers::UpdateWallStations();
+
+	// Real-time spatial grid debug overlay streaming (SPEC §4.5, Issue #105)
+	if ( GladderGridDebug_IsServerActive() )
+	{
+		CBasePlayer *pDbgPlayer = nullptr;
+		if ( gpGlobals )
+		{
+			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			{
+				CBaseEntity *pEnt = UTIL_PlayerByIndex( i );
+				if ( pEnt && pEnt->IsPlayer() )
+				{
+					pDbgPlayer = dynamic_cast<CBasePlayer *>( pEnt );
+					if ( pDbgPlayer )
+						break;
+				}
+			}
+		}
+		if ( pDbgPlayer )
+		{
+			GladderGridDebug_ServerThink( m_gridIndexer, pDbgPlayer );
+		}
+	}
 
 	// Multi-camera backdrop rotation during summary screen (SPEC §6, §9.2, Issue #52)
 	if ( m_waveManager.IsMatchOver() && m_summaryCameras.size() > 1 && flTime >= m_flNextCameraSwitchTime )
@@ -344,6 +369,13 @@ BOOL CGladderRules::ClientCommand( CBasePlayer *pPlayer, const char *pcmd )
 		{
 			SERVER_COMMAND( "restart\n" );
 		}
+		return TRUE;
+	}
+
+	// Real-time spatial grid debug overlay toggle (SPEC §4.5, Issue #105)
+	if ( strncmp( pcmd, "gladder_grid_debug", 18 ) == 0 )
+	{
+		GladderGridDebug_HandleClientCommand( pPlayer, pcmd );
 		return TRUE;
 	}
 
@@ -635,7 +667,8 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		m_modifiers.RollAndApplyWaveMutator( m_waveManager.GetWaveNumber() );
 
 		// Procedurally spawn wave threats, weapons & supplies across indexed spatial grid
-		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies() );
+		CBasePlayer *pPlayer = ( pActivator && pActivator->IsPlayer() ) ? dynamic_cast<CBasePlayer *>( pActivator ) : nullptr;
+		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies(), pPlayer );
 
 		// Acoustic cue for wave start & mutator alert
 		GladderAudio::PlayCue( GLADDER_CUE_WAVE_START, pActivator );

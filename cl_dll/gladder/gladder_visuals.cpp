@@ -165,6 +165,27 @@ bool ShouldApplyPickupVisuals( const struct cl_entity_s *ent, const char *pszMod
 	if ( !ent )
 		return true;
 
+	char szLower[256];
+	size_t len = strlen( pszModelName );
+	if ( len >= sizeof( szLower ) )
+		len = sizeof( szLower ) - 1;
+	for ( size_t i = 0; i < len; ++i )
+	{
+		szLower[i] = (char)tolower( (unsigned char)pszModelName[i] );
+	}
+	szLower[len] = '\0';
+
+	// Snark Nest Pickup Is a Collectible (Not Live Ordnance) (SPEC §7.2, Issue #101):
+	// The uncollected snark weapon lying in the map (weapon_snark, model models/w_sqknest.mdl)
+	// is a collectible and must receive the full arcade pickup presentation in every state
+	// (while falling, after landing, and when dropped or procedurally spawned).
+	// The live released snark (models/w_squeak.mdl) is excluded in ClassifyPickupModel().
+	// Guard logic must never exclude the nest because of its movetype, solidity, or owner.
+	if ( strstr( szLower, "w_sqknest" ) )
+	{
+		return true;
+	}
+
 	// In-flight or active combat ordnance guard (SPEC §7.2, Issue #40):
 	// Thrown grenades, satchels, or jumping/running snarks have MOVETYPE_BOUNCE or MOVETYPE_STEP,
 	// planted tripmines or rockets have MOVETYPE_FLY, and active projectiles have owner > 0.
@@ -179,16 +200,6 @@ bool ShouldApplyPickupVisuals( const struct cl_entity_s *ent, const char *pszMod
 	// Dual-use models (grenades, satchels, tripmines) share assets between dropped collectible
 	// weapons and active/planted ordnance. In GoldSrc, dropped collectible items have
 	// solid == SOLID_TRIGGER, whereas deployed/thrown ordnance have SOLID_BBOX or SOLID_NOT.
-	char szLower[256];
-	size_t len = strlen( pszModelName );
-	if ( len >= sizeof( szLower ) )
-		len = sizeof( szLower ) - 1;
-	for ( size_t i = 0; i < len; ++i )
-	{
-		szLower[i] = (char)tolower( (unsigned char)pszModelName[i] );
-	}
-	szLower[len] = '\0';
-
 	if ( strstr( szLower, "w_grenade" ) ||
 	     strstr( szLower, "w_satchel" ) ||
 	     strstr( szLower, "tripmine" ) )

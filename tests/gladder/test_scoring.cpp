@@ -13,7 +13,8 @@ TEST_CASE( "GladderScoring: Base species point calculation by tier (SPEC §3)", 
 	// Tier 1: Fodder
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_headcrab" ) == 50 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_babycrab" ) == 50 );
-	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_snark" ) == 50 );
+	// monster_snark is player ordnance, not a valid target (fallback: 100) (Issue #100)
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_snark" ) == 100 );
 
 	// Tier 2: Basic threats
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_zombie" ) == 100 );
