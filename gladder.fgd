@@ -148,3 +148,19 @@
 
 @PointClass base(Targetx, RenderFields) studio("models/w_m40a1clip.mdl") = ammo_762 : "7.62mm Sniper Ammo Clip" []
 @PointClass base(Targetx, RenderFields) studio("models/w_saw_clip.mdl") = ammo_556 : "5.56mm SAW Ammo Box" []
+
+//=============================================================================
+//
+// Opposing Force Extended Monsters
+//
+//=============================================================================
+
+@PointClass base(Monster) studio("models/zombie_barney.mdl") = monster_zombie_barney : "Zombie Barney / Guard" []
+@PointClass base(Monster) studio("models/zombie_soldier.mdl") = monster_zombie_soldier : "Zombie Soldier" []
+@PointClass base(Targetname, RenderFields, Angles) studio("models/zombie_soldier.mdl") = monster_zombie_soldier_dead : "Dead Zombie Soldier" []
+@PointClass base(Monster) studio("models/gonome.mdl") = monster_gonome : "Gonome" []
+@PointClass base(Targetname, RenderFields, Angles) studio("models/gonome.mdl") = monster_gonome_dead : "Dead Gonome" []
+@PointClass base(Monster) studio("models/massn.mdl") = monster_male_assassin : "Black Ops Male Assassin" []
+@PointClass base(Targetname, Targetx) color(0 200 200) = monster_assassin_repel : "Male Assassin (Repel Down)" []
+@PointClass base(Targetname, RenderFields, Angles) studio("models/massn.mdl") = monster_massassin_dead : "Dead Male Assassin" []
+

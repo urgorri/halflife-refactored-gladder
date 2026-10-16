@@ -7,6 +7,7 @@
  ****/
 
 #include "gladder_visuals.h"
+#include "gladder_palette.h"
 #include <cstring>
 #include <cmath>
 #include <cctype>
@@ -131,22 +132,34 @@ void GladderGetPickupGlowColor( EGladderPickupCategory cat, unsigned char &r, un
 	switch ( cat )
 	{
 	case GLADDER_PICKUP_HEALTH:
-		r = 32; g = 255; b = 32;   // Vibrant Green
+		r = GladderPalette::Health.r;
+		g = GladderPalette::Health.g;
+		b = GladderPalette::Health.b;
 		break;
 	case GLADDER_PICKUP_HEV:
-		r = 32; g = 192; b = 255;  // Bright Cyan / Blue
+		r = GladderPalette::Shield.r;
+		g = GladderPalette::Shield.g;
+		b = GladderPalette::Shield.b;
 		break;
 	case GLADDER_PICKUP_AMMO:
-		r = 255; g = 180; b = 20;  // Golden Amber
+		r = GladderPalette::Ammunition.r;
+		g = GladderPalette::Ammunition.g;
+		b = GladderPalette::Ammunition.b;
 		break;
 	case GLADDER_PICKUP_LAMBDA:
-		r = 255; g = 140; b = 20;  // Vibrant Orange
+		r = GladderPalette::Collectible.r;
+		g = GladderPalette::Collectible.g;
+		b = GladderPalette::Collectible.b;
 		break;
 	case GLADDER_PICKUP_WEAPON:
-		r = 220; g = 40; b = 220;  // Arcade Magenta / Violet
+		r = GladderPalette::FixedWeapons.r;
+		g = GladderPalette::FixedWeapons.g;
+		b = GladderPalette::FixedWeapons.b;
 		break;
 	case GLADDER_PICKUP_ORDNANCE:
-		r = 32; g = 128; b = 255;   // Radiant Blue / Azure (SPEC §7.2, Issue #98)
+		r = GladderPalette::Consumables.r;
+		g = GladderPalette::Consumables.g;
+		b = GladderPalette::Consumables.b;
 		break;
 	default:
 		break;
@@ -236,9 +249,9 @@ bool ShouldApplyChargerGlowShell( const struct cl_entity_s *ent, const char *psz
 	unsigned char g = ent->curstate.rendercolor.g;
 	unsigned char b = ent->curstate.rendercolor.b;
 
-	bool bIsHealth  = ( r == 32 && g == 255 && b == 32 );
-	bool bIsHEV     = ( r == 255 && g == 140 && b == 20 );
-	bool bIsTrigger = ( r == 255 && g == 32 && b == 32 );
+	bool bIsHealth  = ( r == GladderPalette::Health.r && g == GladderPalette::Health.g && b == GladderPalette::Health.b );
+	bool bIsHEV     = ( r == GladderPalette::Shield.r && g == GladderPalette::Shield.g && b == GladderPalette::Shield.b );
+	bool bIsTrigger = ( r == GladderPalette::Triggers.r && g == GladderPalette::Triggers.g && b == GladderPalette::Triggers.b );
 
 	return ( bIsHealth || bIsHEV || bIsTrigger );
 }

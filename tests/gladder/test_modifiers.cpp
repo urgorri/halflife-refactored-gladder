@@ -79,6 +79,10 @@ TEST_CASE( "GladderModifiers: Elite Champion monster tagging and stat scaling", 
 	CHECK( monster.pev->renderfx == kRenderFxGlowShell );
 	CHECK( monster.pev->rendercolor.x >= 200.0f ); // Vibrant red
 	CHECK( monster.pev->rendercolor.y <= 64.0f );
+	CHECK( monster.pev->rendercolor.z <= 64.0f );
+	CHECK( monster.pev->rendercolor.x == Catch::Approx( 255.0f ) );
+	CHECK( monster.pev->rendercolor.y == Catch::Approx( 20.0f ) );
+	CHECK( monster.pev->rendercolor.z == Catch::Approx( 20.0f ) );
 	CHECK( monster.pev->renderamt == Catch::Approx( 16.0f ) );
 	CHECK( monster.pev->health == Catch::Approx( 120.0f * 2.5f ) ); // 300 HP
 	CHECK( monster.pev->max_health == Catch::Approx( 300.0f ) );
@@ -134,6 +138,10 @@ TEST_CASE( "GladderModifiers: Special wave mutator activation and reversion", "[
 	CHECK( modifiers.GetActiveMutator() == GLADDER_MUTATOR_SWARM );
 	CHECK_FALSE( modifiers.GetSwarmSpecies().empty() );
 
+	modifiers.ApplyMutator( GLADDER_MUTATOR_BIG_MOMMA, 5 );
+	CHECK( modifiers.GetActiveMutator() == GLADDER_MUTATOR_BIG_MOMMA );
+	CHECK( std::string( modifiers.GetMutatorName() ) == "BIG MOMMA" );
+
 	// Clean reversion
 	modifiers.RevertMutators();
 	CHECK( modifiers.GetActiveMutator() == GLADDER_MUTATOR_NONE );
@@ -171,18 +179,18 @@ TEST_CASE( "GladderModifiers: Wall station active glow shell and depletion extin
 	{
 		GladderModifiers::RechargeWallStations();
 
-		// Health charger -> Vibrant Green glow shell
+		// Health charger -> Vibrant Green glow shell (SPEC §7.2, Issue #107)
 		CHECK( healthCharger.pev->renderfx == kRenderFxGlowShell );
-		CHECK( healthCharger.pev->rendercolor.x == Catch::Approx( 32.0f ) );
+		CHECK( healthCharger.pev->rendercolor.x == Catch::Approx( 0.0f ) );
 		CHECK( healthCharger.pev->rendercolor.y == Catch::Approx( 255.0f ) );
-		CHECK( healthCharger.pev->rendercolor.z == Catch::Approx( 32.0f ) );
+		CHECK( healthCharger.pev->rendercolor.z == Catch::Approx( 50.0f ) );
 		CHECK( healthCharger.pev->renderamt == Catch::Approx( 16.0f ) );
 
-		// HEV charger -> Vibrant Amber/Orange glow shell
+		// HEV charger -> Vibrant Cyan glow shell (SPEC §7.2, Issue #107)
 		CHECK( hevCharger.pev->renderfx == kRenderFxGlowShell );
-		CHECK( hevCharger.pev->rendercolor.x == Catch::Approx( 255.0f ) );
-		CHECK( hevCharger.pev->rendercolor.y == Catch::Approx( 140.0f ) );
-		CHECK( hevCharger.pev->rendercolor.z == Catch::Approx( 20.0f ) );
+		CHECK( hevCharger.pev->rendercolor.x == Catch::Approx( 0.0f ) );
+		CHECK( hevCharger.pev->rendercolor.y == Catch::Approx( 220.0f ) );
+		CHECK( hevCharger.pev->rendercolor.z == Catch::Approx( 255.0f ) );
 		CHECK( hevCharger.pev->renderamt == Catch::Approx( 16.0f ) );
 	}
 

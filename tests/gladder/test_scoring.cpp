@@ -18,6 +18,8 @@ TEST_CASE( "GladderScoring: Base species point calculation by tier (SPEC §3)", 
 
 	// Tier 2: Basic threats
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_zombie" ) == 100 );
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_zombie_barney" ) == 100 );
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_zombie_soldier" ) == 150 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_houndeye" ) == 100 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_barnacle" ) == 100 );
 
@@ -25,16 +27,24 @@ TEST_CASE( "GladderScoring: Base species point calculation by tier (SPEC §3)", 
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_bullchicken" ) == 250 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_vortigaunt" ) == 250 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_alien_slave" ) == 250 );
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_gonome" ) == 250 );
 
 	// Tier 4: Heavy threats
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_alien_grunt" ) == 500 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_human_grunt" ) == 500 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_human_assassin" ) == 500 );
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_male_assassin" ) == 500 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_alien_controller" ) == 500 );
 
 	// Tier 5: Apex threats
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_gargantua" ) == 1000 );
 	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_bigmomma" ) == 1000 );
+
+	// Excluded entities: projectiles and corpses
+	CHECK( GladderScoring::GetSpeciesBasePoints( "gonomeguts" ) == 0 );
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_gonome_dead" ) == 0 );
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_zombie_soldier_dead" ) == 0 );
+	CHECK( GladderScoring::GetSpeciesBasePoints( "monster_massassin_dead" ) == 0 );
 }
 
 TEST_CASE( "GladderScoring: Composite formula components tallying", "[gladder][scoring]" )

@@ -30,6 +30,17 @@ Instead of progressing linearly through a series of maps, players run through a 
     * In early waves, probability distribution is heavily skewed toward basic, low-tier threats.
     * As waves advance, the probability weights smoothly shift, granting progressively higher odds for advanced permitted tiers (e.g., Alien Grunts, Human Assassins, HECU Soldiers) to spawn, while basic monsters still remain in the pool as secondary/ambient fodder.
     * Spawning is strictly constrained by each map's whitelist/blacklist (e.g., if a map permits only specific enemy types, the probability curve operates exclusively within that allowed subset).
+  * **Extended Monster Roster**:
+    To expand combat encounter variety and maintain high-pressure tactical engagements across escalating waves, the procedural spawner integrates four extended monster archetypes alongside standard Half-Life combatants:
+    * **Zombie Security Guard (`monster_zombie_barney`) [Tier 1, Base Fodder]**: Retains classic melee slash behaviors, security guard uniform model (`models/zombie_barney.mdl`), and standard zombie acoustics, providing thematic variety alongside civilian zombies. Base score: 100 pts.
+    * **Zombie Soldier (`monster_zombie_soldier`) [Tier 2, Intermediate Threat]**: Fortified HECU Grunt zombie variant (`models/zombie_soldier.mdl`) with enhanced physical durability, aggressive swiping, and higher stagger threshold. Base score: 150 pts.
+    * **Gonome (`monster_gonome`) [Tier 3, Advanced Combatant]**: Agile, lethal mutated zombie (`models/gonome.mdl`, `sound/gonome/*`) capable of rapid sprinting, aggressive leap attacks, and hurling ranged acidic flesh projectiles (`gonomeguts` / `sprites/bigspit.spr`). Base score: 250 pts.
+    * **Black Ops Male Assassin (`monster_male_assassin`) [Tier 4, Lethal / Elite Adversary]**: Highly agile, lethal military operative (`models/massn.mdl`) equipped with 9mmAR or sniper weaponry and grenade launchers, squad tactical communication, and acrobatic evasive maneuvers. Base score: 500 pts.
+    * **Combat Integrity & Rule Compliance**:
+      * **Drop Suppression**: Like HECU Grunts, Male Assassins are strictly prohibited from dropping weapons or ammunition on death (`DropItem` suppressed via `FCanMonsterDropItem`), preserving procedural spawner authority.
+      * **Elite Champion Qualification**: All extended monsters qualify for procedural Elite Champion designation with the signature Threat Red glow (`RGB(255, 20, 20)`).
+      * **Frag Exclusions**: Non-combatant sub-entities such as thrown `gonomeguts` and pre-placed dead prop variants (`monster_gonome_dead`, `monster_massassin_dead`, `monster_zombie_soldier_dead`) are strictly excluded from frag tracking and combo chaining.
+      * **Map Editor Registration**: All extended monster entities (`monster_zombie_barney`, `monster_zombie_soldier`, `monster_zombie_soldier_dead`, `monster_gonome`, `monster_gonome_dead`, `monster_male_assassin`, `monster_assassin_repel`, `monster_massassin_dead`) are registered in `gladder.fgd`.
 * **Progressive Engine Skill Tiers (`skill 1` → `skill 2` → `skill 3`)**:
   * Rather than introducing arbitrary stat multipliers, the mod utilizes the native, carefully balanced GoldSrc skill definitions (`skill 1` = Easy, `skill 2` = Medium, `skill 3` = Hard).
   * The active engine `skill` level advances **gradually and automatically** based on wave milestones:
@@ -46,6 +57,9 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Supply incentive**: supplies are neither scarce nor placed to pull the player into fights, so skipping them costs nothing.
     * **Evasion exploit**: fast movement (run/jump) outpaces monsters that only react once they see the player (see also the movement-interruption rules below).
   * The audit's outcome must be a documented set of proposed adjustments (e.g. higher early baselines, route-biased spawn weighting, earlier elite/intermediate tiers, wave-based reinforcements, aggro-on-wave-start for a share of monsters, earlier skill promotion) with target metrics (e.g. minimum encounters per route in Wave 1, minimum kills per wave) that unit and simulation tests can assert.
+  * **Drastic Wave Density Scaling & Supply Rebalance**:
+    * **Doubled Base Monster Quota**: To eliminate passive running and jumping through early waves and establish genuine high-intensity arcade combat from Wave 1, the baseline monster spawn count is doubled to 20 (`base_monsters = 20`, scaling with `+2.0` monsters per wave up to an increased cap of `max_monsters = 48`). This guarantees immediate arena engagement and substantial combat pressure along the gauntlet route right from the opening wave.
+    * **Elevated Supply Drops (Weapons, Ammo & Ordnance)**: To support the 2x combat throughput and prevent premature resource starvation, baseline procedural supply pickups are elevated to 10 (`base_pickups = 10`, scaling with `+1.5` pickups per wave up to an increased cap of `max_pickups = 24`). Supply generation strictly enforces the established category ratios (Section 3: ammunition majority ~59.5%, medical/armor recovery ~22%, consumable ordnance ~11.5%, rare unacquired weapons ~7%), providing players with sufficient munitions and firepower to survive the intensified gauntlet while remaining safely within GoldSrc edict limits (`MAX_EDICTS`).
 * **Time-Driven Match Objective & Session Expiration Lifecycle**:
   * The core goal of each run is **time-based**: players must survive, navigate the gauntlet, and clear as many waves as possible within a configured session duration / time limit (e.g., 10, 15, or 20 minutes) or survival clock.
   * Wave completions are continuously counted and logged as the primary scoring metric, but the match concludes when the time limit expires (or upon player death).
@@ -122,7 +136,13 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Low Gravity**: Xen-like reduced gravity physics applied to both the player and physical debris.
     * **Swarm**: Standard enemy distribution is replaced by a massive horde composed exclusively of a single randomly selected monster species (e.g., all Houndeyes, all Headcrabs, all Bullsquids, or all Alien Grunts).
       * **Horde AI & Gib Stability**: In dense single-species swarms (such as Bullsquid hordes), monsters responding to combat stimuli, biological gibs, and meat scents (`bits_SOUND_MEAT`) must maintain robust schedule evaluation. Sound and scent listening routines must avoid shared-pointer list corruptions or NULL-pointer dereferences when dozens of monsters detect scents or gibs simultaneously.
-    * **Mutator Siren Silencing on Wave Completion**: The ominous alert siren played when a special mutator starts (such as Blackout) must be explicitly stopped upon wave completion (`trigger_gladder_end`) or when mutators are reverted, preventing the audio loop from persisting indefinitely during subsequent waves.
+    * **Big Momma (Boss Battle)**: The wave's procedural monster roster is replaced by a mass of baby headcrabs (`monster_babycrab`, the engine's baby headcrab classname) plus **exactly one** `monster_bigmomma`, producing a boss-battle feel.
+      * **Roster Override**: Every spawned monster of the wave is a `monster_babycrab`, except exactly one `monster_bigmomma`. The usual tier weights, map whitelist/blacklist, and Elite Champion rolls do not apply to this wave's roster. The Big Momma is spawned in addition to, not as a replacement for, the normal wave monster quota (she counts toward the quota as one of its entries).
+      * **Boss Placement & Presentation**: The Big Momma spawns on a valid large-hull grid cell (her hull is much larger than regular monsters; the hull/clearance checks of Section 4.4 apply with her bounds) and is preferably placed away from Point A and toward the end of the route so the player must approach her. She is a regular wave entity: tracked by the spawner, purged at wave end, and excluded from pickup visuals. The mutator banner reads `BIG MOMMA` and the mutator alert cue plays on wave start.
+      * **Standalone AI Requirement**: In the original game Big Momma is driven by an `info_bigmomma` node chain placed by the mapper. Maps do not provide those nodes, so she must behave correctly without them (acquire and chase the player, use her spit and her child-spawning attacks) and must not stand idle or loop on a missing node target. If the base AI cannot do this, the gap must be reported upstream first per the Upstream First protocol.
+      * **Scoring & Telemetry**: Killing the Big Momma and the baby headcrabs counts as regular frags/combo kills. The itemized species kill log lists `Big Momma` and `Baby Headcrabs`. Big Momma's own child headcrabs (spawned by her birth attack) are real enemies and also count as frags, but her mortar spit projectile never does.
+      * **Wave Completion & Safety**: Wave completion is unchanged (reach `trigger_gladder_end`); killing the boss is not required. The roster must respect the edict budget and the entity limits in Section 11; the baby headcrab count is capped by the usual wave monster quota.
+      * **Mutator Roll**: Big Momma joins the pool of mutators rolled on special waves (Blackout, Low Gravity, Swarm, Big Momma), subject to a configurable minimum wave and relative weight so it can be reserved for later special waves.    * **Mutator Siren Silencing on Wave Completion**: The ominous alert siren played when a special mutator starts (such as Blackout) must be explicitly stopped upon wave completion (`trigger_gladder_end`) or when mutators are reverted, preventing the audio loop from persisting indefinitely during subsequent waves.
 * **Modernized Monster Turning Speed (`yawspeed`)**:
   * Original Half-Life monsters feature sluggish turning rates (`m_flYawSpeed`), resulting in slow rotational reaction times that feel dated and allow players to easily bypass or stand behind monsters without being tracked.
   * In this mod, the default `yawspeed` across all monster species is increased globally to deliver snappy, modern arcade responsiveness.
@@ -132,6 +152,62 @@ Instead of progressing linearly through a series of maps, players run through a 
   * **Immediate Schedule Damage Interruption**: In Half-Life: Gladder, monster routines are modernized to maintain aggressive combat challenge and eliminate vulnerability states. Any combat damage sustained during movement or route following immediately interrupts the active movement schedule via gamemode schedule interrupt augmentation (`FlMonsterScheduleInterruptMask` in `CGladderRules`).
   * **Immediate Reorientation & Retaliation**: Upon receiving damage while moving, monsters immediately break their transit, play appropriate pain flinches or species-specific defensive evasions (such as Bullsquid hurt-hop turnarounds), snap their yaw orientation toward the attacker's last known position (`m_vecEnemyLKP`), re-acquire the player as their active enemy, and transition directly into offensive retaliation instead of finishing their march.
   * **Perception-Driven Interruption of Movement (Spotting the Player Mid-Route)**: The same transit blindness applies to perception, not only damage. In standard GoldSrc AI, a monster walking or wandering between nodes (idle walk, patrol, goal-walking, and similar movement schedules, most noticeable with Zombies and Headcrabs) does not abort its route when it sees, bumps into, or walks right past the player, and only switches to attacking after reaching its destination node. In Half-Life: Gladder, whenever a monster is following a route and acquires the player as an enemy (new enemy, or enemy visible and attackable), it must immediately abort the route and transition into its normal combat behavior (chase or attack). This is implemented through the same schedule interrupt augmentation (`FlMonsterScheduleInterruptMask` in `CGladderRules`) by adding the new-enemy / enemy-seen conditions to movement schedules' interrupt masks, and must not alter schedules of scripted monsters (`MONSTERSTATE_SCRIPT`), monsters frozen by wave transitions, or monsters that are deliberately ignoring the player (e.g. `SF_MONSTER_WAIT_TILL_SEEN` style behavior). Physical contact with the player (touching or brushing against the monster) must also be sufficient to trigger enemy acquisition.
+* **Difficulty-Scaled Monster Combat & Arcade Behavioral Enhancements (Skill 1, 2, 3)**:
+  To eliminate passive or trivialized encounters during high-speed gauntlet runs, monster capabilities, attack channels, and projectile physics dynamically scale across difficulty levels (`skill 1`, `skill 2`, `skill 3`):
+  * **Houndeye (Single Sonic Blast Acceleration & Explosion Dynamic Light)**:
+    * **Single Blast Discipline**: Houndeyes strictly execute exactly **one single sonic blast** per attack sequence (never multi-blast or repeating blast waves), preserving clean, crisp arcade timing.
+    * **Channeling / Cast Speed Scaling**: The sonic charge wind-up animation (`ACT_RANGE_ATTACK1`) accelerates dynamically by skill level:
+      * **Skill 1 (Easy / Default)**: `1.00x` (authentic vanilla channeling duration).
+      * **Skill 2 (Medium)**: `1.50x` (+50% faster channeling).
+      * **Skill 3 (Hard)**: `2.00x` (twice as fast, delivering an almost instantaneous acoustic threat).
+    * **Acoustic Detonation Dynamic Light**: Upon triggering `SonicAttack()`, the houndeye casts a localized dynamic point light (`TE_DLIGHT`, radius 200 units, matching its beam color palette, fast decay), illuminating corridors and rooms with an intense visual flash during the acoustic shockwave.
+  * **Bullsquid (Precision Spit, Projectile Trail & Lingering Toxic Cloud)**:
+    * **Spit Accuracy Scaling**: Spread angles for spit projectiles scale progressively:
+      * **Skill 1**: `±0.035` spread.
+      * **Skill 2**: `±0.015` spread.
+      * **Skill 3**: `0.000` (pinpoint sniper accuracy).
+    * **Visual Projectile Trail (Non-Damaging)**: During flight, the spit projectile attaches a short-lived green smoke trail (`TE_BEAMFOLLOW` with `sprites/smoke.spr`, canonical acid green `RGB(0, 255, 50)`, width 10, life ~0.3s). The trail is purely cosmetic and deals no damage in mid-air.
+    * **Impact Toxic Area (Smoke Cloud & Damage-Over-Time)**:
+      * Upon impacting geometry or world surfaces (`CSquidSpit::Touch`), the projectile spawns a lingering toxic cloud entity (`squidspit_cloud`) lasting 3 to 5 seconds.
+      * The area emits green billowing smoke particles (`sprites/steam1.spr`) and a localized toxic green dynamic light (`RGB(0, 255, 50)`).
+      * Inflicts periodic acid damage (`DMG_ACID`) to players standing within the cloud radius (~64 units), denying static camping positions and forcing runners to maintain forward momentum.
+  * **Zombie Soldier (Impact Knockback & Movement Deceleration Debuff)**:
+    * In addition to slashing damage, hits from `monster_zombie_soldier` deliver:
+      * **Physical Knockback**: Applies a directional impulse vector (`velocity += dir * 220 + Vector(0, 0, 120)` and clears `FL_ONGROUND`), knocking the player backward and breaking sprint stride.
+      * **Slow Debuff**: Applies a temporary 35% speed penalty (`pev->maxspeed`) lasting 1.5 to 2.0 seconds, preventing immediate disengagement and penalizing reckless close-quarters routing.
+  * **Headcrabs & Baby Headcrabs (Locomotion Speed, Leap Velocity & Range)**:
+    * **Locomotion Speed**: Crawling/walking framerate scales with difficulty:
+      * **Skill 1**: `1.00x`.
+      * **Skill 2**: `1.25x`.
+      * **Skill 3**: `1.50x`.
+    * **Leap Velocity & Aggro Range**:
+      * **Skill 1**: 650 leap speed / 256 unit trigger distance.
+      * **Skill 2**: 750 leap speed / 320 unit trigger distance.
+      * **Skill 3**: 850 leap speed / 380 unit trigger distance (intercepting sprinting players mid-stride).
+  * **Zombies (Standard & Barney) (Locomotion Speed)**:
+    * Standard Zombies and Barney Zombies scale their walking/running sequence framerate:
+      * **Skill 1**: `1.00x`.
+      * **Skill 2**: `1.25x`.
+      * **Skill 3**: `1.50x` (transitioning into an aggressive jog).
+  * **Vortigaunt / Alien Slave (Zap Powerup Acceleration)**:
+    * The lightning zap charge windup (`ISLAVE_AE_ZAP_POWERUP`) accelerates by difficulty:
+      * **Skill 1**: `1.00x`.
+      * **Skill 2**: `1.30x` (+30% faster charge).
+      * **Skill 3**: `1.60x` (+60% faster charge).
+  * **Alien Grunt (Hivehand Hornet Velocity & Tracking)**:
+    * **Skill 1**: Vanilla hornet velocity (600 units/s).
+    * **Skill 2**: +20% hornet velocity (720 units/s).
+    * **Skill 3**: +35% hornet velocity (810 units/s) with tighter homing turn rates.
+  * **HECU Grunts (Tactical Aim Reaction & Flush Grenades)**:
+    * **Skill 1**: Standard tactical reaction pauses.
+    * **Skill 2**: Reduced aim delay before opening fire with MP5 or shotgun.
+    * **Skill 3**: Rapid grenade tossing or underbarrel MP5 grenade launches when players take cover behind obstacles.
+  * **Alien Controller (Flight Agility & Energy Ball Volleys)**:
+    * **Skill 1**: Standard hover mechanics and single energy ball projectile.
+    * **Skill 2**: +20% flight and strafing speed.
+    * **Skill 3**: Fires twin energy balls in rapid succession.
+  * **Heavy Monster Stun / Flinch Resistance (Skill 3)**:
+    * On Skill 3, heavy tier monsters (Bullsquid, Alien Grunt, Gargantua) recover 30% faster from pain flinch animations, preventing players from perma-stunlocking them with shotgun or high-damage weapon spam.
 * **Diminishing Wall Charger Capacity & Active State Glow**:
   * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
   * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.
@@ -181,6 +257,13 @@ Mirroring the native GoldSrc convention for node navigation graphs (`maps/graphs
         * `func_conveyor`, `func_vehicle`, `func_friction`: Conveyor belts and interactive vehicles.
         * `func_breakable`, `gladder_breakable`: Destructible world props.
       * **Clearance Margins**: Both spatial indexing and runtime spawn clearance sweeps (`UTIL_TraceHull` and lateral margin checks) must verify that candidate spawn positions have full lateral and vertical clearance against these solid brush entities. Cells overlapping or immediately flush against solid brush entities without standard monster hull clearance are strictly excluded to avoid monsters spawning stuck inside walls or triggering pathfinding navigation errors.
+    * **Breakable Object Supporting Surfaces (`gladder_breakable`)**:
+      * The top surfaces of destructible props (`gladder_breakable`, such as wooden crates, supply boxes, or tables) provide valid horizontal surfaces for procedural supply placement.
+      * When a spatial grid index downward raycast hits the upper surface of a `gladder_breakable` entity, the coordinate is accepted as a valid surface (rather than discarded as an architectural obstacle) and flagged explicitly as `GLADDER_CELL_PICKUP_ONLY` and `GLADDER_CELL_NO_MONSTERS`.
+      * **Supplies Only (Exclusion of Monsters and Floating Collectibles)**:
+        * **Supplies Permitted**: Procedural item supplies (ammunition crates, weapons, medkits, batteries) are permitted to spawn resting cleanly on top of `gladder_breakable` surfaces (elevated above the top surface plane so they never embed inside the brush volume).
+        * **Monsters Strictly Prohibited**: Living monsters are strictly excluded from spawning on top of `gladder_breakable` entities. Allowing monsters to spawn on destructible objects risks route failure, stuck navigation, or falling through geometry when the breakable is destroyed. The spawner (`SpawnMonsters`) enforces this by skipping any candidate cell bearing the `GLADDER_CELL_PICKUP_ONLY` or `GLADDER_CELL_NO_MONSTERS` flags.
+        * **Floating Lambda Collectibles Excluded**: The floating Lambda collectible (`item_gladder_lambda`) is also strictly excluded from spawning on top of `gladder_breakable` entities. Because the Lambda hovers without gravity (`MOVETYPE_FLY`), spawning it atop high destructible crates or breakable platforms could leave the Lambda hovering permanently in mid-air and physically unreachable if the supporting breakable is destroyed during combat. The Lambda spawner (`SpawnLambdaCollectible`) enforces this by skipping any breakable-tagged cells (`GLADDER_CELL_PICKUP_ONLY` or `GLADDER_CELL_NO_MONSTERS`).
 * Cells identified with valid supporting surfaces, zero architectural collision overlap, and adequate vertical clearance are recorded into the grid database, ready to receive randomized entity spawns during waves.
 
 ### 4.4 Special Entity Spawning Behaviors
@@ -267,7 +350,13 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 
 ### 7.3 Iconic Lambda Collectible Item
 * **Unique Per-Wave Spawn**: In each wave, exactly **one single collectible item** spawns procedurally at a randomly selected valid grid location in the map.
+* **Breakable Object Exclusion**: The Lambda collectible is strictly prohibited from spawning on top of destructible props (`gladder_breakable`). Because the collectible hovers without gravity (`MOVETYPE_FLY`), destroying a high supporting crate or breakable platform underneath it would leave the Lambda floating in mid-air and potentially unreachable. It must only spawn over permanent world geometry (Section 4.3).
 * **Custom Model & Presentation**: Features a custom 3D model of the classic Half-Life Lambda (`λ`) insignia. It follows the same arcade visual language: floating suspended in mid-air, rotating on its vertical axis, gently bobbing up and down, and emitting a vibrant golden-orange glow and light.
+* **Elevated Hover Height & Crouch Underpass Clearance (`+48` Units)**:
+  * In GoldSrc, a crouching/ducking player's bounding hull is 36 units high (`mins: (-16, -16, -18)`, `maxs: (16, 16, 18)`). A standing player's bounding hull is 72 units high (`mins: (-16, -16, -36)`, `maxs: (16, 16, 36)`).
+  * The Lambda collectible's trigger volume spans from its origin upward (`mins: (-16, -16, 0)`, `maxs: (16, 16, 32)`).
+  * To guarantee that a player can deliberately duck and pass underneath the collectible without picking it up, the spawn elevation offset is increased to **`+48` units above the floor surface** (`spawnPos = cell.origin + Vector(0.0f, 0.0f, 48.0f)`).
+  * At this height, the bottom edge of the trigger volume sits at `Z = +48` (well above the ducking player's 36-unit head clearance), while remaining well within the reach of a standing player (72 units) or jumping player. Moving crouched beneath the Lambda guarantees zero touch triggers.
 * **Score & Stat Progression**:
   * Collecting the Lambda grants a substantial score point bonus.
   * Increments the player's total match collectible counter.
@@ -356,7 +445,11 @@ Upon match conclusion—whether through **time limit expiration** or **player de
 * **Undismissable Post-Match Summary Screen**:
   * Upon match conclusion (whether via time expiration or player death), the match has definitively ended. The summary screen acts as a persistent end-of-run modal display and **cannot be dismissed** (i.e. `[USE / E]` or click dismiss inputs are disabled and removed).
   * Players can freely toggle between the statistical summary view and the local leaderboard/high-scores view using `[TAB]`.
-  * The interface remains on screen until the player exits or restarts the level through standard engine commands (`restart`, `disconnect`, `map`). *(Note: During active gameplay, holding `[TAB]` allows peeking at the leaderboard and releasing `[TAB]` dismisses it).*
+  * **Informative Footer Navigation Prompt**:
+    * An on-screen footer prompt clearly informs the player of all available navigation and game flow options:
+      * `[TAB] View High Scores` / `[TAB] Return to Summary`: Toggles between the performance breakdown and the Top 10 map leaderboard.
+      * `[ESC] Game Menu / Restart Match`: Informs the player that pressing Escape opens the in-game Game Menu, where they can immediately restart the match (`gladder_restart`) or return to the main menu.
+  * The interface remains on screen until the player exits or restarts the level through standard engine commands (`restart`, `disconnect`, `map`) or the Game Menu (`gladder_restart`). *(Note: During active gameplay, holding `[TAB]` allows peeking at the leaderboard and releasing `[TAB]` dismisses it).*
 * **Multi-Camera Backdrop Rotation (`gladder_camera`)**:
   * The player's viewport switches immediately to end-game backdrop cameras. The rotation sequence ALWAYS begins with the dynamic third-person view overlooking the player. It then sequentially and equitably cycles through all `gladder_camera` entities placed in the map, holding on each camera for an equal duration to showcase multiple dynamic vantage points of the arena, before looping back to the third-person view and repeating cyclically.
   * The living environment remains visible and active in the background while the statistical results, animated score tally, and final rank grade are rendered clearly overlaid on screen.
@@ -383,8 +476,13 @@ Upon match conclusion—whether through **time limit expiration** or **player de
   * Total match time played.
   * Fastest single wave lap time vs. slowest wave lap time.
   * Average lap duration across the entire run.
+* **Resolution-Relative Responsive Multi-Column Layout**:
+  * The three summary sections (**Score Breakdown**, **Pacing Telemetry**, and **Species Kill Log**) must dynamically adapt and scale relative to the client screen resolution (`ScreenWidth` and `ScreenHeight`).
+  * The layout must abandon fixed pixel margins and naive divisions that cause text to crowd or overlap on high-resolution displays (such as 1080p, 1440p, 4K) or squeeze on 4:3 screens.
+  * The three columns are arranged within a centered container spanning a proportional fraction of screen width (e.g., 75% to 85% of `ScreenWidth`), with proportional column widths and guaranteed inter-column gutters. This ensures that long descriptive lines (such as extended species kill log entries and composite score breakdown bonuses) have ample horizontal breathing room and never collide across columns.
 * **Granular Per-Enemy-Type Kill Log**:
-  * An itemized kill log breaking down exact frags for each distinct enemy species encountered (e.g., `Headcrabs: 42`, `Zombies: 28`, `Houndeyes: 16`, `Bullsquids: 9`, `Vortigaunts: 14`, `Alien Grunts: 6`, `HECU Grunts: 19`, etc.).
+  * An itemized kill log breaking down exact frags for each distinct enemy species encountered (e.g., `Headcrabs: 42`, `Zombies: 28`, `Houndeyes: 16`, `Bullsquids: 9`, `Vortigaunts: 14`, `Alien Grunts: 6`, `HECU Grunts: 19`, `Zombie Guards: 12`, `Zombie Soldiers: 15`, `Gonomes: 8`, `Male Assassins: 5`, etc.).
+  * Extended monster species are tracked and tallied under dedicated distinct categories: `Zombie Guards` (`monster_zombie_barney`), `Zombie Soldiers` (`monster_zombie_soldier`), `Gonomes` (`monster_gonome`), and `Black Ops Male Assassins` (`monster_male_assassin`).
 * **Arcade Performance Rating (S / A / B / C / D / F)**:
   * An arcade grade calculated via a composite performance formula evaluating:
     * Total waves cleared within the time limit (primary weight).
@@ -411,7 +509,11 @@ Upon match conclusion—whether through **time limit expiration** or **player de
 ### 10.2 Local Map Leaderboards (High Scores)
 * **Persistent Records**: Each map retains a local high-score record file on disk (`gladder/scores/<mapname>.dat` or JSON).
 * **Tracked Metrics**: Records the Top 10 runs per map, logging Date, Final Score, Waves Cleared, Total Frags, Total Time, and Earned Grade.
-* **Column-Aligned Tabular Grid**: The local leaderboard overlay is rendered as an orderly, column-aligned tabular grid centered in the viewport. Rather than drawing each run record as a single space-padded text line (which misaligns due to proportional character widths in engine fonts), each column (Rank, Score, Waves, Frags, Time, Grade, Status) renders its entries along dedicated vertical coordinate axes with fixed column offsets, ensuring clean, legible column alignment across all screen resolutions.
+* **Resolution-Relative Column-Aligned Tabular Grid**:
+  * The local leaderboard overlay is rendered as an orderly, column-aligned tabular grid centered in the viewport. Rather than using fixed pixel offsets that compress or cramp together on high-resolution displays (such as 1080p, 1440p, 4K) or overlap on narrow viewports:
+    * The total table width dynamically scales as a proportional percentage of screen width (e.g. 70% to 80% of `ScreenWidth`, centered at `ScreenWidth / 2`, clamped within safe minimum and maximum bounds).
+    * Column anchor positions (`Rank`, `Score`, `Waves`, `Frags`, `Time`, `Grade`, `Status`) are calculated proportionally relative to the active table width and screen resolution.
+    * Columns maintain ample horizontal breathing room and prevent text clipping, cramping, or collision across all supported aspect ratios (4:3, 16:9, 16:10, 21:9) and display resolutions.
 * **Future-Proof Baseline**: Designed as the local data layer that can later interface with external web-based leaderboards.
 
 ### 10.3 Save / Load Restrictions & Death Flow
@@ -446,7 +548,7 @@ Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 
 * **Dropped Item Purge**: Uncollected weapons, ammunition boxes, and medical kits scattered across the map are removed to prevent entity buildup.
 * **Transient Entity Clearing & Orphaned Effects**:
   To prevent floating visual artifacts, broken physics links, or edict leaks across wave resets, all transient combat entities and attached visual effects are comprehensively purged:
-  * **Monster & Player Projectiles**: Rockets (`rpg_rocket`, `hvr_rocket`), grenades (`grenade`), Alien Grunt hornets (`hornet`), live snarks (`monster_snark`), crossbow bolts (`bolt`), Bullsquid acid spitballs (`squidspit`), Gonarch mortar spit (`bmortar`), Alien Controller attack balls (`controller_head_ball`, `controller_energy_ball`), Nihilanth spheres (`nihilanth_energy_ball`), planted satchels (`monster_satchel`), and planted tripmines (`monster_tripmine`).
+  * **Monster & Player Projectiles**: Rockets (`rpg_rocket`, `hvr_rocket`), grenades (`grenade`), Alien Grunt hornets (`hornet`), live snarks (`monster_snark`), crossbow bolts (`bolt`), Bullsquid acid spitballs (`squidspit`), Gonarch mortar spit (`bmortar`), Gonome acid guts (`gonomeguts`), Alien Controller attack balls (`controller_head_ball`, `controller_energy_ball`), Nihilanth spheres (`nihilanth_energy_ball`), planted satchels (`monster_satchel`), and planted tripmines (`monster_tripmine`).
   * **Beams & Continuous Effects**: Active laser and lightning beams (`beam` / `CBeam`, including Vortigaunt lightning, Gargantua flame beams, tripmine lasers, and Egon beams) and laser targeting spots (`laser_spot`).
   * **Orphaned Attached Sprites**: Dynamic effect sprites (`env_sprite`) attached to monsters via `MOVETYPE_FOLLOW` (such as Alien Controller charging head balls `sprites/xspark4.spr`, Gargantua eye glows, Turret eye glows, Nihilanth tele balls) whose parent entity was removed or freed.
   * **Debris & Corpses**: Monster gibs (`gib`), player corpses, and temporary impact decals.
@@ -464,7 +566,7 @@ To maintain consistent level interactivity and route geometry without entity deg
     * **Engine World Relinking (`UTIL_SetOrigin`)**: Upon restoring solid state, the entity MUST be actively relinked into the engine's BSP spatial partitioning tree via `UTIL_SetOrigin(pev, m_vecOriginalOrigin)`. Simply updating `pev->origin` without invoking engine set-origin leaves the entity unlinked in the spatial leaf hierarchy, rendering it non-solid to physics hull traces.
   * **Spawner Collision Exclusion & Pre-Spawn Validation**:
     * Procedural item and supply generation (`SpawnPickups`) must execute after breakable regeneration has fully restored and relinked all `gladder_breakable` entities in the world.
-    * In addition to hull traces, pickup spawning must explicitly verify that candidate spawn coordinates do not overlap or intersect solid brush entity bounding volumes (`GladderIsPositionSolidOrBrush`), strictly preventing items, weapons, or ammo from spawning embedded inside crates or breakable geometry.
+    * In addition to hull traces, pickup spawning must explicitly verify that candidate spawn coordinates do not overlap or intersect solid brush entity bounding volumes (`GladderIsPositionSolidOrBrush`), strictly preventing items, weapons, or ammo from spawning embedded inside crates or breakable geometry (while spawning resting cleanly on top of breakables is permitted per Section 4.3).
 
 ### 11.3 Combat Decal Purging & Environmental Decal Preservation
 Intense combat across successive waves rapidly accumulates hundreds of dynamic surface decals (bullet impacts, monster blood splatters, explosion burns). If left uncleared, dynamic decals degrade rendering performance, clutter map navigation, and eventually cause erratic decal replacement as the engine hits internal decal limits.

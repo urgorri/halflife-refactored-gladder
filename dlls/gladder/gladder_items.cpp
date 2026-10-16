@@ -6,6 +6,7 @@
  ****/
 
 #include "gladder_items.h"
+#include "gladder_palette.h"
 #include "gladder_audio.h"
 #include "gladder_rules.h"
 #include "gladder_scoring.h"
@@ -36,10 +37,10 @@ void CGladderItemLambda::Spawn( void )
 	pev->solid = SOLID_TRIGGER;
 	pev->avelocity = Vector( 0, 90.0f, 0 );
 
-	// Vibrant orange glow shell presentation (SPEC §7.3)
+	// Vibrant orange glow shell presentation (SPEC §7.2, §7.3, Issue #107)
 	pev->rendermode = kRenderNormal;
 	pev->renderfx = kRenderFxGlowShell;
-	pev->rendercolor = Vector( 255, 140, 20 );
+	pev->rendercolor = Vector( GladderPalette::Collectible.r, GladderPalette::Collectible.g, GladderPalette::Collectible.b );
 	pev->renderamt = 16;
 
 	UTIL_SetSize( pev, Vector( -16, -16, 0 ), Vector( 16, 16, 32 ) );

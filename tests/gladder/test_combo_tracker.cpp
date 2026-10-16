@@ -194,6 +194,10 @@ TEST_CASE( "GladderComboTracker: Itemized species kill logging and friendly name
 
 	// Verify friendly names
 	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_headcrab" ) == "Headcrabs" );
+	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_zombie_barney" ) == "Zombie Guards" );
+	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_zombie_soldier" ) == "Zombie Soldiers" );
+	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_gonome" ) == "Gonomes" );
+	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_male_assassin" ) == "Male Assassins" );
 	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_bullchicken" ) == "Bullsquids" );
 	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_human_grunt" ) == "HECU Grunts" );
 	CHECK( GladderComboTracker::GetFriendlySpeciesName( "monster_human_assassin" ) == "Black Ops Assassins" );
@@ -421,7 +425,8 @@ TEST_CASE( "GladderComboTracker: Exclude player-deployed ordnance (snarks, satch
 		"grenade",
 		"hornet",
 		"bolt",
-		"rpg_rocket"
+		"rpg_rocket",
+		"gonomeguts"
 	};
 
 	for ( const char *szClass : ordnanceClassnames )

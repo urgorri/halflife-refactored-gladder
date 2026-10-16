@@ -157,7 +157,8 @@ TEST_CASE( "Gladder Early-Wave Pacing: Telemetry audit & quantitative evaluation
 	const char *monsterTypes[] = {
 		"monster_headcrab", "monster_zombie", "monster_houndeye", "monster_bullchicken",
 		"monster_barnacle", "monster_vortigaunt", "monster_alien_grunt", "monster_alien_controller",
-		"monster_human_grunt", "monster_human_assassin"
+		"monster_human_grunt", "monster_human_assassin",
+		"monster_zombie_barney", "monster_zombie_soldier", "monster_gonome", "monster_male_assassin"
 	};
 	for ( const char *szM : monsterTypes )
 	{
@@ -213,10 +214,10 @@ TEST_CASE( "Gladder Early-Wave Pacing: Telemetry audit & quantitative evaluation
 	SECTION( "Tuned configuration audit: guaranteed route encounters and smooth progression" )
 	{
 		GladderMapConfig tunedConfig;
-		// Tuned parameters: baseMonsters 10, monstersPerWave 2.0, basePickups 6, 60% corridor bias
-		CHECK( tunedConfig.baseMonsters == 10 );
+		// Tuned parameters: baseMonsters 20, monstersPerWave 2.0, basePickups 10, 60% corridor bias (Issue #111)
+		CHECK( tunedConfig.baseMonsters == 20 );
 		CHECK( tunedConfig.monstersPerWave == Catch::Approx( 2.0f ) );
-		CHECK( tunedConfig.basePickups == 6 );
+		CHECK( tunedConfig.basePickups == 10 );
 		CHECK( tunedConfig.routeBiasFraction == Catch::Approx( 0.60f ) );
 
 		std::vector<PacingTelemetry> tunedRuns;
@@ -226,12 +227,12 @@ TEST_CASE( "Gladder Early-Wave Pacing: Telemetry audit & quantitative evaluation
 		}
 
 		// Acceptance Criterion 1: Target quota scaling
-		// Wave 1 has at least 10 monsters and 6 supplies
-		CHECK( tunedRuns[0].monsterCount >= 10 );
-		CHECK( tunedRuns[0].pickupCount >= 6 );
+		// Wave 1 has at least 20 monsters and 10 supplies
+		CHECK( tunedRuns[0].monsterCount >= 20 );
+		CHECK( tunedRuns[0].pickupCount >= 10 );
 
-		// Wave 5 scales smoothly to at least 18 monsters
-		CHECK( tunedRuns[4].monsterCount >= 18 );
+		// Wave 5 scales smoothly to at least 28 monsters
+		CHECK( tunedRuns[4].monsterCount >= 28 );
 
 		// Acceptance Criterion 2: Guaranteed route encounters in Wave 1
 		// Route corridor must contain at least 4 confirmed threat encounters in Wave 1

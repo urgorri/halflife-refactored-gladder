@@ -10,6 +10,7 @@
 #include "gladder_modifiers.h"
 #include "gladder_pickup_weights.h"
 #include "core/player.h"
+#include "monsters/bigmomma.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -25,20 +26,24 @@ static const GladderMonsterDef s_monsterRoster[] = {
 	// Tier 1: Basic / Ambient Fodder (Always present across all waves, heavy in early waves)
 	{ "monster_headcrab", 1, 1.0f, false, false },
 	{ "monster_zombie", 1, 1.0f, false, false },
+	{ "monster_zombie_barney", 1, 0.8f, false, false },
 
 	// Tier 2: Intermediate Threats
 	{ "monster_houndeye", 2, 1.0f, false, false },
 	{ "monster_bullchicken", 2, 0.8f, false, false },
 	{ "monster_barnacle", 2, 0.6f, false, true }, // Ceiling attached (SPEC §4.4)
+	{ "monster_zombie_soldier", 2, 0.8f, false, false },
 
 	// Tier 3: Advanced Combatants
 	{ "monster_vortigaunt", 3, 1.0f, false, false },
 	{ "monster_alien_grunt", 3, 0.8f, false, false },
 	{ "monster_alien_controller", 3, 0.5f, true, false }, // Flying / airborne (SPEC §4.4)
+	{ "monster_gonome", 3, 0.7f, false, false },
 
 	// Tier 4: Lethal / Elite Adversaries
 	{ "monster_human_grunt", 4, 1.0f, false, false },
 	{ "monster_human_assassin", 4, 0.6f, false, false },
+	{ "monster_male_assassin", 4, 0.8f, false, false },
 };
 
 static const size_t s_monsterRosterCount = sizeof( s_monsterRoster ) / sizeof( s_monsterRoster[0] );
@@ -92,12 +97,12 @@ static const size_t s_pickupRosterCount = sizeof( s_pickupRoster ) / sizeof( s_p
 // GladderMapConfig Implementation
 //
 GladderMapConfig::GladderMapConfig()
-    : baseMonsters( 10 ),
+    : baseMonsters( 20 ),
       monstersPerWave( 2.0f ),
-      maxMonsters( 32 ),
-      basePickups( 6 ),
-      pickupsPerWave( 1.0f ),
-      maxPickups( 16 ),
+      maxMonsters( 48 ),
+      basePickups( 10 ),
+      pickupsPerWave( 1.5f ),
+      maxPickups( 24 ),
       allowBarnacles( true ),
       allowFlying( true ),
       routeBiasFraction( 0.60f ),
@@ -341,6 +346,10 @@ void GladderSpawner::Precache( void )
 
 	// 3. Precache custom Lambda collectible entity
 	UTIL_PrecacheOther( "item_gladder_lambda" );
+
+	// 4. Precache Big Momma boss mutator entities (SPEC §3, Issue #108)
+	UTIL_PrecacheOther( "monster_bigmomma" );
+	UTIL_PrecacheOther( "monster_babycrab" );
 
 	ALERT( at_console, "[Gladder] Precached %u monster types and %u pickups for procedural spawning\n",
 	       static_cast<unsigned int>( s_monsterRosterCount ),
@@ -659,15 +668,15 @@ void GladderSpawner::SpawnLambdaCollectible( const GladderGridIndexer &indexer, 
 {
 	m_bLambdaSpawned = false;
 
-	// Pick a random valid cell that has clearance and is unoccupied
-	int cellIdx = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, pOccupiedCells );
+	// Pick a random valid cell that has clearance, is unoccupied, and strictly excludes breakables/safe-zones (SPEC §4.3, §7.3, Issue #114)
+	int cellIdx = indexer.GetRandomCellIndex( -1, GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK, pOccupiedCells, GLADDER_CELL_NO_MONSTERS | GLADDER_CELL_PICKUP_ONLY );
 	if ( cellIdx < 0 )
 		return;
 
 	const GladderGridCell &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
 
-	// Elevate 36 units above surface for prominent floating/bobbing arcade display (SPEC §7.3)
-	Vector spawnPos = cell.origin + Vector( 0.0f, 0.0f, 36.0f );
+	// Elevate 48 units above surface to allow ducking underpass clearance without pickup (SPEC §7.3, GitHub Issue #115)
+	Vector spawnPos = cell.origin + Vector( 0.0f, 0.0f, 48.0f );
 
 	// Ensure spawn position does not intersect solid world or breakables (SPEC §11.2, Issue #90)
 	if ( GladderIsPositionSolidOrBrush( spawnPos ) || GladderIsPositionSolidOrBrush( cell.origin + Vector( 0.0f, 0.0f, 8.0f ) ) )
@@ -690,7 +699,7 @@ void GladderSpawner::SpawnLambdaCollectible( const GladderGridIndexer &indexer, 
 	}
 }
 
-void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells, const std::string &szSwarmSpecies )
+void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells, const std::string &szSwarmSpecies, GladderMutatorType mutator )
 {
 	m_iLastMonsterCount = 0;
 
@@ -731,8 +740,23 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 
 		bool isFlying = false;
 		bool isBarnacle = false;
+		bool isBigMomma = false;
 		const char *szSpecies = nullptr;
-		if ( !szSwarmSpecies.empty() )
+
+		if ( mutator == GLADDER_MUTATOR_BIG_MOMMA )
+		{
+			// Big Momma Boss Battle: Exactly 1 Big Momma, remainder baby headcrabs (SPEC §3, Issue #108)
+			if ( i == 0 )
+			{
+				szSpecies  = "monster_bigmomma";
+				isBigMomma = true;
+			}
+			else
+			{
+				szSpecies = "monster_babycrab";
+			}
+		}
+		else if ( !szSwarmSpecies.empty() )
 		{
 			szSpecies = szSwarmSpecies.c_str();
 		}
@@ -762,6 +786,9 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 				continue;
 
 			const auto &c = indexer.GetCell( cIdx );
+			if ( c.flags & ( GLADDER_CELL_NO_MONSTERS | GLADDER_CELL_PICKUP_ONLY ) )
+				continue;
+
 			if ( ( c.flags & reqFlags ) == reqFlags )
 			{
 				candidates.push_back( cIdx );
@@ -795,6 +822,9 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 					continue;
 
 				const auto &c = indexer.GetCell( cIdx );
+				if ( c.flags & ( GLADDER_CELL_NO_MONSTERS | GLADDER_CELL_PICKUP_ONLY ) )
+					continue;
+
 				if ( ( c.flags & reqFlags ) == reqFlags )
 				{
 					candidates.push_back( cIdx );
@@ -814,7 +844,17 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 		std::vector<size_t> prioritizedCandidates;
 		std::vector<size_t> fallbackCandidates;
 
-		if ( bHasRoute && i < routeQuota )
+		if ( isBigMomma && bHasRoute && !candidates.empty() )
+		{
+			// Sort candidates by distance to Point A descending (furthest first, near finish) (SPEC §3, Issue #108)
+			std::sort( candidates.begin(), candidates.end(), [&]( size_t a, size_t b ) {
+				float distA = ( indexer.GetCell( a ).origin - vecRouteA ).Length2D();
+				float distB = ( indexer.GetCell( b ).origin - vecRouteA ).Length2D();
+				return distA > distB;
+			} );
+			prioritizedCandidates = std::move( candidates );
+		}
+		else if ( bHasRoute && i < routeQuota )
 		{
 			for ( size_t idx : candidates )
 			{
@@ -844,11 +884,20 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 			size_t remaining = currentPool.size();
 			while ( remaining > 0 )
 			{
-				size_t pick = static_cast<size_t>( RANDOM_LONG( 0, static_cast<long>( remaining - 1 ) ) );
-				size_t chosenIdx = currentPool[pick];
-				std::swap( currentPool[pick], currentPool[remaining - 1] );
-				remaining--;
-
+				size_t chosenIdx = 0;
+				if ( isBigMomma && bHasRoute && !currentPool.empty() )
+				{
+					chosenIdx = currentPool.front();
+					currentPool.erase( currentPool.begin() );
+					remaining = currentPool.size();
+				}
+				else
+				{
+					size_t pick = static_cast<size_t>( RANDOM_LONG( 0, static_cast<long>( remaining - 1 ) ) );
+					chosenIdx = currentPool[pick];
+					std::swap( currentPool[pick], currentPool[remaining - 1] );
+					remaining--;
+				}
 				const auto &cell = indexer.GetCell( chosenIdx );
 
 				// Calculate exact spawn position according to monster mechanics (SPEC §4.4)
@@ -991,7 +1040,16 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 
 					m_iLastMonsterCount++;
 
-					if ( pMonster->MyMonsterPointer() && GladderModifiers::ShouldSpawnAsChampion( iWaveNumber ) )
+					if ( isBigMomma )
+					{
+						CBaseMonster *pBM = pMonster->MyMonsterPointer();
+						if ( pBM )
+						{
+							pBM->Remember( bits_MEMORY_PATH_FINISHED );
+							pBM->Forget( bits_MEMORY_ADVANCE_NODE );
+						}
+					}
+					else if ( pMonster->MyMonsterPointer() && mutator != GLADDER_MUTATOR_BIG_MOMMA && GladderModifiers::ShouldSpawnAsChampion( iWaveNumber ) )
 					{
 						GladderModifiers::MakeEliteChampion( pMonster->MyMonsterPointer() );
 						m_iLastChampionCount++;
@@ -1053,6 +1111,8 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 					if ( ( *pOccupiedCells )[cIdx] )
 						continue;
 					const auto &c = indexer.GetCell( cIdx );
+					if ( c.flags & ( GLADDER_CELL_NO_MONSTERS | GLADDER_CELL_PICKUP_ONLY ) )
+						continue;
 					if ( ( c.flags & ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) ) == ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) )
 					{
 						currentPool.push_back( cIdx );
@@ -1255,7 +1315,7 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 	}
 }
 
-int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies, CBasePlayer *pPlayer )
+int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies, CBasePlayer *pPlayer, GladderMutatorType mutator )
 {
 	m_iLastChampionCount = 0;
 	m_spawnedMonsterPositions.clear();
@@ -1280,7 +1340,7 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 	SpawnLambdaCollectible( indexer, &occupiedCells );
 
 	// 3. Procedurally generate monsters across spatial grid cells
-	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells, szSwarmSpecies );
+	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells, szSwarmSpecies, mutator );
 
 	// 4. Procedurally generate randomized pickups & weapons
 	SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells, pPlayer );
@@ -1416,6 +1476,7 @@ void GladderSpawner::PurgeWaveEntities()
 		     FClassnameIs( pEnt->pev, "gib" ) ||
 		     FClassnameIs( pEnt->pev, "squidspit" ) ||
 		     FClassnameIs( pEnt->pev, "bmortar" ) ||
+		     FClassnameIs( pEnt->pev, "gonomeguts" ) ||
 		     FClassnameIs( pEnt->pev, "bolt" ) ||
 		     FClassnameIs( pEnt->pev, "controller_head_ball" ) ||
 		     FClassnameIs( pEnt->pev, "controller_energy_ball" ) ||

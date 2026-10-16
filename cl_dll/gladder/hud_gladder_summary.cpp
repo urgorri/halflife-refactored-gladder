@@ -47,8 +47,8 @@ static void Cmd_GladderRestart( void )
 #include "cl_dll/input/kbutton.h"
 #include "tests/mock_client_engine.h"
 #define gEngfuncs g_mockClientEngineFuncs
-static const int ScreenWidth = 640;
-static const int ScreenHeight = 480;
+#define ScreenWidth ( g_mockScreenInfo.iWidth > 0 ? g_mockScreenInfo.iWidth : 640 )
+#define ScreenHeight ( g_mockScreenInfo.iHeight > 0 ? g_mockScreenInfo.iHeight : 480 )
 
 static void Cmd_GladderRestart( void )
 {
@@ -409,11 +409,18 @@ void CHudGladderSummary::DrawSummaryPage( float flTime, float tallyFrac )
 	DrawConsoleString( cx - ( len / 2 ), y, szBuf );
 	y += 36;
 
-	// Multi-column presentation
-	int colWidth = ScreenWidth / 3;
-	int col1X = 32;
-	int col2X = col1X + colWidth;
-	int col3X = col2X + colWidth;
+	// Responsive multi-column presentation (SPEC §9.2, Issue #112)
+	int containerWidth = (std::max)( 560, (std::min)( 1100, static_cast<int>( ScreenWidth * 0.82f ) ) );
+	if ( containerWidth > ScreenWidth - 32 )
+	{
+		containerWidth = ScreenWidth - 32;
+	}
+	int gutter = 24;
+	int colWidth = ( containerWidth - 2 * gutter ) / 3;
+	int startX = ( ScreenWidth - containerWidth ) / 2;
+	int col1X = startX;
+	int col2X = col1X + colWidth + gutter;
+	int col3X = col2X + colWidth + gutter;
 
 	// Column 1: Granular Score Breakdown
 	int colY = y;
@@ -513,7 +520,7 @@ void CHudGladderSummary::DrawSummaryPage( float flTime, float tallyFrac )
 	}
 
 	gEngfuncs.pfnDrawSetTextColor( 0.7f, 0.7f, 0.7f );
-	snprintf( szBuf, sizeof( szBuf ), "[TAB] View High Scores" );
+	snprintf( szBuf, sizeof( szBuf ), "[TAB] View High Scores    [ESC] Game Menu / Restart Match" );
 	len = static_cast<int>( strlen( szBuf ) ) * 9;
 	DrawConsoleString( cx - ( len / 2 ), footerY, szBuf );
 #endif
@@ -532,15 +539,20 @@ void CHudGladderSummary::DrawLeaderboardPage( void )
 	DrawConsoleString( cx - ( len / 2 ), y, szBuf );
 	y += 32;
 
-	// Column-aligned tabular grid anchors (SPEC §10.2, Issue #73)
-	int tableX    = cx - 230;
+	// Resolution-relative responsive grid anchors (SPEC §10.2, Issues #73, #112)
+	int lbWidth = (std::max)( 520, (std::min)( 960, static_cast<int>( ScreenWidth * 0.75f ) ) );
+	if ( lbWidth > ScreenWidth - 32 )
+	{
+		lbWidth = ScreenWidth - 32;
+	}
+	int tableX    = ( ScreenWidth - lbWidth ) / 2;
 	int colRankX   = tableX;
-	int colScoreX  = tableX + 55;
-	int colWavesX  = tableX + 150;
-	int colFragsX  = tableX + 215;
-	int colTimeX   = tableX + 280;
-	int colGradeX  = tableX + 350;
-	int colStatusX = tableX + 410;
+	int colScoreX  = tableX + static_cast<int>( lbWidth * 0.12f );
+	int colWavesX  = tableX + static_cast<int>( lbWidth * 0.32f );
+	int colFragsX  = tableX + static_cast<int>( lbWidth * 0.46f );
+	int colTimeX   = tableX + static_cast<int>( lbWidth * 0.60f );
+	int colGradeX  = tableX + static_cast<int>( lbWidth * 0.74f );
+	int colStatusX = tableX + static_cast<int>( lbWidth * 0.87f );
 
 	// Table Header
 	gEngfuncs.pfnDrawSetTextColor( 0.4f, 0.9f, 1.0f );
@@ -608,11 +620,11 @@ void CHudGladderSummary::DrawLeaderboardPage( void )
 	gEngfuncs.pfnDrawSetTextColor( 0.7f, 0.7f, 0.7f );
 	if ( m_bHoldTabMode )
 	{
-		snprintf( szBuf, sizeof( szBuf ), "[TAB] Release to Dismiss Leaderboard" );
+		snprintf( szBuf, sizeof( szBuf ), "[TAB] Release to Dismiss Leaderboard    [ESC] Game Menu / Restart Match" );
 	}
 	else
 	{
-		snprintf( szBuf, sizeof( szBuf ), "[TAB] Return to Summary" );
+		snprintf( szBuf, sizeof( szBuf ), "[TAB] Return to Summary    [ESC] Game Menu / Restart Match" );
 	}
 	len = static_cast<int>( strlen( szBuf ) ) * 9;
 	DrawConsoleString( cx - ( len / 2 ), footerY, szBuf );

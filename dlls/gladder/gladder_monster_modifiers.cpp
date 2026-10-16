@@ -103,7 +103,8 @@ float GladderMonsterModifiers::GetModernYawSpeed( CBaseMonster *pMonster, float 
 	// Check if this monster is an Elite Champion (tagged with red glow shell)
 	if ( pMonster->pev->renderfx == kRenderFxGlowShell &&
 	     pMonster->pev->rendercolor.x >= 200.0f &&
-	     pMonster->pev->rendercolor.y <= 64.0f )
+	     pMonster->pev->rendercolor.y <= 64.0f &&
+	     pMonster->pev->rendercolor.z <= 64.0f )
 	{
 		speed *= CHAMPION_YAW_MULTIPLIER;
 	}

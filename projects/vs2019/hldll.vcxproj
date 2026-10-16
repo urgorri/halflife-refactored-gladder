@@ -308,8 +308,13 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\dlls\$(
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_eagle.cpp" />
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_sniper.cpp" />
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_m249.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\monster_zombie_barney.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\monster_zombie_soldier.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\monster_gonome.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\monster_male_assassin.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\dlls\gladder\gladder_palette.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_rules.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_entities.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_wave_manager.h" />
