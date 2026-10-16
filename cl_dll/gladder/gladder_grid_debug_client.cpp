@@ -433,24 +433,66 @@ int CHudGladderGridDebug::Draw( float flTime )
 
 	if ( pUnderCell )
 	{
-		const char *pszStatus = "OK";
+		const char *pszStatus = "SPAWN_OK";
+		float textR = 0.2f, textG = 1.0f, textB = 0.4f;
+
 		if ( pUnderCell->isOccupied )
 		{
 			pszStatus = "OCCUPIED";
-		}
-		else if ( pUnderCell->flags & GLADDER_CELL_FLAG_CEILING_VALID )
-		{
-			pszStatus = "CEILING";
+			textR = 1.0f; textG = 0.9f; textB = 0.1f;
 		}
 		else if ( !( pUnderCell->flags & GLADDER_CELL_FLAG_CLEARANCE_OK ) )
 		{
-			pszStatus = "REJECTED";
+			pszStatus = "BLOCKED";
+			textR = 1.0f; textG = 0.3f; textB = 0.2f;
+		}
+		else if ( pUnderCell->flags & GLADDER_CELL_FLAG_NO_MONSTERS )
+		{
+			pszStatus = "SAFE_ZONE";
+			textR = 0.4f; textG = 0.8f; textB = 1.0f;
+		}
+		else if ( pUnderCell->flags & GLADDER_CELL_FLAG_PICKUP_ONLY )
+		{
+			pszStatus = "PICKUP_ONLY";
+			textR = 1.0f; textG = 0.5f; textB = 1.0f;
+		}
+		else if ( pUnderCell->flags & GLADDER_CELL_FLAG_LARGE_CLEARANCE )
+		{
+			pszStatus = "SPAWN_OK (LARGE)";
+			textR = 0.1f; textG = 0.9f; textB = 1.0f;
 		}
 
-		snprintf( szBuf, sizeof( szBuf ), "Cell (%.0f, %.0f, %.0f) | Area: %d | Flags: 0x%02X [%s]",
+		// Compose human-readable flags list
+		char szFlagsDesc[64] = { 0 };
+		if ( pUnderCell->flags & GLADDER_CELL_FLAG_CLEARANCE_OK )
+		{
+			strcat( szFlagsDesc, "CLEAR" );
+		}
+		else
+		{
+			strcat( szFlagsDesc, "NO_CLEAR" );
+		}
+		if ( pUnderCell->flags & GLADDER_CELL_FLAG_LARGE_CLEARANCE )
+		{
+			strcat( szFlagsDesc, "|LARGE" );
+		}
+		if ( pUnderCell->flags & GLADDER_CELL_FLAG_CEILING_VALID )
+		{
+			strcat( szFlagsDesc, "|CEILING" );
+		}
+		if ( pUnderCell->flags & GLADDER_CELL_FLAG_NO_MONSTERS )
+		{
+			strcat( szFlagsDesc, "|NO_MONSTERS" );
+		}
+		if ( pUnderCell->flags & GLADDER_CELL_FLAG_PICKUP_ONLY )
+		{
+			strcat( szFlagsDesc, "|PICKUP_ONLY" );
+		}
+
+		snprintf( szBuf, sizeof( szBuf ), "Cell (%.0f, %.0f, %.0f) | Area: %d | Status: %s | Flags: 0x%02X [%s]",
 		          pUnderCell->x, pUnderCell->y, pUnderCell->z,
-		          pUnderCell->areaId, pUnderCell->flags, pszStatus );
-		gEngfuncs.pfnDrawSetTextColor( 1.0f, 1.0f, 0.2f );
+		          pUnderCell->areaId, pszStatus, pUnderCell->flags, szFlagsDesc );
+		gEngfuncs.pfnDrawSetTextColor( textR, textG, textB );
 		DrawConsoleString( x, y, szBuf );
 	}
 	else
