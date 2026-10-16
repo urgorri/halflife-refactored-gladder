@@ -395,7 +395,7 @@ int GladderSpawner::GetActiveEdictCount()
 	for ( int i = 1; i < maxEdicts; ++i )
 	{
 		edict_t *pEdict = INDEXENT( i );
-		if ( !FNullEnt( pEdict ) && !pEdict->free && pEdict->v.pContainingEntity != nullptr )
+		if ( !FNullEnt( pEdict ) && !pEdict->free && !( pEdict->v.flags & FL_KILLME ) && pEdict->v.pContainingEntity != nullptr )
 		{
 			activeCount++;
 		}
@@ -554,7 +554,7 @@ void GladderSpawner::RecordAmmoSpawned( const char *szPickup )
 	}
 }
 
-const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer )
+const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer, bool allowFixedWeapons, const std::vector<std::string> *pExtraOwnedWeapons )
 {
 	if ( !pPlayer && gpGlobals )
 	{
@@ -563,8 +563,17 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 
 	GladderPickupWeightInput input;
 	input.iWaveNumber = iWaveNumber;
+	input.allowFixedWeapons = allowFixedWeapons;
 	input.weaponWhitelist = config.weaponWhitelist;
 	input.weaponBlacklist = config.weaponBlacklist;
+
+	if ( pExtraOwnedWeapons )
+	{
+		for ( const auto &w : *pExtraOwnedWeapons )
+		{
+			input.ownedWeapons.push_back( w );
+		}
+	}
 
 	if ( pPlayer )
 	{
@@ -573,7 +582,7 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 			const auto &def = s_pickupRoster[i];
 			if ( def.isWeapon )
 			{
-				if ( pPlayer->HasNamedPlayerItem( def.szClassname ) )
+				if ( pPlayer->HasNamedPlayerItem( def.szClassname ) && !input.HasWeapon( def.szClassname ) )
 				{
 					input.ownedWeapons.push_back( def.szClassname );
 				}
@@ -802,222 +811,272 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 		}
 
 		// Prioritize candidate cells in the Point A -> Point B corridor (SPEC §3, Issue #103)
+		std::vector<size_t> prioritizedCandidates;
+		std::vector<size_t> fallbackCandidates;
+
 		if ( bHasRoute && i < routeQuota )
 		{
-			std::vector<size_t> corridorCandidates;
-			corridorCandidates.reserve( candidates.size() );
 			for ( size_t idx : candidates )
 			{
 				const auto &c = indexer.GetCell( idx );
 				if ( GladderDistanceToSegment2D( c.origin, vecRouteA, vecRouteB ) <= config.routeCorridorRadius )
 				{
-					corridorCandidates.push_back( idx );
+					prioritizedCandidates.push_back( idx );
+				}
+				else
+				{
+					fallbackCandidates.push_back( idx );
 				}
 			}
-			if ( !corridorCandidates.empty() )
-			{
-				candidates = std::move( corridorCandidates );
-			}
+		}
+
+		if ( prioritizedCandidates.empty() )
+		{
+			prioritizedCandidates = std::move( candidates );
 		}
 
 		// Test candidate cells without duplicates to find one that satisfies distance and clearance
 		bool bSpawnSuccess = false;
-		size_t remaining = candidates.size();
+		std::vector<size_t> currentPool = std::move( prioritizedCandidates );
 
-		while ( remaining > 0 )
+		while ( true )
 		{
-			size_t pick = static_cast<size_t>( RANDOM_LONG( 0, static_cast<long>( remaining - 1 ) ) );
-			size_t chosenIdx = candidates[pick];
-			std::swap( candidates[pick], candidates[remaining - 1] );
-			remaining--;
+			size_t remaining = currentPool.size();
+			while ( remaining > 0 )
+			{
+				size_t pick = static_cast<size_t>( RANDOM_LONG( 0, static_cast<long>( remaining - 1 ) ) );
+				size_t chosenIdx = currentPool[pick];
+				std::swap( currentPool[pick], currentPool[remaining - 1] );
+				remaining--;
 
-			const auto &cell = indexer.GetCell( chosenIdx );
+				const auto &cell = indexer.GetCell( chosenIdx );
 
-			// Calculate exact spawn position according to monster mechanics (SPEC §4.4)
-			Vector vecSpawnPos = cell.origin;
-			if ( isBarnacle )
-			{
-				vecSpawnPos.z = cell.ceilingZ - 8.0f;
-			}
-			else if ( isFlying )
-			{
-				float flMinZ = cell.origin.z + 32.0f;
-				float flMaxZ = (std::max)( flMinZ + 16.0f, cell.ceilingZ - 32.0f );
-				vecSpawnPos.z = RANDOM_FLOAT( flMinZ, flMaxZ );
-			}
-			else
-			{
-				vecSpawnPos.z += 8.0f;
-			}
-
-			// 1. Distance separation check against already spawned monsters
-			bool bTooClose = false;
-			for ( const auto &prev : spawned )
-			{
-				if ( isBarnacle || prev.isBarnacle )
+				// Calculate exact spawn position according to monster mechanics (SPEC §4.4)
+				Vector vecSpawnPos = cell.origin;
+				if ( isBarnacle )
 				{
-					if ( isBarnacle && prev.isBarnacle )
+					vecSpawnPos.z = cell.ceilingZ - 8.0f;
+				}
+				else if ( isFlying )
+				{
+					float flMinZ = cell.origin.z + 32.0f;
+					float flMaxZ = (std::max)( flMinZ + 16.0f, cell.ceilingZ - 32.0f );
+					vecSpawnPos.z = RANDOM_FLOAT( flMinZ, flMaxZ );
+				}
+				else
+				{
+					vecSpawnPos.z += 8.0f;
+				}
+
+				// 1. Distance separation check against already spawned monsters
+				bool bTooClose = false;
+				for ( const auto &prev : spawned )
+				{
+					if ( isBarnacle || prev.isBarnacle )
 					{
-						if ( ( vecSpawnPos - prev.pos ).Length2D() < 48.0f )
+						if ( isBarnacle && prev.isBarnacle )
+						{
+							if ( ( vecSpawnPos - prev.pos ).Length2D() < 48.0f )
+							{
+								bTooClose = true;
+								break;
+							}
+						}
+						continue;
+					}
+
+					if ( isFlying || prev.isFlying )
+					{
+						if ( ( vecSpawnPos - prev.pos ).Length() < 48.0f )
 						{
 							bTooClose = true;
 							break;
 						}
+						continue;
 					}
-					continue;
-				}
 
-				if ( isFlying || prev.isFlying )
-				{
-					if ( ( vecSpawnPos - prev.pos ).Length() < 48.0f )
+					// Ground monsters: ensure axis-aligned bounding boxes (AABBs) cannot overlap even on 45-degree diagonals
+					float flDist2D = ( vecSpawnPos - prev.pos ).Length2D();
+					float flMinSeparation = 54.0f;
+					if ( isLarge && prev.isLarge )
+					{
+						flMinSeparation = 96.0f;
+					}
+					else if ( isLarge || prev.isLarge )
+					{
+						flMinSeparation = 76.0f;
+					}
+
+					if ( flDist2D < flMinSeparation )
 					{
 						bTooClose = true;
 						break;
 					}
+				}
+
+				if ( bTooClose )
+					continue;
+
+				// 2. Live collision clearance sweep (detect breakables, walls, other entities)
+				Vector vecHullCheck = vecSpawnPos + Vector( 0.0f, 0.0f, 36.0f );
+				if ( isBarnacle )
+				{
+					vecHullCheck = vecSpawnPos - Vector( 0.0f, 0.0f, 16.0f );
+				}
+
+				TraceResult trHull;
+				UTIL_TraceHull( vecHullCheck, vecHullCheck, dont_ignore_monsters, hullNum, NULL, &trHull );
+				if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction < 1.0f )
+				{
 					continue;
 				}
 
-				// Ground monsters: ensure axis-aligned bounding boxes (AABBs) cannot overlap even on 45-degree diagonals
-				float flDist2D = ( vecSpawnPos - prev.pos ).Length2D();
-				float flMinSeparation = 54.0f;
-				if ( isLarge && prev.isLarge )
+				// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37, Issue #89)
+				// Checks 8 directions: 4 cardinal and 4 diagonal sweeps.
+				if ( !isBarnacle && !isFlying )
 				{
-					flMinSeparation = 96.0f;
-				}
-				else if ( isLarge || prev.isLarge )
-				{
-					flMinSeparation = 76.0f;
+					float flRadius = isLarge ? 32.0f : 16.0f;
+					float flDiag = flRadius * 0.7071f;
+					if ( GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) ||
+					     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) ||
+					     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) ||
+					     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) ||
+					     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flDiag, flDiag, 0.0f ) ) ||
+					     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( -flDiag, flDiag, 0.0f ) ) ||
+					     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flDiag, -flDiag, 0.0f ) ) ||
+					     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flDiag, flDiag, 0.0f ) ) )
+					{
+						continue;
+					}
 				}
 
-				if ( flDist2D < flMinSeparation )
+				// 3. Valid candidate confirmed: instantiate monster entity
+				Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
+				CBaseEntity *pMonster = CreateWaveEntity( szSpecies, vecSpawnPos, vecAngles );
+				if ( pMonster )
 				{
-					bTooClose = true;
+					if ( pMonster->pev )
+					{
+						pMonster->pev->flags |= FL_MONSTERCLIP;
+					}
+
+					// Use exact Half-Life CBaseMonster::StartMonster stuck-in-wall detection (SPEC §4.3, Issue #89):
+					// In monsters.cpp, StartMonster raises origin.z += 1, calls DROP_TO_FLOOR, and checks
+					// WALK_MOVE( ENT( pev ), 0, 0, WALKMOVE_NORMAL ) at MonsterInitThink (0.1s after spawn).
+					// Run this exact check immediately upon creation (with FL_MONSTERCLIP active); if it fails,
+					// disable and remove the entity immediately and skip to the next grid cell.
+					if ( pMonster->pev && !isBarnacle && !isFlying && pMonster->pev->movetype != MOVETYPE_FLY )
+					{
+						int iDrop = DROP_TO_FLOOR( ENT( pMonster->pev ) );
+						int iWalk = WALK_MOVE( ENT( pMonster->pev ), 0.0f, 0.0f, WALKMOVE_NORMAL );
+						if ( iDrop <= 0 || !iWalk || ( pMonster->pev->effects & EF_BRIGHTFIELD ) )
+						{
+							if ( !m_spawnedEntities.empty() && m_spawnedEntities.back() == pMonster )
+							{
+								m_spawnedEntities.pop_back();
+							}
+							pMonster->pev->solid = SOLID_NOT;
+							pMonster->pev->movetype = MOVETYPE_NONE;
+							pMonster->pev->takedamage = DAMAGE_NO;
+							pMonster->pev->effects |= EF_NODRAW;
+							pMonster->pev->nextthink = 0.0f;
+							pMonster->SetThink( NULL );
+							UTIL_SetOrigin( pMonster->pev, pMonster->pev->origin );
+							UTIL_Remove( pMonster );
+							( *pOccupiedCells )[chosenIdx] = true;
+							continue;
+						}
+						vecSpawnPos = pMonster->pev->origin;
+					}
+
+					m_iLastMonsterCount++;
+
+					if ( pMonster->MyMonsterPointer() && GladderModifiers::ShouldSpawnAsChampion( iWaveNumber ) )
+					{
+						GladderModifiers::MakeEliteChampion( pMonster->MyMonsterPointer() );
+						m_iLastChampionCount++;
+					}
+
+					( *pOccupiedCells )[chosenIdx] = true;
+
+					// Mark surrounding cells within separation radius as occupied so pickups and monsters cannot overlap
+					float flExclusionDist = isLarge ? 76.0f : 54.0f;
+					for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
+					{
+						if ( !( *pOccupiedCells )[k] )
+						{
+							const auto &otherCell = indexer.GetCell( k );
+							if ( ( otherCell.origin - vecSpawnPos ).Length2D() < flExclusionDist )
+							{
+								( *pOccupiedCells )[k] = true;
+							}
+						}
+					}
+
+					SpawnedMonsterRecord rec;
+					rec.pos = vecSpawnPos;
+					rec.isLarge = isLarge;
+					rec.isBarnacle = isBarnacle;
+					rec.isFlying = isFlying;
+					spawned.push_back( rec );
+					m_spawnedMonsterPositions.push_back( vecSpawnPos );
+
+					bSpawnSuccess = true;
 					break;
 				}
 			}
 
-			if ( bTooClose )
-				continue;
+			if ( bSpawnSuccess )
+				break;
 
-			// 2. Live collision clearance sweep (detect breakables, walls, other entities)
-			Vector vecHullCheck = vecSpawnPos + Vector( 0.0f, 0.0f, 36.0f );
-			if ( isBarnacle )
+			// Fallback 1: If corridor pool failed, fall back to general candidates outside corridor
+			if ( !fallbackCandidates.empty() )
 			{
-				vecHullCheck = vecSpawnPos - Vector( 0.0f, 0.0f, 16.0f );
-			}
-
-			TraceResult trHull;
-			UTIL_TraceHull( vecHullCheck, vecHullCheck, dont_ignore_monsters, hullNum, NULL, &trHull );
-			if ( trHull.fStartSolid || trHull.fAllSolid || trHull.flFraction < 1.0f )
-			{
+				currentPool = std::move( fallbackCandidates );
+				fallbackCandidates.clear();
 				continue;
 			}
 
-			// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37, Issue #89)
-			// Checks 8 directions: 4 cardinal and 4 diagonal sweeps.
-			if ( !isBarnacle && !isFlying )
+			// Fallback 2: If specialized monster (barnacle, flying, large) couldn't be placed,
+			// degrade species to basic fodder (headcrab) on any valid grid cell
+			if ( isBarnacle || isFlying || isLarge )
 			{
-				float flRadius = isLarge ? 32.0f : 16.0f;
-				float flDiag = flRadius * 0.7071f;
-				if ( GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flRadius, 0.0f, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flRadius, 0.0f, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( 0.0f, flRadius, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( 0.0f, flRadius, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flDiag, flDiag, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( -flDiag, flDiag, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck + Vector( flDiag, -flDiag, 0.0f ) ) ||
-				     GladderIsPositionSolidOrBrush( vecHullCheck - Vector( flDiag, flDiag, 0.0f ) ) )
+				isBarnacle = false;
+				isFlying   = false;
+				isLarge    = false;
+				szSpecies  = "monster_headcrab";
+				hullNum    = human_hull;
+
+				currentPool.clear();
+				for ( size_t cIdx = 0; cIdx < indexer.GetCellCount(); ++cIdx )
+				{
+					if ( ( *pOccupiedCells )[cIdx] )
+						continue;
+					const auto &c = indexer.GetCell( cIdx );
+					if ( ( c.flags & ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) ) == ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) )
+					{
+						currentPool.push_back( cIdx );
+					}
+				}
+				if ( !currentPool.empty() )
 				{
 					continue;
 				}
 			}
 
-			// 3. Valid candidate confirmed: instantiate monster entity
-			Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
-			CBaseEntity *pMonster = CreateWaveEntity( szSpecies, vecSpawnPos, vecAngles );
-			if ( pMonster )
-			{
-				if ( pMonster->pev )
-				{
-					pMonster->pev->flags |= FL_MONSTERCLIP;
-				}
-
-				// Use exact Half-Life CBaseMonster::StartMonster stuck-in-wall detection (SPEC §4.3, Issue #89):
-				// In monsters.cpp, StartMonster raises origin.z += 1, calls DROP_TO_FLOOR, and checks
-				// WALK_MOVE( ENT( pev ), 0, 0, WALKMOVE_NORMAL ) at MonsterInitThink (0.1s after spawn).
-				// Run this exact check immediately upon creation (with FL_MONSTERCLIP active); if it fails,
-				// disable and remove the entity immediately and skip to the next grid cell.
-				if ( pMonster->pev && !isBarnacle && !isFlying && pMonster->pev->movetype != MOVETYPE_FLY )
-				{
-					int iDrop = DROP_TO_FLOOR( ENT( pMonster->pev ) );
-					int iWalk = WALK_MOVE( ENT( pMonster->pev ), 0.0f, 0.0f, WALKMOVE_NORMAL );
-					if ( iDrop <= 0 || !iWalk || ( pMonster->pev->effects & EF_BRIGHTFIELD ) )
-					{
-						if ( !m_spawnedEntities.empty() && m_spawnedEntities.back() == pMonster )
-						{
-							m_spawnedEntities.pop_back();
-						}
-						pMonster->pev->solid = SOLID_NOT;
-						pMonster->pev->movetype = MOVETYPE_NONE;
-						pMonster->pev->takedamage = DAMAGE_NO;
-						pMonster->pev->effects |= EF_NODRAW;
-						pMonster->pev->nextthink = 0.0f;
-						pMonster->SetThink( NULL );
-						UTIL_SetOrigin( pMonster->pev, pMonster->pev->origin );
-						UTIL_Remove( pMonster );
-						( *pOccupiedCells )[chosenIdx] = true;
-						continue;
-					}
-					vecSpawnPos = pMonster->pev->origin;
-				}
-
-				m_iLastMonsterCount++;
-
-				if ( pMonster->MyMonsterPointer() && GladderModifiers::ShouldSpawnAsChampion( iWaveNumber ) )
-				{
-					GladderModifiers::MakeEliteChampion( pMonster->MyMonsterPointer() );
-					m_iLastChampionCount++;
-				}
-
-				( *pOccupiedCells )[chosenIdx] = true;
-
-				// Mark surrounding cells within separation radius as occupied so pickups and monsters cannot overlap
-				float flExclusionDist = isLarge ? 76.0f : 54.0f;
-				for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
-				{
-					if ( !( *pOccupiedCells )[k] )
-					{
-						const auto &otherCell = indexer.GetCell( k );
-						if ( ( otherCell.origin - vecSpawnPos ).Length2D() < flExclusionDist )
-						{
-							( *pOccupiedCells )[k] = true;
-						}
-					}
-				}
-
-				SpawnedMonsterRecord rec;
-				rec.pos = vecSpawnPos;
-				rec.isLarge = isLarge;
-				rec.isBarnacle = isBarnacle;
-				rec.isFlying = isFlying;
-				spawned.push_back( rec );
-				m_spawnedMonsterPositions.push_back( vecSpawnPos );
-
-				bSpawnSuccess = true;
-				break;
-			}
+			break;
 		}
 
 		if ( !bSpawnSuccess )
 		{
-			ALERT( at_console, "[Gladder] Spatial clearance exhausted for wave %d (spawned %d of %d monsters).\n",
-			       iWaveNumber, m_iLastMonsterCount, count );
-			break;
+			ALERT( at_console, "[Gladder] Spatial clearance exhausted for monster slot %d of %d (species: %s) at wave %d.\n",
+			       i + 1, count, szSpecies ? szSpecies : "unknown", iWaveNumber );
+			continue;
 		}
 	}
 }
 
-void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells )
+void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells, CBasePlayer *pPlayer )
 {
 	m_iLastPickupCount = 0;
 
@@ -1037,16 +1096,23 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 	                           static_cast<int>( count * config.routeBiasFraction + 0.5f ) :
 	                           0;
 
+	int fixedWeaponsSpawnedThisWave = 0;
+	const int maxFixedWeaponsThisWave = ( count >= 14 ) ? 2 : 1;
+	std::vector<std::string> spawnedWeaponsThisWave;
+	std::vector<Vector> spawnedPickupPositions;
+
 	for ( int i = 0; i < count; ++i )
 	{
 		if ( GetFreeEdictCount() <= SAFE_FREE_EDICT_THRESHOLD )
 			break;
 
 		bool bSpawnSuccess = false;
-		for ( int attempt = 0; attempt < 10; ++attempt )
+		bool allowFixedWeapons = ( fixedWeaponsSpawnedThisWave < maxFixedWeaponsThisWave );
+
+		for ( int attempt = 0; attempt < 15; ++attempt )
 		{
 			int cellIdx = -1;
-			if ( bHasRoute && i < pickupRouteQuota )
+			if ( bHasRoute && i < pickupRouteQuota && attempt < 8 )
 			{
 				std::vector<size_t> corridorCells;
 				for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
@@ -1081,13 +1147,26 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 			}
 
 			const auto &cell = indexer.GetCell( static_cast<size_t>( cellIdx ) );
-			CBasePlayer *pLocalPlayer = gpGlobals ? (CBasePlayer *)UTIL_PlayerByIndex( 1 ) : nullptr;
-			const char *szPickup = RollPickupItem( iWaveNumber, config, pLocalPlayer );
-
 			Vector vecSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 4.0f );
-			Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
 
-			// Ensure candidate cell does not overlap any spawned monster position
+			// 1. Minimum spatial separation check against already spawned pickups (prevent clustering)
+			bool bTooCloseToPickup = false;
+			for ( const auto &prevPos : spawnedPickupPositions )
+			{
+				if ( ( vecSpawnPos - prevPos ).Length2D() < 96.0f )
+				{
+					bTooCloseToPickup = true;
+					break;
+				}
+			}
+
+			if ( bTooCloseToPickup )
+			{
+				( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+				continue;
+			}
+
+			// 2. Separation check against spawned monsters
 			bool bMonsterNearby = false;
 			for ( const auto &mPos : m_spawnedMonsterPositions )
 			{
@@ -1104,7 +1183,7 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 				continue;
 			}
 
-			// Live hull check for pickup (point_hull or head_hull)
+			// 3. Live hull check for pickup (point_hull or head_hull)
 			TraceResult trHull;
 			UTIL_TraceHull( vecSpawnPos + Vector( 0, 0, 16 ), vecSpawnPos + Vector( 0, 0, 16 ), dont_ignore_monsters, head_hull, NULL, &trHull );
 			if ( trHull.fStartSolid || trHull.fAllSolid )
@@ -1120,11 +1199,50 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 				continue;
 			}
 
+			CBasePlayer *pLocalPlayer = pPlayer;
+			if ( !pLocalPlayer && gpGlobals )
+			{
+				pLocalPlayer = (CBasePlayer *)UTIL_PlayerByIndex( 1 );
+			}
+
+			const char *szPickup = RollPickupItem( iWaveNumber, config, pLocalPlayer, allowFixedWeapons, &spawnedWeaponsThisWave );
+			Vector vecAngles = Vector( 0.0f, RANDOM_FLOAT( 0.0f, 360.0f ), 0.0f );
+
 			CBaseEntity *pItem = CreateWaveEntity( szPickup, vecSpawnPos, vecAngles );
 			if ( pItem )
 			{
 				m_iLastPickupCount++;
 				( *pOccupiedCells )[static_cast<size_t>( cellIdx )] = true;
+
+				// Exclude surrounding cells within 64 units so adjacent grid cells cannot be chosen
+				for ( size_t k = 0; k < indexer.GetCellCount(); ++k )
+				{
+					if ( !( *pOccupiedCells )[k] )
+					{
+						const auto &c = indexer.GetCell( k );
+						if ( ( c.origin - vecSpawnPos ).Length2D() < 64.0f )
+						{
+							( *pOccupiedCells )[k] = true;
+						}
+					}
+				}
+
+				spawnedPickupPositions.push_back( vecSpawnPos );
+
+				// Check if this pickup was a fixed weapon
+				for ( size_t rIdx = 0; rIdx < s_pickupRosterCount; ++rIdx )
+				{
+					if ( strcmp( s_pickupRoster[rIdx].szClassname, szPickup ) == 0 )
+					{
+						if ( s_pickupRoster[rIdx].isWeapon )
+						{
+							fixedWeaponsSpawnedThisWave++;
+							spawnedWeaponsThisWave.push_back( szPickup );
+						}
+						break;
+					}
+				}
+
 				bSpawnSuccess = true;
 				break;
 			}
@@ -1137,7 +1255,7 @@ void GladderSpawner::SpawnPickups( int iWaveNumber, const GladderGridIndexer &in
 	}
 }
 
-int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies )
+int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies, CBasePlayer *pPlayer )
 {
 	m_iLastChampionCount = 0;
 	m_spawnedMonsterPositions.clear();
@@ -1165,7 +1283,7 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells, szSwarmSpecies );
 
 	// 4. Procedurally generate randomized pickups & weapons
-	SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells );
+	SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells, pPlayer );
 
 	ALERT( at_console, "[Gladder] Wave %d spawned: %d monsters (%d champions), %d supplies, lambda=%s (Tracked total: %u entities)\n",
 	       iWaveNumber, m_iLastMonsterCount, m_iLastChampionCount, m_iLastPickupCount, m_bLambdaSpawned ? "yes" : "no",

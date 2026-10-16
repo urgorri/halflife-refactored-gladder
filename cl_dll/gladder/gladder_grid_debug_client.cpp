@@ -155,7 +155,8 @@ void GladderDrawSpatialGridOverlay( void )
 			b = (std::min)( 1.0f, b + hueShift );
 		}
 
-		float z = cell.z + 1.0f; // 1 unit above floor to avoid z-fighting
+		float zOffset = ( cell.flags & GLADDER_CELL_FLAG_CEILING ) ? -4.0f : 4.0f;
+		float z = cell.z + zOffset; // 4 units offset above floor (or below ceiling) to eliminate z-fighting
 
 		// Translucent floor quad
 		gEngfuncs.pTriAPI->Color4f( r, g, b, a );

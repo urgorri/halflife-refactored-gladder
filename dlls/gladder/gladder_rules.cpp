@@ -667,7 +667,8 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		m_modifiers.RollAndApplyWaveMutator( m_waveManager.GetWaveNumber() );
 
 		// Procedurally spawn wave threats, weapons & supplies across indexed spatial grid
-		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies() );
+		CBasePlayer *pPlayer = ( pActivator && pActivator->IsPlayer() ) ? dynamic_cast<CBasePlayer *>( pActivator ) : nullptr;
+		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies(), pPlayer );
 
 		// Acoustic cue for wave start & mutator alert
 		GladderAudio::PlayCue( GLADDER_CUE_WAVE_START, pActivator );

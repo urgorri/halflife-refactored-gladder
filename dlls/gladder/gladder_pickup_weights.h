@@ -40,6 +40,7 @@ struct GladderWeightedPickup
 struct GladderPickupWeightInput
 {
 	int iWaveNumber;
+	bool allowFixedWeapons;
 	std::vector<std::string> ownedWeapons;
 	// Ammo reserve fraction [0.0, 1.0] keyed by ammo type ("uranium", "9mm") or entity ("ammo_gaussclip")
 	std::unordered_map<std::string, float> ammoReserveFractions;
@@ -48,7 +49,7 @@ struct GladderPickupWeightInput
 	std::vector<std::string> weaponWhitelist;
 	std::vector<std::string> weaponBlacklist;
 
-	GladderPickupWeightInput() : iWaveNumber( 1 ) {}
+	GladderPickupWeightInput() : iWaveNumber( 1 ), allowFixedWeapons( true ) {}
 
 	bool IsWeaponAllowed( const char *szClassname ) const;
 	bool HasWeapon( const char *szClassname ) const;
