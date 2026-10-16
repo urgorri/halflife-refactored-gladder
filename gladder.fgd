@@ -164,3 +164,11 @@
 @PointClass base(Targetname, Targetx) color(0 200 200) = monster_assassin_repel : "Male Assassin (Repel Down)" []
 @PointClass base(Targetname, RenderFields, Angles) studio("models/massn.mdl") = monster_massassin_dead : "Dead Male Assassin" []
 
+//=============================================================================
+//
+// Gladder Combat Hazards & Environmental Entities
+//
+//=============================================================================
+
+@PointClass base(Targetname) color(0 255 50) = squidspit_cloud : "Bullsquid Toxic Spit Cloud Hazard" []
+

@@ -163,18 +163,24 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Acoustic Detonation Dynamic Light**: Upon triggering `SonicAttack()`, the houndeye casts a localized dynamic point light (`TE_DLIGHT`, radius 200 units, matching its beam color palette, fast decay), illuminating corridors and rooms with an intense visual flash during the acoustic shockwave.
   * **Bullsquid (Precision Spit, Projectile Trail & Lingering Toxic Cloud)**:
     * **Spit Accuracy Scaling**: Spread angles for spit projectiles scale progressively:
-      * **Skill 1**: `±0.035` spread.
-      * **Skill 2**: `±0.015` spread.
+      * **Skill 1**: `±0.050` spread (authentic vanilla spread).
+      * **Skill 2**: `±0.025` spread (intermediate tightened spread).
       * **Skill 3**: `0.000` (pinpoint sniper accuracy).
     * **Visual Projectile Trail (Non-Damaging)**: During flight, the spit projectile attaches a short-lived green smoke trail (`TE_BEAMFOLLOW` with `sprites/smoke.spr`, canonical acid green `RGB(0, 255, 50)`, width 10, life ~0.3s). The trail is purely cosmetic and deals no damage in mid-air.
     * **Impact Toxic Area (Smoke Cloud & Damage-Over-Time)**:
-      * Upon impacting geometry or world surfaces (`CSquidSpit::Touch`), the projectile spawns a lingering toxic cloud entity (`squidspit_cloud`) lasting 3 to 5 seconds.
+      * Upon impacting geometry or world surfaces (`CSquidSpit::Touch`), the projectile spawns a lingering toxic cloud entity (`squidspit_cloud`).
+      * **Cloud Duration Scaling**: The toxic cloud duration scales progressively by difficulty:
+        * **Skill 1**: 3.0 seconds.
+        * **Skill 2**: 4.0 seconds.
+        * **Skill 3**: 5.0 seconds (maximum duration).
       * The area emits green billowing smoke particles (`sprites/steam1.spr`) and a localized toxic green dynamic light (`RGB(0, 255, 50)`).
       * Inflicts periodic acid damage (`DMG_ACID`) to players standing within the cloud radius (~64 units), denying static camping positions and forcing runners to maintain forward momentum.
   * **Zombie Soldier (Impact Knockback & Movement Deceleration Debuff)**:
-    * In addition to slashing damage, hits from `monster_zombie_soldier` deliver:
-      * **Physical Knockback**: Applies a directional impulse vector (`velocity += dir * 220 + Vector(0, 0, 120)` and clears `FL_ONGROUND`), knocking the player backward and breaking sprint stride.
-      * **Slow Debuff**: Applies a temporary 35% speed penalty (`pev->maxspeed`) lasting 1.5 to 2.0 seconds, preventing immediate disengagement and penalizing reckless close-quarters routing.
+    * In addition to slashing damage, hits from `monster_zombie_soldier` deliver knockback and movement penalties gated by difficulty level:
+      * **Skill 1 (Easy / Default)**: Knockback and slow debuff are **disabled**; attacks deal straightforward damage only.
+      * **Skill 2 & Skill 3 (Medium & Hard)**:
+        * **Physical Knockback**: Applies a directional impulse vector (`velocity += dir * 220 + Vector(0, 0, 120)` and clears `FL_ONGROUND`), knocking the player backward and breaking sprint stride.
+        * **Slow Debuff**: Applies a temporary 35% speed penalty (`pev->maxspeed`) lasting 1.5 to 2.0 seconds, preventing immediate disengagement and penalizing reckless close-quarters routing.
   * **Headcrabs & Baby Headcrabs (Locomotion Speed, Leap Velocity & Range)**:
     * **Locomotion Speed**: Crawling/walking framerate scales with difficulty:
       * **Skill 1**: `1.00x`.
@@ -206,8 +212,11 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Skill 1**: Standard hover mechanics and single energy ball projectile.
     * **Skill 2**: +20% flight and strafing speed.
     * **Skill 3**: Fires twin energy balls in rapid succession.
-  * **Heavy Monster Stun / Flinch Resistance (Skill 3)**:
-    * On Skill 3, heavy tier monsters (Bullsquid, Alien Grunt, Gargantua) recover 30% faster from pain flinch animations, preventing players from perma-stunlocking them with shotgun or high-damage weapon spam.
+  * **Heavy Monster Stun / Flinch Resistance**:
+    * Heavy tier monsters (Bullsquid, Alien Grunt, Gargantua) recover faster from pain flinch animations to prevent trivial perma-stunlocks from continuous shotgun blasts:
+      * **Skill 1**: Vanilla recovery (0% resistance).
+      * **Skill 2**: 15% faster recovery from pain flinches.
+      * **Skill 3**: 30% faster recovery from pain flinches.
 * **Diminishing Wall Charger Capacity & Active State Glow**:
   * Wall-mounted medical stations (`func_healthcharger`) and HEV suit rechargers (`func_recharge`) are manually placed in map architecture.
   * At the start of each wave, the code re-energizes these stations, but their total restorative capacity ("juice") degrades incrementally per wave, creating heightened tension around health conservation in later waves.

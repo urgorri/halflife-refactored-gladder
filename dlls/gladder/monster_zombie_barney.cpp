@@ -11,12 +11,15 @@
 #include "ai/monsters.h"
 #include "ai/schedule.h"
 #include "core/skill_manager.h"
+#include "gladder_monster_modifiers.h"
 
 #define ZOMBIE_BARNEY_AE_ATTACK_RIGHT 0x01
 #define ZOMBIE_BARNEY_AE_ATTACK_LEFT  0x02
 #define ZOMBIE_BARNEY_AE_ATTACK_BOTH  0x03
 
 #define ZOMBIE_BARNEY_FLINCH_DELAY 2 // At most one flinch every n secs
+
+extern DLL_GLOBAL int g_iSkillLevel;
 
 REGISTER_SKILL_DEFAULT( sk_zombie_barney_health, 50.0f, 70.0f, 90.0f );
 REGISTER_SKILL_DEFAULT( sk_zombie_barney_dmg_one_slash, 10.0f, 20.0f, 25.0f );
@@ -99,7 +102,9 @@ void CZombieBarney::SetActivity( Activity NewActivity )
 	CBaseMonster::SetActivity( NewActivity );
 
 	if ( NewActivity == ACT_WALK || NewActivity == ACT_RUN )
-		pev->framerate = 1.0f;
+	{
+		pev->framerate = GladderMonsterModifiers::GetDifficultyFramerateMultiplier( g_iSkillLevel );
+	}
 }
 
 void CZombieBarney::SetYawSpeed()

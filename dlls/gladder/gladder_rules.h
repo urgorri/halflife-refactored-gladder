@@ -97,6 +97,25 @@ class CGladderRules : public CHalfLifeRules
 	// Modernized monster turning speed hook (Issue #26)
 	float FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed ) override;
 
+	// Player movement slow debuff management (SPEC §3, Issue #116)
+	void ApplyPlayerSlowDebuff( CBasePlayer *pPlayer, float flDuration = 1.75f, float flMaxSpeed = 175.0f )
+	{
+		if ( !pPlayer || !pPlayer->pev )
+			return;
+
+		pPlayer->pev->maxspeed = flMaxSpeed;
+		pPlayer->pev->fuser4 = ( gpGlobals ? gpGlobals->time : 0.0f ) + flDuration;
+	}
+
+	float GetPlayerSlowRemainingTime( CBasePlayer *pPlayer ) const
+	{
+		if ( !pPlayer || !pPlayer->pev || pPlayer->pev->fuser4 <= 0.0f )
+			return 0.0f;
+
+		float flCurrentTime = gpGlobals ? gpGlobals->time : 0.0f;
+		return ( pPlayer->pev->fuser4 > flCurrentTime ) ? ( pPlayer->pev->fuser4 - flCurrentTime ) : 0.0f;
+	}
+
 	// Suppress monster weapon and supply drops to preserve procedural item weights (SPEC §3, Issue #44)
 	BOOL FCanMonsterDropItem( CBaseMonster *pMonster, const char *pszItemName ) override;
 

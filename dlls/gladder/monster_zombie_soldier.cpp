@@ -11,12 +11,15 @@
 #include "ai/monsters.h"
 #include "ai/schedule.h"
 #include "core/skill_manager.h"
+#include "gladder_monster_modifiers.h"
 
 #define ZOMBIE_SOLDIER_AE_ATTACK_RIGHT 0x01
 #define ZOMBIE_SOLDIER_AE_ATTACK_LEFT  0x02
 #define ZOMBIE_SOLDIER_AE_ATTACK_BOTH  0x03
 
-#define ZOMBIE_SOLDIER_FLINCH_DELAY 2 // At most one flinch every n secs
+#define ZOMBIE_SOLDIER_FLINCH_DELAY 2
+
+extern DLL_GLOBAL int g_iSkillLevel;
 
 REGISTER_SKILL_DEFAULT( sk_zombie_soldier_health, 80.0f, 110.0f, 140.0f );
 REGISTER_SKILL_DEFAULT( sk_zombie_soldier_dmg_one_slash, 15.0f, 25.0f, 30.0f );
@@ -98,7 +101,9 @@ void CZombieSoldier::SetActivity( Activity NewActivity )
 	CBaseMonster::SetActivity( NewActivity );
 
 	if ( NewActivity == ACT_WALK || NewActivity == ACT_RUN )
-		pev->framerate = 1.0f;
+	{
+		pev->framerate = GladderMonsterModifiers::GetDifficultyFramerateMultiplier( g_iSkillLevel );
+	}
 }
 
 void CZombieSoldier::SetYawSpeed()
@@ -168,7 +173,18 @@ void CZombieSoldier::HandleAnimEvent( MonsterEvent_t *pEvent )
 				{
 					pHurt->pev->punchangle.z = -18;
 					pHurt->pev->punchangle.x = 5;
-					pHurt->pev->velocity = pHurt->pev->velocity - gpGlobals->v_right * 100;
+					if ( g_iSkillLevel >= SKILL_MEDIUM )
+					{
+						Vector vecDir = ( pHurt->pev->origin - pev->origin ).Normalize();
+						pHurt->pev->velocity = pHurt->pev->velocity + vecDir * 220.0f + Vector( 0, 0, 120.0f );
+						pHurt->pev->flags &= ~FL_ONGROUND;
+						pHurt->pev->maxspeed = 175.0f; // 35% speed penalty (SPEC §3, Issue #116)
+						pHurt->pev->fuser4 = ( gpGlobals ? gpGlobals->time : 0.0f ) + 1.75f;
+					}
+					else
+					{
+						pHurt->pev->velocity = pHurt->pev->velocity - gpGlobals->v_right * 100;
+					}
 				}
 				EMIT_SOUND_DYN( ENT( pev ), CHAN_WEAPON, pAttackHitSounds[RANDOM_LONG( 0, ARRAYSIZE( pAttackHitSounds ) - 1 )], 1.0, ATTN_NORM, 0, 100 + RANDOM_LONG( -5, 5 ) );
 			}
@@ -191,7 +207,18 @@ void CZombieSoldier::HandleAnimEvent( MonsterEvent_t *pEvent )
 				{
 					pHurt->pev->punchangle.z = 18;
 					pHurt->pev->punchangle.x = 5;
-					pHurt->pev->velocity = pHurt->pev->velocity + gpGlobals->v_right * 100;
+					if ( g_iSkillLevel >= SKILL_MEDIUM )
+					{
+						Vector vecDir = ( pHurt->pev->origin - pev->origin ).Normalize();
+						pHurt->pev->velocity = pHurt->pev->velocity + vecDir * 220.0f + Vector( 0, 0, 120.0f );
+						pHurt->pev->flags &= ~FL_ONGROUND;
+						pHurt->pev->maxspeed = 175.0f;
+						pHurt->pev->fuser4 = ( gpGlobals ? gpGlobals->time : 0.0f ) + 1.75f;
+					}
+					else
+					{
+						pHurt->pev->velocity = pHurt->pev->velocity + gpGlobals->v_right * 100;
+					}
 				}
 				EMIT_SOUND_DYN( ENT( pev ), CHAN_WEAPON, pAttackHitSounds[RANDOM_LONG( 0, ARRAYSIZE( pAttackHitSounds ) - 1 )], 1.0, ATTN_NORM, 0, 100 + RANDOM_LONG( -5, 5 ) );
 			}
@@ -213,7 +240,18 @@ void CZombieSoldier::HandleAnimEvent( MonsterEvent_t *pEvent )
 				if ( ( pHurt->pev->flags & ( FL_MONSTER | FL_CLIENT ) ) != 0 )
 				{
 					pHurt->pev->punchangle.x = 5;
-					pHurt->pev->velocity = pHurt->pev->velocity + gpGlobals->v_forward * -100;
+					if ( g_iSkillLevel >= SKILL_MEDIUM )
+					{
+						Vector vecDir = ( pHurt->pev->origin - pev->origin ).Normalize();
+						pHurt->pev->velocity = pHurt->pev->velocity + vecDir * 220.0f + Vector( 0, 0, 120.0f );
+						pHurt->pev->flags &= ~FL_ONGROUND;
+						pHurt->pev->maxspeed = 175.0f;
+						pHurt->pev->fuser4 = ( gpGlobals ? gpGlobals->time : 0.0f ) + 1.75f;
+					}
+					else
+					{
+						pHurt->pev->velocity = pHurt->pev->velocity + gpGlobals->v_forward * -100;
+					}
 				}
 				EMIT_SOUND_DYN( ENT( pev ), CHAN_WEAPON, pAttackHitSounds[RANDOM_LONG( 0, ARRAYSIZE( pAttackHitSounds ) - 1 )], 1.0, ATTN_NORM, 0, 100 + RANDOM_LONG( -5, 5 ) );
 			}

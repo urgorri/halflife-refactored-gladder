@@ -1475,6 +1475,7 @@ void GladderSpawner::PurgeWaveEntities()
 		     FClassnameIs( pEnt->pev, "monster_snark" ) ||
 		     FClassnameIs( pEnt->pev, "gib" ) ||
 		     FClassnameIs( pEnt->pev, "squidspit" ) ||
+		     FClassnameIs( pEnt->pev, "squidspit_cloud" ) ||
 		     FClassnameIs( pEnt->pev, "bmortar" ) ||
 		     FClassnameIs( pEnt->pev, "gonomeguts" ) ||
 		     FClassnameIs( pEnt->pev, "bolt" ) ||

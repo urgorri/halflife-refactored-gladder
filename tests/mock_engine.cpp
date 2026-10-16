@@ -758,6 +758,34 @@ CBaseEntity *UTIL_FindEntityByTargetname( CBaseEntity *pStartEntity, const char 
 	return nullptr;
 }
 
+CBaseEntity *UTIL_FindEntityInSphere( CBaseEntity *pStartEntity, const Vector &vecCenter, float flRadius )
+{
+	int iStartIndex = 1;
+	if ( pStartEntity && pStartEntity->edict() )
+	{
+		iStartIndex = ENTINDEX( pStartEntity->edict() ) + 1;
+	}
+
+	if ( !gpGlobals )
+		return nullptr;
+
+	float flRadiusSq = flRadius * flRadius;
+	for ( int i = iStartIndex; i < gpGlobals->maxEntities; i++ )
+	{
+		edict_t *pEdict = INDEXENT( i );
+		if ( !pEdict || pEdict->free )
+			continue;
+		CBaseEntity *pEntity = CBaseEntity::Instance( pEdict );
+		if ( !pEntity || !pEntity->pev )
+			continue;
+
+		Vector vecDelta = pEntity->pev->origin - vecCenter;
+		if ( DotProduct( vecDelta, vecDelta ) <= flRadiusSq )
+			return pEntity;
+	}
+	return nullptr;
+}
+
 void ClearMultiDamage( void ) {}
 void ApplyMultiDamage( entvars_t *pevInflictor, entvars_t *pevAttacker ) {}
 

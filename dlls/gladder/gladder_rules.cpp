@@ -241,6 +241,7 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 		pPlayer->pev->flags &= ~FL_NOTARGET;
 		pPlayer->pev->flags &= ~FL_MONSTERCLIP;
 		pPlayer->pev->maxspeed = 0.0f;
+		pPlayer->pev->fuser4 = 0.0f;
 	}
 
 	// Strictly reject player spawning if a savegame restore was attempted (SPEC §10.3)
@@ -313,6 +314,16 @@ void CGladderRules::PlayerThink( CBasePlayer *pPlayer )
 			pPlayer->pev->velocity.x = 0.0f;
 			pPlayer->pev->velocity.y = 0.0f;
 			pPlayer->pev->avelocity = g_vecZero;
+		}
+	}
+	else
+	{
+		// Recover from movement slow debuffs (SPEC §3, Issue #116)
+		float flCurrentTime = gpGlobals ? gpGlobals->time : 0.0f;
+		if ( pPlayer->pev->fuser4 > 0.0f && flCurrentTime >= pPlayer->pev->fuser4 )
+		{
+			pPlayer->pev->maxspeed = 0.0f;
+			pPlayer->pev->fuser4 = 0.0f;
 		}
 	}
 

@@ -380,6 +380,7 @@ if(BUILD_TESTS)
         dlls/gladder/gladder_items.cpp
         dlls/gladder/gladder_leaderboard.cpp
         dlls/gladder/gladder_grid_debug.cpp
+        dlls/gladder/squidspit_cloud.cpp
         cl_dll/gladder/gladder_visuals.cpp
         cl_dll/gladder/gladder_crosshair.cpp
         cl_dll/gladder/gladder_cl_usermsg.cpp
