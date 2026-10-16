@@ -137,15 +137,15 @@ void GladderDrawSpatialGridOverlay( void )
 			// Occupied by monster/entity: Yellow
 			r = 1.0f; g = 0.9f; b = 0.1f; a = 0.45f;
 		}
-		else if ( cell.flags & GLADDER_CELL_FLAG_CEILING )
-		{
-			// Ceiling-attached surface: Cyan
-			r = 0.1f; g = 0.9f; b = 1.0f; a = 0.35f;
-		}
 		else if ( !( cell.flags & GLADDER_CELL_FLAG_CLEARANCE_OK ) )
 		{
 			// Clearance rejected / blocked: Red / Orange
 			r = 1.0f; g = 0.2f; b = 0.1f; a = 0.35f;
+		}
+		else if ( cell.flags & GLADDER_CELL_FLAG_LARGE_CLEARANCE )
+		{
+			// Large hull clearance confirmed: Cyan
+			r = 0.1f; g = 0.9f; b = 1.0f; a = 0.35f;
 		}
 
 		// Area tint modulation: slightly alter border/color based on areaId
@@ -155,8 +155,8 @@ void GladderDrawSpatialGridOverlay( void )
 			b = (std::min)( 1.0f, b + hueShift );
 		}
 
-		float zOffset = ( cell.flags & GLADDER_CELL_FLAG_CEILING ) ? -4.0f : 4.0f;
-		float z = cell.z + zOffset; // 4 units offset above floor (or below ceiling) to eliminate z-fighting
+		// Strictly render 4 units above the floor surface to completely eliminate z-fighting
+		float z = cell.z + 4.0f;
 
 		// Translucent floor quad
 		gEngfuncs.pTriAPI->Color4f( r, g, b, a );
@@ -328,7 +328,7 @@ int CHudGladderGridDebug::Draw( float flTime )
 		{
 			pszStatus = "OCCUPIED";
 		}
-		else if ( pUnderCell->flags & GLADDER_CELL_FLAG_CEILING )
+		else if ( pUnderCell->flags & GLADDER_CELL_FLAG_CEILING_VALID )
 		{
 			pszStatus = "CEILING";
 		}
