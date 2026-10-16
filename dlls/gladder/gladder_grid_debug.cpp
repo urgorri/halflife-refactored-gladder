@@ -42,7 +42,7 @@ std::vector<GladderDebugCell> GladderGridDebug_FilterCells( const GladderGridInd
 		if ( distSq <= radiusSq )
 		{
 			bool occ = ( pOccupied && i < pOccupied->size() ) ? ( *pOccupied )[i] : false;
-			result.emplace_back( c.origin, c.areaId, c.flags, occ );
+			result.emplace_back( c.origin, c.normal, c.areaId, c.flags, occ );
 		}
 	}
 
@@ -146,9 +146,9 @@ void GladderGridDebug_ServerThink( const GladderGridIndexer &indexer, CBaseEntit
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	Vector playerPos = pPlayer->pev->origin;
 
-	// Rate-limited updates: resend only when moving > 32 units or after 0.25 seconds
+	// Rate-limited updates: only re-stream if moving >= 96 units or every 1.0 second if slightly moved
 	float distMoved = ( playerPos - s_vecLastUpdatePos ).Length();
-	if ( distMoved < 32.0f && ( flTime - s_flLastUpdateTime ) < 0.25f )
+	if ( s_vecLastUpdatePos.x < 90000.0f && distMoved < 96.0f && ( flTime - s_flLastUpdateTime ) < 1.0f )
 	{
 		return;
 	}
@@ -158,15 +158,20 @@ void GladderGridDebug_ServerThink( const GladderGridIndexer &indexer, CBaseEntit
 
 	std::vector<GladderDebugCell> cells = GladderGridDebug_FilterCells( indexer, playerPos, s_flDebugRadius );
 
-	// Send clear opcode first to discard previous window
+	// Signal client to begin receiving a new batch in staging buffer (double-buffered)
 	MESSAGE_BEGIN( MSG_ONE, gmsgGladderGridDebug, nullptr, pPlayer->pev );
-	WRITE_BYTE( GLADDER_GRID_DBG_OP_CLEAR );
+	WRITE_BYTE( GLADDER_GRID_DBG_OP_BATCH_BEGIN );
 	MESSAGE_END();
 
 	if ( cells.empty() )
+	{
+		MESSAGE_BEGIN( MSG_ONE, gmsgGladderGridDebug, nullptr, pPlayer->pev );
+		WRITE_BYTE( GLADDER_GRID_DBG_OP_BATCH_END );
+		MESSAGE_END();
 		return;
+	}
 
-	// Stream cells in chunks of up to GLADDER_GRID_DBG_MAX_CELLS_PER_CHUNK
+	// Stream cells in chunks of up to GLADDER_GRID_DBG_MAX_CELLS_PER_CHUNK (16 cells)
 	size_t total = cells.size();
 	size_t offset = 0;
 
@@ -184,6 +189,13 @@ void GladderGridDebug_ServerThink( const GladderGridIndexer &indexer, CBaseEntit
 			WRITE_COORD( cell.origin.x );
 			WRITE_COORD( cell.origin.y );
 			WRITE_COORD( cell.origin.z );
+
+			// Pack surface normal into signed 8-bit integers (normal.z recovered on client)
+			int8_t nx = static_cast<int8_t>( (std::max)( -127.0f, (std::min)( 127.0f, cell.normal.x * 127.0f ) ) );
+			int8_t ny = static_cast<int8_t>( (std::max)( -127.0f, (std::min)( 127.0f, cell.normal.y * 127.0f ) ) );
+			WRITE_CHAR( nx );
+			WRITE_CHAR( ny );
+
 			WRITE_BYTE( static_cast<int>( cell.areaId ) );
 			WRITE_BYTE( static_cast<int>( cell.flags ) );
 			WRITE_BYTE( cell.isOccupied ? 1 : 0 );
@@ -192,4 +204,9 @@ void GladderGridDebug_ServerThink( const GladderGridIndexer &indexer, CBaseEntit
 		MESSAGE_END();
 		offset += chunkCount;
 	}
+
+	// Finalize batch and commit to active display list
+	MESSAGE_BEGIN( MSG_ONE, gmsgGladderGridDebug, nullptr, pPlayer->pev );
+	WRITE_BYTE( GLADDER_GRID_DBG_OP_BATCH_END );
+	MESSAGE_END();
 }

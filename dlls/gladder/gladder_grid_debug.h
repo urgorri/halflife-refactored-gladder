@@ -19,22 +19,26 @@
 #include <cstdint>
 
 // Protocol Opcodes for GladGrid user message
-#define GLADDER_GRID_DBG_OP_CLEAR 0
-#define GLADDER_GRID_DBG_OP_CHUNK 1
+#define GLADDER_GRID_DBG_OP_CLEAR       0
+#define GLADDER_GRID_DBG_OP_CHUNK       1
+#define GLADDER_GRID_DBG_OP_BATCH_BEGIN 2
+#define GLADDER_GRID_DBG_OP_BATCH_END   3
 
 // Maximum cells sent per packet to ensure netchannel safe headroom (< 192 bytes)
-#define GLADDER_GRID_DBG_MAX_CELLS_PER_CHUNK 20
+#define GLADDER_GRID_DBG_MAX_CELLS_PER_CHUNK 16
 
 // Debug cell representation
 struct GladderDebugCell
 {
 	Vector origin;
+	Vector normal;
 	int32_t areaId;
 	uint32_t flags;
 	bool isOccupied;
 
 	GladderDebugCell()
 	    : origin( g_vecZero ),
+	      normal( Vector( 0.0f, 0.0f, 1.0f ) ),
 	      areaId( 0 ),
 	      flags( 0 ),
 	      isOccupied( false )
@@ -43,6 +47,16 @@ struct GladderDebugCell
 
 	GladderDebugCell( const Vector &pos, int32_t aId, uint32_t f, bool occ = false )
 	    : origin( pos ),
+	      normal( Vector( 0.0f, 0.0f, 1.0f ) ),
+	      areaId( aId ),
+	      flags( f ),
+	      isOccupied( occ )
+	{
+	}
+
+	GladderDebugCell( const Vector &pos, const Vector &norm, int32_t aId, uint32_t f, bool occ = false )
+	    : origin( pos ),
+	      normal( norm ),
 	      areaId( aId ),
 	      flags( f ),
 	      isOccupied( occ )

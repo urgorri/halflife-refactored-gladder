@@ -168,6 +168,52 @@ TEST_CASE( "Spatial Grid Debug - Client State & Zero-Cost Lifecycle", "[gladder]
 		REQUIRE_FALSE( GladderGridDebug_ParseUserMessage( nullptr, 0 ) );
 	}
 
+	SECTION( "Double-buffered batch protocol preserves active cells until batch end" )
+	{
+		GladderGridDebug_SetClientActive( true );
+
+		uint8_t beginPacket[1] = { GLADDER_GRID_DBG_OP_BATCH_BEGIN };
+		REQUIRE( GladderGridDebug_ParseUserMessage( beginPacket, sizeof( beginPacket ) ) );
+
+		// Stream 1 cell with normal (11 bytes payload)
+		uint8_t chunkWithNormal[2 + 11] = { 0 };
+		chunkWithNormal[0] = GLADDER_GRID_DBG_OP_CHUNK;
+		chunkWithNormal[1] = 1; // 1 cell
+		// coord x = 64.0 (raw = 512)
+		int16_t rx = 512;
+		chunkWithNormal[2] = rx & 0xFF;
+		chunkWithNormal[3] = ( rx >> 8 ) & 0xFF;
+		// coord y = 0
+		chunkWithNormal[4] = 0; chunkWithNormal[5] = 0;
+		// coord z = 16.0 (raw = 128)
+		int16_t rz = 128;
+		chunkWithNormal[6] = rz & 0xFF;
+		chunkWithNormal[7] = ( rz >> 8 ) & 0xFF;
+		// normal nx = 0, ny = 0 (127 -> 1.0)
+		chunkWithNormal[8] = 0;  // nx
+		chunkWithNormal[9] = 0;  // ny
+		chunkWithNormal[10] = 3; // areaId
+		chunkWithNormal[11] = GLADDER_CELL_FLAG_LARGE_CLEARANCE; // flags
+		chunkWithNormal[12] = 1; // occupied
+
+		REQUIRE( GladderGridDebug_ParseUserMessage( chunkWithNormal, sizeof( chunkWithNormal ) ) );
+
+		// Double-buffering invariant: active display buffer must NOT change until batch completes
+		REQUIRE( GladderGridDebug_GetClientCellCount() == 0 );
+
+		// Batch commit
+		uint8_t endPacket[1] = { GLADDER_GRID_DBG_OP_BATCH_END };
+		REQUIRE( GladderGridDebug_ParseUserMessage( endPacket, sizeof( endPacket ) ) );
+
+		REQUIRE( GladderGridDebug_GetClientCellCount() == 1 );
+		const auto &cells = GladderGridDebug_GetClientCells();
+		REQUIRE( cells[0].x == Catch::Approx( 64.0f ) );
+		REQUIRE( cells[0].z == Catch::Approx( 16.0f ) );
+		REQUIRE( cells[0].areaId == 3 );
+		REQUIRE( cells[0].isOccupied == true );
+		REQUIRE( cells[0].nz == Catch::Approx( 1.0f ) );
+	}
+
 	GladderGridDebug_ClientReset();
 	GladderGridDebug_SetClientActive( false );
 }

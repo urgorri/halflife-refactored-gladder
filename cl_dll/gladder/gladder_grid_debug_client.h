@@ -16,8 +16,10 @@
 #include "hud/hud_base.h"
 #include "hud/hud_registry.h"
 
-#define GLADDER_GRID_DBG_OP_CLEAR 0
-#define GLADDER_GRID_DBG_OP_CHUNK 1
+#define GLADDER_GRID_DBG_OP_CLEAR       0
+#define GLADDER_GRID_DBG_OP_CHUNK       1
+#define GLADDER_GRID_DBG_OP_BATCH_BEGIN 2
+#define GLADDER_GRID_DBG_OP_BATCH_END   3
 
 #ifndef GLADDER_CELL_FLAG_VALID
 #define GLADDER_CELL_FLAG_VALID          0x01
@@ -36,20 +38,24 @@
 struct GladderClientDebugCell
 {
 	float x, y, z;
+	float nx, ny, nz;
 	int32_t areaId;
 	uint32_t flags;
 	bool isOccupied;
 
 	GladderClientDebugCell()
 	    : x( 0.0f ), y( 0.0f ), z( 0.0f ),
+	      nx( 0.0f ), ny( 0.0f ), nz( 1.0f ),
 	      areaId( 0 ),
 	      flags( 0 ),
 	      isOccupied( false )
 	{
 	}
 
-	GladderClientDebugCell( float _x, float _y, float _z, int32_t aId, uint32_t fl, bool occ )
+	GladderClientDebugCell( float _x, float _y, float _z, int32_t aId, uint32_t fl, bool occ,
+	                        float _nx = 0.0f, float _ny = 0.0f, float _nz = 1.0f )
 	    : x( _x ), y( _y ), z( _z ),
+	      nx( _nx ), ny( _ny ), nz( _nz ),
 	      areaId( aId ),
 	      flags( fl ),
 	      isOccupied( occ )
