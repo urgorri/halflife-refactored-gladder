@@ -71,38 +71,42 @@ TEST_CASE( "Gladder Spawner: Dynamic monster tier probability curves (SPEC §3)"
 	CHECK( GladderSpawner::GetWeaponTierWeight( 3, 10 ) == Catch::Approx( 15.0f ) );
 }
 
-TEST_CASE( "Gladder Map Config: Whitelist, blacklist & file parsing (SPEC §5)", "[gladder][spawner]" )
+TEST_CASE( "Gladder Map Config & Monster Roster: Code-governed defaults and full monster roster enabled", "[gladder][spawner]" )
 {
-	const char *testCfgPath = "test_map_profile.cfg";
-
-	std::ofstream ofs( testCfgPath );
-	REQUIRE( ofs.is_open() );
-	ofs << "# Map Configuration Profile Test\n";
-	ofs << "whitelist_monster monster_headcrab\n";
-	ofs << "whitelist_monster monster_houndeye\n";
-	ofs << "blacklist_monster monster_gargantua\n";
-	ofs << "base_monsters 10\n";
-	ofs << "monsters_per_wave 2.5\n";
-	ofs << "max_monsters 50\n";
-	ofs << "allow_barnacles 0\n";
-	ofs.close();
-
 	GladderMapConfig config;
-	REQUIRE( config.LoadFromFile( testCfgPath ) == true );
-
 	CHECK( config.baseMonsters == 10 );
-	CHECK( config.monstersPerWave == Catch::Approx( 2.5f ) );
-	CHECK( config.maxMonsters == 50 );
-	CHECK( config.allowBarnacles == false );
-	CHECK( config.allowFlying == true ); // Default preserved
+	CHECK( config.monstersPerWave == Catch::Approx( 2.0f ) );
+	CHECK( config.maxMonsters == 32 );
+	CHECK( config.basePickups == 6 );
+	CHECK( config.pickupsPerWave == Catch::Approx( 1.0f ) );
+	CHECK( config.maxPickups == 16 );
+	CHECK( config.routeBiasFraction == Catch::Approx( 0.60f ) );
+	CHECK( config.routeCorridorRadius == Catch::Approx( 512.0f ) );
 
-	// Whitelist validation: only whitelisted entries are permitted
-	CHECK( config.IsMonsterAllowed( "monster_headcrab" ) == true );
-	CHECK( config.IsMonsterAllowed( "monster_houndeye" ) == true );
-	CHECK( config.IsMonsterAllowed( "monster_zombie" ) == false ); // Not on whitelist
-	CHECK( config.IsMonsterAllowed( "monster_gargantua" ) == false ); // Blacklisted
+	size_t rosterCount = 0;
+	const GladderMonsterDef *roster = GladderSpawner::GetMonsterRoster( rosterCount );
+	REQUIRE( roster != nullptr );
+	CHECK( rosterCount == 10 );
 
-	std::remove( testCfgPath );
+	bool foundBarnacle = false;
+	bool foundController = false;
+	for ( size_t i = 0; i < rosterCount; ++i )
+	{
+		if ( std::strcmp( roster[i].szClassname, "monster_barnacle" ) == 0 )
+		{
+			foundBarnacle = true;
+			CHECK( roster[i].isBarnacle == true );
+			CHECK( roster[i].isFlying == false );
+		}
+		else if ( std::strcmp( roster[i].szClassname, "monster_alien_controller" ) == 0 )
+		{
+			foundController = true;
+			CHECK( roster[i].isFlying == true );
+			CHECK( roster[i].isBarnacle == false );
+		}
+	}
+	CHECK( foundBarnacle == true );
+	CHECK( foundController == true );
 }
 
 TEST_CASE( "Gladder Spawner: Edict budget safety protection (SPEC §11)", "[gladder][spawner]" )
@@ -416,14 +420,13 @@ TEST_CASE( "Gladder Spawner: Throttling when grid cells are exhausted", "[gladde
 	}
 
 	GladderMapConfig config;
-	config.monsterWhitelist.push_back( "monster_headcrab" );
 	config.baseMonsters = 10; // Requests 10 monsters, but only 2 cells total on the entire map!
 	config.monstersPerWave = 0.0f;
 	config.basePickups = 5;
 	config.pickupsPerWave = 0.0f;
 
 	GladderSpawner spawner;
-	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config, "monster_headcrab" );
 
 	// Cell 1 is claimed by Lambda, Cell 2 is claimed by Monster 1.
 	// No free cells remain, so spawner must gracefully stop without spawning more monsters or pickups!
@@ -457,14 +460,13 @@ TEST_CASE( "Gladder Spawner: Large monster species safely degrades to human-hull
 	}
 
 	GladderMapConfig config;
-	config.monsterWhitelist.push_back( "monster_alien_grunt" ); // Only large monsters requested
 	config.baseMonsters    = 2;
 	config.monstersPerWave = 0.0f;
 	config.basePickups     = 0;
 	config.pickupsPerWave  = 0.0f;
 
 	GladderSpawner spawner;
-	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config, "monster_alien_grunt" );
 
 	// Spawner should safely fall back and spawn regular monsters (zombie) rather than forcing large monsters into walls!
 	CHECK( spawner.GetLastSpawnedMonsterCount() == 2 );
@@ -507,14 +509,13 @@ TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clea
 	}
 
 	GladderMapConfig config;
-	config.monsterWhitelist.push_back( "monster_zombie" );
 	config.baseMonsters    = 2;
 	config.monstersPerWave = 0.0f;
 	config.basePickups     = 2;
 	config.pickupsPerWave  = 0.0f;
 
 	GladderSpawner spawner;
-	int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+	int totalSpawned = spawner.SpawnWave( 1, indexer, config, "monster_zombie" );
 	CHECK( totalSpawned >= 4 );
 	CHECK( spawner.GetLastSpawnedMonsterCount() == 2 );
 	CHECK( spawner.GetLastSpawnedPickupCount() == 2 );
@@ -606,7 +607,6 @@ TEST_CASE( "Gladder Spawner: Solid brush entities (func_wall, func_monsterclip) 
 	indexer.AddCell( c );
 
 	GladderMapConfig config;
-	config.monsterWhitelist.push_back( "monster_headcrab" );
 	config.baseMonsters    = 1;
 	config.monstersPerWave = 0.0f;
 	config.basePickups     = 0;
@@ -615,7 +615,7 @@ TEST_CASE( "Gladder Spawner: Solid brush entities (func_wall, func_monsterclip) 
 	SECTION( "Cell with clear lateral clearance spawns successfully" )
 	{
 		GladderSpawner spawner;
-		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+		int totalSpawned = spawner.SpawnWave( 1, indexer, config, "monster_headcrab" );
 		CHECK( spawner.GetLastSpawnedMonsterCount() == 1 );
 		CHECK( totalSpawned >= 1 );
 	}
@@ -631,7 +631,7 @@ TEST_CASE( "Gladder Spawner: Solid brush entities (func_wall, func_monsterclip) 
 		pWall->v.absmax = Vector( 130.0f, 110.0f, 50.0f );
 
 		GladderSpawner spawner;
-		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+		int totalSpawned = spawner.SpawnWave( 1, indexer, config, "monster_headcrab" );
 		CHECK( spawner.GetLastSpawnedMonsterCount() == 0 );
 
 		std::memset( pWall, 0, sizeof( edict_t ) );
@@ -648,7 +648,7 @@ TEST_CASE( "Gladder Spawner: Solid brush entities (func_wall, func_monsterclip) 
 		pClip->v.absmax    = Vector( 130.0f, 110.0f, 50.0f );
 
 		GladderSpawner spawner;
-		int totalSpawned = spawner.SpawnWave( 1, indexer, config );
+		int totalSpawned = spawner.SpawnWave( 1, indexer, config, "monster_headcrab" );
 		CHECK( spawner.GetLastSpawnedMonsterCount() == 0 );
 
 		std::memset( pClip, 0, sizeof( edict_t ) );
@@ -683,10 +683,9 @@ TEST_CASE( "Gladder Spawner: Floor-grounded monsters drop-in elevation (+8 units
 	config.basePickups = 0;
 	config.pickupsPerWave = 0.0f;
 	config.maxPickups = 0;
-	config.monsterWhitelist.push_back( "monster_zombie" );
 
 	GladderSpawner spawner;
-	spawner.SpawnWave( 1, indexer, config );
+	spawner.SpawnWave( 1, indexer, config, "monster_zombie" );
 
 	REQUIRE( spawner.GetLastSpawnedMonsterCount() == 1 );
 
@@ -1273,3 +1272,79 @@ TEST_CASE( "Gladder Spawner: Fixed weapon capping and pickup spatial separation 
 	ClearMockEntityFactories();
 	ResetMockEngine();
 }
+
+static void MockTraceHullWithSolidCeilingAt200( const float *v1, const float *v2, int fNoMonsters, int hullNumber, edict_t *pentToSkip, TraceResult *ptr )
+{
+	(void)v2;
+	(void)fNoMonsters;
+	(void)pentToSkip;
+	if ( !ptr )
+		return;
+
+	std::memset( ptr, 0, sizeof( TraceResult ) );
+	ptr->flFraction = 1.0f;
+
+	// GoldSrc hull vertical extents:
+	// human_hull (1): [-36, +36]
+	// large_hull (2): [-32, +32]
+	// head_hull  (3): [-18, +18]
+	float maxZOffset = 0.0f;
+	if ( hullNumber == human_hull )
+		maxZOffset = 36.0f;
+	else if ( hullNumber == large_hull )
+		maxZOffset = 32.0f;
+	else if ( hullNumber == head_hull )
+		maxZOffset = 18.0f;
+
+	// Simulate solid ceiling brush starting at Z = 200.0f
+	if ( v1 && ( v1[2] + maxZOffset ) >= 200.0f )
+	{
+		ptr->fStartSolid = 1;
+		ptr->fAllSolid   = 1;
+		ptr->flFraction  = 0.0f;
+	}
+}
+
+TEST_CASE( "Gladder Spawner: Barnacle ceiling attachment uses head_hull and does not penetrate solid ceiling (SPEC §4.4)", "[gladder][spawner][barnacle]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_barnacle", FactoryTestMonster );
+	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
+
+	auto originalTraceHull = g_engfuncs.pfnTraceHull;
+	g_engfuncs.pfnTraceHull = MockTraceHullWithSolidCeilingAt200;
+
+	GladderGridIndexer indexer;
+	GladderGridCell c;
+	c.origin   = Vector( 128.0f, 128.0f, 0.0f );
+	c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+	c.areaId   = 1;
+	c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK | GLADDER_CELL_CEILING_VALID;
+	c.ceilingZ = 200.0f;
+	indexer.AddCell( c );
+
+	GladderMapConfig config;
+	GladderSpawner spawner;
+	std::vector<bool> occupied( indexer.GetCellCount(), false );
+
+	// Spawn a barnacle on the cell with solid ceiling at Z = 200.0f
+	spawner.SpawnMonsters( 2, indexer, config, 1, &occupied, "monster_barnacle" );
+
+	REQUIRE( spawner.GetLastSpawnedMonsterCount() == 1 );
+	REQUIRE( spawner.GetTrackedEntityCount() == 1 );
+
+	CBaseEntity *pSpawned = spawner.GetTrackedEntity( 0 );
+	REQUIRE( pSpawned != nullptr );
+	REQUIRE( pSpawned->pev != nullptr );
+
+	// Must have spawned as an actual monster_barnacle (not degraded to monster_headcrab!)
+	CHECK( std::strcmp( STRING( pSpawned->pev->classname ), "monster_barnacle" ) == 0 );
+	// Origin must be attached flush below the ceiling (ceilingZ - 1.0f = 199.0f)
+	CHECK( pSpawned->pev->origin.z == Catch::Approx( 199.0f ) );
+
+	g_engfuncs.pfnTraceHull = originalTraceHull;
+	ClearMockEntityFactories();
+	ResetMockEngine();
+}
+

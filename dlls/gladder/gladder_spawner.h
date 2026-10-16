@@ -41,16 +41,10 @@ struct GladderPickupDef
 	bool isConsumableWeapon;
 };
 
-// Map-specific configuration profile (SPEC §5)
+// Code-defined spawner pacing & route configuration
 class GladderMapConfig
 {
   public:
-	std::string mapName;
-	std::vector<std::string> monsterWhitelist;
-	std::vector<std::string> monsterBlacklist;
-	std::vector<std::string> weaponWhitelist;
-	std::vector<std::string> weaponBlacklist;
-
 	int baseMonsters;
 	float monstersPerWave;
 	int maxMonsters;
@@ -59,20 +53,10 @@ class GladderMapConfig
 	float pickupsPerWave;
 	int maxPickups;
 
-	bool allowBarnacles;
-	bool allowFlying;
-
 	float routeBiasFraction;   // Fraction of spawns biased to the Point A -> Point B corridor (default 0.60f) (SPEC §3, Issue #103)
 	float routeCorridorRadius; // Maximum distance to route axis to be considered in-corridor (default 512.0f)
 
 	GladderMapConfig();
-
-	// Load configuration profile from "gladder/maps/<mapname>.cfg"
-	bool LoadForMap( const char *pszMapName );
-	bool LoadFromFile( const char *pszFilePath );
-
-	bool IsMonsterAllowed( const char *szClassname ) const;
-	bool IsWeaponAllowed( const char *szClassname ) const;
 };
 
 class GladderSpawner
@@ -120,10 +104,11 @@ class GladderSpawner
 	static bool IsLargeMonster( const char *szClassname );
 
 	// Roster query (SPEC §3, §7.1, §7.12)
+	static const GladderMonsterDef *GetMonsterRoster( size_t &outCount );
 	static const GladderPickupDef *GetPickupRoster( size_t &outCount );
 
 	// Procedural rolling helpers (SPEC §3, Issue #39, #78, #79, #93)
-	static const char *RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle );
+	static const char *RollMonsterSpecies( int iWaveNumber, bool &outIsFlying, bool &outIsBarnacle );
 	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr, bool allowFixedWeapons = true, const std::vector<std::string> *pExtraOwnedWeapons = nullptr );
 
 	// Pity tracking helpers (SPEC §3, Issue #93)
