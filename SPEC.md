@@ -111,6 +111,7 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Health & Armor**: Balanced secondary consumable drops to recover from attrition.
     * **Consumable Ordnance**: Secondary tactical drops distributed according to ordnance tier weights.
     * **Weapons**: Assigned substantially lower procedural probability weights compared to ammunition, serving as rare, high-impact tactical upgrades rather than common drops.
+    * **Decoupled Ammunition & Explosives Carrying Capacity**: All ammunition types and consumable ordnance carry caps are decoupled from classic low limits and extended towards infinity (§7.14). If the spawner generates an overabundance of a specific ammunition type (such as crossbow bolts or 7.62 rounds), the player is never prevented from collecting them, creating large reserves that strategically encourage and compel the player to rely on that weapon.
   * **End-to-End Supply Weight Audit & Ammo Coverage Guarantee**:
     * All procedural supply weights (ammunition per type, health, armor, consumable ordnance, fixed weapons, and their per-wave probability curves) must be reviewed as a whole and kept in a single, documented, data-driven weight table rather than scattered magic numbers.
     * **Category Allocations & Calibrated Weights**:
@@ -357,10 +358,11 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * **Floating & Bobbing Motion**: Pickups (weapons, ammunition crates, health kits, and HEV batteries) levitate slightly above the ground/supporting surface, gently bobbing up and down while continuously rotating on their vertical axis.
 * **Dynamic Colored Point Lights**: Each item projects a localized colored dynamic light onto nearby surfaces, enhancing visibility in dark corridors.
 * **Color-Coded Render Glows**: Items feature a radiant colored aura/glow (`kRenderFxGlowShell` or engine render effects) categorized by pickup type:
-  * **Health & Medical**: Vibrant Green glow and lighting.
-  * **Armor & HEV Batteries**: Cyan / Bright Blue glow and lighting.
-  * **Ammunition**: Amber / Golden-Orange glow and lighting.
-  * **Weapons & Ordnance**: Magenta / Violet or fiery Red glow and lighting (tiered by weapon potency).
+  * **Health & Medical**: Vibrant Green glow and lighting (`RGB(32, 255, 32)`).
+  * **Armor & HEV Batteries**: Cyan / Bright Blue glow and lighting (`RGB(32, 192, 255)`).
+  * **Ammunition**: Amber / Golden-Orange glow and lighting (`RGB(255, 180, 20)`).
+  * **Fixed Weapons**: Arcade Magenta / Violet glow and lighting (`RGB(220, 40, 220)`).
+  * **Throwable & Consumable Ordnance**: Radiant Blue glow and dynamic lighting (`RGB(32, 128, 255)`), distinctly separated from red to eliminate visual ambiguity with Elite Champion monsters and start/finish boundary shells.
 * **Exclusion of Active Combat Ordnance & Thrown Projectiles**:
   * The arcade visual modifier (levitation, sine bobbing, yaw rotation, glow shell, and dynamic point light) applies strictly to idle, uncollected pickup items sitting in the map awaiting collection.
   * Active combat projectiles, deployed explosives, and thrown ordnance—specifically hand grenades (`models/w_grenade.mdl` / `monster_handgrenade`), active satchel charges (`models/w_satchel.mdl` / `monster_satchel`), released live snarks (`models/w_squeak.mdl` / `monster_snark`), and planted tripmines (`monster_tripmine`)—must **never** receive the pickup visual modifier. Because they are being actively utilized in combat rather than acting as collectible items, they must retain their normal physics, flight trajectory, and original visual presentation without floating, bobbing, rotating, or glowing like pickups.
@@ -455,6 +457,32 @@ To ensure that weapon autoselection priority (`iWeight` in `ItemInfo` / `GetNext
     * This prevents players from obtaining an infinite-ammo 1-hit kill melee weapon on Wave 1 (where basic zombies, headcrabs, and houndeyes have 10-50 HP), preserving early-wave survival tension and reserving high-tier melee weapons as meaningful tactical rewards in mid waves.
   * **Tier 3 Apex Retention**:
     * `weapon_sniper` and `weapon_m249` remain in **Tier 3** (`relativeWeight = 0.5f`) as late-game power drops.
+
+### 7.14 Extended Arsenal HUD Slot Alignment & Sprite Script Integrity
+* **Conflict-Free HUD Slot & Position Layout**:
+  * In the GoldSrc HUD weapon selection grid (`rgSlots[slot][pos]`), each `(iSlot, iPosition)` coordinate pair within a weapon bucket must be strictly unique.
+  * Colliding slot and position coordinates cause weapons to overwrite each other in memory during inventory synchronization (`CHudAmmo::Think`), rendering shadowed weapons completely invisible and unselectable in the HUD.
+  * **Standard & Extended Layout (Keys 1-5 / Slots 0-4)**:
+    * **Slot 0 (Melee / Key 1)**: Crowbar (pos 0), Pipe Wrench (pos 1), Combat Knife (pos 2).
+    * **Slot 1 (Sidearms / Key 2)**: Glock 9mm (pos 0), .357 Magnum (pos 1), Desert Eagle (pos 2).
+    * **Slot 2 (Rifles & Heavy Ballistics / Key 3)**: MP5 (pos 0), Shotgun (pos 1), Crossbow (pos 2), M249 SAW (pos 3), M40A1 Sniper Rifle (pos 4).
+    * **Slot 3 (Energy & Heavy Ordnance / Key 4)**: RPG (pos 0), Gauss Gun (pos 1), Egon Gun (pos 2), Hornetgun (pos 3). *(Note: M249 must not occupy Slot 3 pos 2 to prevent collision with Egon).*
+    * **Slot 4 (Consumable Ordnance / Key 5)**: Hand Grenades (pos 0), Satchel Charges (pos 1), Tripmines (pos 2), Snarks (pos 3).
+* **Sprite Script Completeness & Classname Aliasing**:
+  * Every weapon registered in the mod must have a matching HUD sprite descriptor script in `sprites/` corresponding to its entity classname (`sprites/<classname>.txt`).
+  * For the sniper rifle, both `weapon_sniper` and `weapon_sniperrifle` entity names and descriptor scripts (`sprites/weapon_sniper.txt` and `sprites/weapon_sniperrifle.txt`) must be provided and synchronized, containing complete definitions for active icons (`weapon`), inactive icons (`weapon_s`), ammunition icons (`ammo`), reticles (`crosshair`), and zoom overlays (`zoom`).
+  * Missing or mismatched sprite scripts prevent client sprite allocation, which causes uninitialized crosshair handles, missing ammunition counters, and broken rendering (stretched or white previous textures).
+
+### 7.15 Extended Ammunition & Explosives Capacity (Decoupled Limits Tending to Infinity)
+* **Elimination of Static Carry & Byte Clamping Limits**:
+  * Classic Half-Life enforces low static carry caps (`_9MM_MAX_CARRY = 250`, `BOLT_MAX_CARRY = 50`, `ROCKET_MAX_CARRY = 5`, `HANDGRENADE_MAX_CARRY = 10`, etc.) and hard-clamps ammunition network synchronization messages (`AmmoX`, `AmmoPickup`) to a single unsigned byte (0–254).
+  * In Half-Life: Gladder, ammunition and explosive ordnance carry limits are decoupled and extended to high capacity limits (tending to infinity, e.g. thousands or practically uncapped for gauntlet gameplay).
+* **Gameplay Incentive & Tactical Pacing**:
+  * In procedural gauntlet runs, random supply rolls can yield disproportionately high amounts of specific ammunition (such as Crossbow bolts, 7.62 rounds, or explosive grenades).
+  * Rather than denying pickups when arbitrary low caps are reached, the player is permitted to continuously vacuum and hoard that ammunition type. Accumulating huge reserves naturally encourages and strategically forces the player to switch to and expend that weapon to survive subsequent high-density waves.
+* **Networking & Protocol Architecture (Upstream Dependency)**:
+  * Ammunition networking (`AmmoX`, `AmmoPickup`, and `WeaponList`) must support 16-bit counts (`uint16` / `short`) to synchronize counts well above 254 without byte truncation, modulo-256 wrapping, or debug assertions (tracked upstream in `urgorri/halflife-refactored#201`).
+  * Game rules override capacity queries dynamically via virtual hooks without modifying core vanilla weapon implementations.
 
 ---
 
