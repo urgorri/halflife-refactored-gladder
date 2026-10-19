@@ -7,6 +7,7 @@
  ****/
 
 #include "gladder_modifiers.h"
+#include "gladder_monster_modifiers.h"
 #include "gladder_palette.h"
 #include "gladder_audio.h"
 #include "systems/chargers.h"
@@ -44,14 +45,14 @@ int GladderModifiers::CalculateSkillTier( int iWaveNumber )
 void GladderModifiers::ApplySkillProgression( int iWaveNumber )
 {
 	int newSkill = CalculateSkillTier( iWaveNumber );
-	if ( SkillManager::GetSkillLevel() != newSkill )
+	bool bChanged = ( SkillManager::GetSkillLevel() != newSkill );
+	SkillManager::SetSkillLevel( newSkill );
+	g_iSkillLevel = newSkill;
+	if ( bChanged && g_pGameRules )
 	{
-		SkillManager::SetSkillLevel( newSkill );
-		if ( g_pGameRules )
-		{
-			g_pGameRules->RefreshSkillData();
-		}
+		g_pGameRules->RefreshSkillData();
 	}
+	GladderMonsterModifiers::ApplySkillDataOverrides( newSkill );
 }
 
 float GladderModifiers::GetChampionSpawnChance( int iWaveNumber )

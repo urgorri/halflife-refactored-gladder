@@ -1101,7 +1101,17 @@ void CBaseMonster::RunAI( void ) {}
 void CBaseMonster::MonsterThink( void ) {}
 int CBaseMonster::IRelationship( CBaseEntity *pTarget ) { return R_NO; }
 void CBaseMonster::MonsterInit( void ) {}
-void CBaseMonster::MonsterInitDead( void ) {}
+void CBaseMonster::MonsterInitDead( void )
+{
+	if ( pev )
+	{
+		pev->takedamage = DAMAGE_YES;
+		pev->deadflag   = DEAD_DEAD;
+		pev->solid      = SOLID_BBOX;
+		pev->movetype   = MOVETYPE_TOSS;
+		pev->frame      = 0;
+	}
+}
 void CBaseMonster::BecomeDead( void ) {}
 void CBaseMonster::StartMonster( void ) {}
 CBaseEntity *CBaseMonster::BestVisibleEnemy( void ) { return nullptr; }

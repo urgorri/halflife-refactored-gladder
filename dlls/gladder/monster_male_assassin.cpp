@@ -43,6 +43,7 @@
 #include "systems/effects.h"
 #include "customentity.h"
 #include "core/skill_manager.h"
+#include "gladder_monster_modifiers.h"
 
 extern DLL_GLOBAL int g_iSkillLevel;
 
@@ -2367,4 +2368,5 @@ void CDeadMOFAssassin::Spawn()
 	}
 
 	MonsterInitDead();
+	GladderMonsterModifiers::ConfigureDeadMonsterProp( this );
 }

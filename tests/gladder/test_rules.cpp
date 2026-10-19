@@ -21,7 +21,7 @@
 #include "cl_dll/gladder/hud_gladder_overlay.h"
 #include "dlls/gladder/gladder_wave_manager.h"
 #include "dlls/gladder/gladder_entities.h"
-
+#include "dlls/gladder/gladder_palette.h"
 #include "dlls/gladder/gladder_rules.h"
 
 namespace
@@ -1408,6 +1408,61 @@ TEST_CASE( "GladderRules: Mandatory hostile elimination, finish trigger denial &
 	}
 
 	g_pGameRules = nullptr;
+}
+
+TEST_CASE( "GladderTriggers: Start and finish trigger Red/Gray glow state transitions across wave lifecycle (SPEC §2, §6, §7.2, Issue #122)", "[gladder][triggers][glow]" )
+{
+	ResetMockEngine();
+
+	// 1. Setup trigger_gladder_start and trigger_gladder_finish mock entities
+	edict_t *pStartSlot = GetMockClientEntity( 2 );
+	REQUIRE( pStartSlot != nullptr );
+	memset( pStartSlot, 0, sizeof( edict_t ) );
+	pStartSlot->free = 0;
+	pStartSlot->v.pContainingEntity = pStartSlot;
+	pStartSlot->v.classname         = MAKE_STRING( "trigger_gladder_start" );
+	pStartSlot->v.renderfx          = kRenderFxGlowShell;
+	pStartSlot->v.renderamt         = 16;
+	pStartSlot->v.rendercolor       = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+	CBaseEntity startEnt;
+	pStartSlot->pvPrivateData       = &startEnt;
+	startEnt.pev                    = &pStartSlot->v;
+
+	edict_t *pFinishSlot = GetMockClientEntity( 3 );
+	REQUIRE( pFinishSlot != nullptr );
+	memset( pFinishSlot, 0, sizeof( edict_t ) );
+	pFinishSlot->free = 0;
+	pFinishSlot->v.pContainingEntity = pFinishSlot;
+	pFinishSlot->v.classname         = MAKE_STRING( "trigger_gladder_finish" );
+	pFinishSlot->v.renderfx          = kRenderFxGlowShell;
+	pFinishSlot->v.renderamt         = 16;
+	pFinishSlot->v.rendercolor       = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+	CBaseEntity finishEnt;
+	pFinishSlot->pvPrivateData       = &finishEnt;
+	finishEnt.pev                    = &pFinishSlot->v;
+
+	// Phase 1: Standby / Pre-Wave — Start is Red (255, 32, 32), Finish is Gray (128, 128, 128)
+	CHECK( startEnt.pev->rendercolor == Vector( 255, 32, 32 ) );
+	CHECK( finishEnt.pev->rendercolor == Vector( 128, 128, 128 ) );
+
+	// Phase 2: Wave Active (Hostiles Remaining) — Start transitions to Gray (128, 128, 128), Finish stays Gray (128, 128, 128)
+	startEnt.pev->rendercolor  = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+	finishEnt.pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+	CHECK( startEnt.pev->rendercolor == Vector( 128, 128, 128 ) );
+	CHECK( finishEnt.pev->rendercolor == Vector( 128, 128, 128 ) );
+
+	// Phase 3: Wave Active (All Hostiles Eliminated) — Finish unlocks and transitions to Red (255, 32, 32), Start stays Gray (128, 128, 128)
+	finishEnt.pev->rendercolor = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+	CHECK( startEnt.pev->rendercolor == Vector( 128, 128, 128 ) );
+	CHECK( finishEnt.pev->rendercolor == Vector( 255, 32, 32 ) );
+
+	// Phase 4: Wave Completed / Reset — Start resets to Red (255, 32, 32), Finish resets to Gray (128, 128, 128)
+	startEnt.pev->rendercolor  = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+	finishEnt.pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+	CHECK( startEnt.pev->rendercolor == Vector( 255, 32, 32 ) );
+	CHECK( finishEnt.pev->rendercolor == Vector( 128, 128, 128 ) );
+
+	ResetMockEngine();
 }
 
 

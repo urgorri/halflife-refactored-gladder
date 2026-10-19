@@ -11,6 +11,7 @@
 #include "ai/monsters.h"
 #include "ai/schedule.h"
 #include "core/skill_manager.h"
+#include "gameplay/gamerules.h"
 #include "gladder_monster_modifiers.h"
 
 #define ZOMBIE_SOLDIER_AE_ATTACK_RIGHT 0x01
@@ -102,7 +103,10 @@ void CZombieSoldier::SetActivity( Activity NewActivity )
 
 	if ( NewActivity == ACT_WALK || NewActivity == ACT_RUN )
 	{
-		pev->framerate = GladderMonsterModifiers::GetDifficultyFramerateMultiplier( g_iSkillLevel );
+		float flSpeed = GladderMonsterModifiers::GetZombieMoveSpeed( g_iSkillLevel );
+		if ( g_pGameRules )
+			flSpeed = g_pGameRules->FlMonsterMoveSpeed( this, NewActivity, flSpeed );
+		pev->framerate = flSpeed;
 	}
 }
 
@@ -385,4 +389,5 @@ void CDeadZombieSoldier::Spawn()
 
 	pev->health = 8;
 	MonsterInitDead();
+	GladderMonsterModifiers::ConfigureDeadMonsterProp( this );
 }

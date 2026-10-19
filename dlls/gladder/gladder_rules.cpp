@@ -12,8 +12,11 @@
 #include "gladder_audio.h"
 #include "gladder_leaderboard.h"
 #include "gladder_grid_debug.h"
+#include "gladder_palette.h"
+#include "squidspit_cloud.h"
 #include <ctime>
 #include "core/skill_manager.h"
+#include "ai/squadmonster.h"
 #include "items/item_base.h"
 #include "weapons/weapon_base.h"
 #include "shake.h"
@@ -98,7 +101,8 @@ CGladderRules::CGladderRules()
 	GladderAudio::Precache();
 	m_spawner.Precache();
 
-	CGameRules::RefreshSkillData();
+	RefreshSkillData();
+	EnsureDeadMonsterProps();
 
 	// Initialize spatial grid cache and map profile if mapname is valid
 	if ( gpGlobals && gpGlobals->mapname )
@@ -685,9 +689,238 @@ void CGladderRules::CheckAllHostilesEliminated( CBaseEntity *pActivator )
 	}
 }
 
+void CGladderRules::RefreshSkillData( void )
+{
+	CHalfLifeRules::RefreshSkillData();
+	GladderMonsterModifiers::ApplySkillDataOverrides( g_iSkillLevel );
+}
+
+void CGladderRules::OnEntitySpawned( CBaseEntity *pEntity )
+{
+	if ( !pEntity || !pEntity->pev )
+		return;
+
+	// 1. Pre-placed dead monster environmental props (SPEC §3, §11.1, Issue #123)
+	if ( GladderMonsterModifiers::IsDeadMonsterProp( pEntity ) )
+	{
+		GladderMonsterModifiers::ConfigureDeadMonsterProp( pEntity );
+		return;
+	}
+
+	// 2. Bullsquid spit projectile non-damaging green smoke trail (SPEC §3, Issue #121)
+	if ( FClassnameIs( pEntity->pev, "squidspit" ) )
+	{
+		if ( g_engfuncs.pfnMessageBegin && pEntity->edict() )
+		{
+			int iSmokeSprite = g_engfuncs.pfnModelIndex ? MODEL_INDEX( "sprites/smoke.spr" ) : 0;
+			MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY );
+			WRITE_BYTE( TE_BEAMFOLLOW );
+			WRITE_SHORT( pEntity->entindex() );
+			WRITE_SHORT( iSmokeSprite );
+			WRITE_BYTE( 3 ); // life (~0.3s in 0.1s units)
+			WRITE_BYTE( 10 ); // width
+			WRITE_BYTE( GladderPalette::Health.r );
+			WRITE_BYTE( GladderPalette::Health.g );
+			WRITE_BYTE( GladderPalette::Health.b );
+			WRITE_BYTE( 200 ); // brightness
+			MESSAGE_END();
+		}
+	}
+}
+
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
 {
 	return GladderMonsterModifiers::GetModernYawSpeed( pMonster, flDefaultYawSpeed );
+}
+
+float CGladderRules::FlMonsterCastSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed )
+{
+	if ( !pMonster || !pMonster->pev )
+		return flDefaultSpeed;
+
+	// Heavy monster pain flinch recovery resistance (SPEC §3, Issue #116, #121)
+	if ( activity == ACT_SMALL_FLINCH || activity == ACT_BIG_FLINCH )
+	{
+		if ( GladderMonsterModifiers::IsHeavyFlinchResistantMonster( pMonster ) )
+		{
+			return flDefaultSpeed * GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( g_iSkillLevel );
+		}
+		return flDefaultSpeed;
+	}
+
+	float flSpeed = flDefaultSpeed;
+	if ( FClassnameIs( pMonster->pev, "monster_houndeye" ) && activity == ACT_RANGE_ATTACK1 )
+	{
+		flSpeed = GladderMonsterModifiers::GetHoundeyeCastSpeed( g_iSkillLevel );
+	}
+	else if ( ( FClassnameIs( pMonster->pev, "monster_alien_slave" ) ||
+	            FClassnameIs( pMonster->pev, "monster_vortigaunt" ) ) &&
+	          activity == ACT_RANGE_ATTACK1 )
+	{
+		flSpeed = GladderMonsterModifiers::GetVortigauntCastSpeed( g_iSkillLevel );
+	}
+
+	if ( GladderModifiers::IsEliteChampion( pMonster ) )
+	{
+		flSpeed *= GladderModifiers::CHAMPION_FRAMERATE_SCALE;
+	}
+
+	return flSpeed;
+}
+
+float CGladderRules::FlMonsterMoveSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed )
+{
+	if ( !pMonster || !pMonster->pev )
+		return flDefaultSpeed;
+
+	float flSpeed = flDefaultSpeed;
+	if ( FClassnameIs( pMonster->pev, "monster_headcrab" ) || FClassnameIs( pMonster->pev, "monster_babycrab" ) )
+	{
+		if ( activity == ACT_RUN || activity == ACT_WALK )
+		{
+			flSpeed = GladderMonsterModifiers::GetHeadcrabMoveSpeed( g_iSkillLevel );
+		}
+		else if ( activity == ACT_RANGE_ATTACK1 )
+		{
+			flSpeed = GladderMonsterModifiers::GetHeadcrabJumpSpeed( g_iSkillLevel );
+		}
+	}
+	else if ( FClassnameIs( pMonster->pev, "monster_zombie" ) ||
+	          FClassnameIs( pMonster->pev, "monster_zombie_barney" ) ||
+	          FClassnameIs( pMonster->pev, "monster_zombie_soldier" ) )
+	{
+		if ( activity == ACT_WALK || activity == ACT_RUN )
+		{
+			flSpeed = GladderMonsterModifiers::GetZombieMoveSpeed( g_iSkillLevel );
+		}
+	}
+	else if ( FClassnameIs( pMonster->pev, "monster_alien_controller" ) )
+	{
+		flSpeed = flDefaultSpeed * GladderMonsterModifiers::GetControllerMoveSpeed( g_iSkillLevel );
+	}
+
+	if ( GladderModifiers::IsEliteChampion( pMonster ) )
+	{
+		flSpeed *= GladderModifiers::CHAMPION_FRAMERATE_SCALE;
+	}
+
+	return flSpeed;
+}
+
+float CGladderRules::FlMonsterProjectileSpread( CBaseMonster *pMonster, const char *pszProjectile, float flDefaultSpread )
+{
+	(void)pMonster;
+	if ( pszProjectile && FStrEq( pszProjectile, "squidspit" ) )
+	{
+		return GladderMonsterModifiers::GetBullsquidSpitSpread( g_iSkillLevel );
+	}
+	return flDefaultSpread;
+}
+
+float CGladderRules::FlHornetTrackAgility( CBaseEntity *pHornet, float flDefaultWeight )
+{
+	(void)pHornet;
+	return GladderMonsterModifiers::GetHornetTrackAgility( g_iSkillLevel, flDefaultWeight );
+}
+
+float CGladderRules::FlMonsterWaitTime( CBaseMonster *pMonster, float flDefaultWait )
+{
+	if ( pMonster && pMonster->pev &&
+	     ( FClassnameIs( pMonster->pev, "monster_human_grunt" ) ||
+	       FClassnameIs( pMonster->pev, "monster_male_assassin" ) ) )
+	{
+		return GladderMonsterModifiers::GetHGruntWaitTime( g_iSkillLevel, flDefaultWait );
+	}
+	return flDefaultWait;
+}
+
+float CGladderRules::FlMonsterGrenadeCheckDelay( CBaseMonster *pMonster, float flDefaultDelay )
+{
+	if ( pMonster && pMonster->pev &&
+	     ( FClassnameIs( pMonster->pev, "monster_human_grunt" ) ||
+	       FClassnameIs( pMonster->pev, "monster_male_assassin" ) ) )
+	{
+		return GladderMonsterModifiers::GetHGruntGrenadeCheckDelay( g_iSkillLevel, flDefaultDelay );
+	}
+	return flDefaultDelay;
+}
+
+int CGladderRules::IMonsterProjectileBurstCount( CBaseMonster *pMonster, const char *pszProjectile, int iDefaultCount )
+{
+	(void)pszProjectile;
+	if ( pMonster && pMonster->pev && FClassnameIs( pMonster->pev, "monster_alien_controller" ) )
+	{
+		return GladderMonsterModifiers::GetControllerBurstCount( g_iSkillLevel, iDefaultCount );
+	}
+	return iDefaultCount;
+}
+
+void CGladderRules::OnMonsterAttackDetonation( CBaseMonster *pMonster, const char *pszAttackType, const Vector &vecOrigin )
+{
+	if ( !pszAttackType || !FStrEq( pszAttackType, "sonic_blast" ) )
+		return;
+
+	BYTE bRed = 188, bGreen = 220, bBlue = 255;
+	CSquadMonster *pSquad = pMonster ? pMonster->MySquadMonsterPointer() : nullptr;
+	if ( pSquad && pSquad->InSquad() )
+	{
+		switch ( pSquad->SquadCount() )
+		{
+			case 2:
+				bRed   = 101;
+				bGreen = 133;
+				bBlue  = 221;
+				break;
+			case 3:
+				bRed   = 67;
+				bGreen = 85;
+				bBlue  = 255;
+				break;
+			case 4:
+				bRed   = 62;
+				bGreen = 33;
+				bBlue  = 211;
+				break;
+			default:
+				break;
+		}
+	}
+
+	if ( g_engfuncs.pfnMessageBegin )
+	{
+		MESSAGE_BEGIN( MSG_PAS, SVC_TEMPENTITY, vecOrigin );
+		WRITE_BYTE( TE_DLIGHT );
+		WRITE_COORD( vecOrigin.x );
+		WRITE_COORD( vecOrigin.y );
+		WRITE_COORD( vecOrigin.z );
+		WRITE_BYTE( 20 ); // radius (20 * 10 = 200u)
+		WRITE_BYTE( bRed );
+		WRITE_BYTE( bGreen );
+		WRITE_BYTE( bBlue );
+		WRITE_BYTE( 5 );  // life (0.5s in 0.1s units)
+		WRITE_BYTE( 40 ); // decay rate (fast decay)
+		MESSAGE_END();
+	}
+}
+
+void CGladderRules::OnMonsterProjectileImpact( CBaseEntity *pProjectile, const TraceResult &tr )
+{
+	if ( !pProjectile || !pProjectile->pev )
+		return;
+
+	if ( FClassnameIs( pProjectile->pev, "squidspit" ) )
+	{
+		// Spawn lingering toxic cloud on surface/geometry impact (SPEC §3, Issue #116, #121)
+		if ( !tr.pHit || tr.pHit->v.takedamage == DAMAGE_NO )
+		{
+			Vector vecPos = ( tr.vecEndPos != g_vecZero ) ? tr.vecEndPos : pProjectile->pev->origin;
+			float flDuration = GladderMonsterModifiers::GetToxicCloudDuration( g_iSkillLevel );
+			if ( flDuration > 0.0f )
+			{
+				CSquidSpitCloud::Create( vecPos, flDuration );
+			}
+		}
+	}
 }
 
 int CGladderRules::FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask )
@@ -768,6 +1001,37 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		m_iWaveMonstersKilled = 0;
 		m_bHostilesEliminatedFired = false;
 
+		// Transition start triggers to inactive Gray and finish triggers to locked Gray (SPEC §2, §6, §7.2, Issue #122)
+		UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+			if ( !pEnt || !pEnt->pev )
+				return;
+
+			if ( FClassnameIs( pEnt->pev, "trigger_gladder_start" ) )
+			{
+				CTriggerGladderStart *pStart = dynamic_cast<CTriggerGladderStart *>( pEnt );
+				if ( pStart )
+				{
+					pStart->SetActiveState( false );
+				}
+				else
+				{
+					pEnt->pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+				}
+			}
+			else if ( FClassnameIs( pEnt->pev, "trigger_gladder_finish" ) )
+			{
+				CTriggerGladderFinish *pFinish = dynamic_cast<CTriggerGladderFinish *>( pEnt );
+				if ( pFinish )
+				{
+					pFinish->SetUnlockedState( false );
+				}
+				else
+				{
+					pEnt->pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+				}
+			}
+		} );
+
 		// Acoustic cue for wave start & mutator alert
 		GladderAudio::PlayCue( GLADDER_CUE_WAVE_START, pActivator );
 		if ( m_modifiers.GetActiveMutator() != GLADDER_MUTATOR_NONE )
@@ -780,6 +1044,7 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 
 		// Enforce FL_MONSTERCLIP across monsters and pushables for start/finish trigger clip boundaries
 		EnsureMonsterClipFlags();
+		EnsureDeadMonsterProps();
 
 		BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ) );
 		BroadcastWaveUpdate();
@@ -869,6 +1134,8 @@ void CGladderRules::ResetWave( void )
 	ResetBreakableEntities();
 	RestoreStaticDecals();
 	ResetStartTriggers();
+	ResetFinishTriggers();
+	EnsureDeadMonsterProps();
 	m_iWaveMonstersTotal = 0;
 	m_iWaveMonstersKilled = 0;
 	m_bHostilesEliminatedFired = false;
@@ -887,6 +1154,44 @@ void CGladderRules::ResetStartTriggers( void )
 			{
 				pStart->ResetTrigger();
 			}
+			else
+			{
+				pEnt->pev->rendercolor = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+			}
+		}
+	} );
+}
+
+void CGladderRules::ResetFinishTriggers( void )
+{
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		if ( !pEnt || !pEnt->pev )
+			return;
+
+		if ( FClassnameIs( pEnt->pev, "trigger_gladder_finish" ) )
+		{
+			CTriggerGladderFinish *pFinish = dynamic_cast<CTriggerGladderFinish *>( pEnt );
+			if ( pFinish )
+			{
+				pFinish->ResetTrigger();
+			}
+			else
+			{
+				pEnt->pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+			}
+		}
+	} );
+}
+
+void CGladderRules::EnsureDeadMonsterProps( void )
+{
+	UTIL_ForEachEntity( []( CBaseEntity *pEnt ) {
+		if ( !pEnt || !pEnt->pev )
+			return;
+
+		if ( GladderMonsterModifiers::IsDeadMonsterProp( pEnt ) )
+		{
+			GladderMonsterModifiers::ConfigureDeadMonsterProp( pEnt );
 		}
 	} );
 }

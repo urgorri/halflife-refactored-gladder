@@ -1510,3 +1510,72 @@ TEST_CASE( "Gladder Spawner: Barnacle ceiling attachment uses head_hull and does
 	ClearMockEntityFactories();
 	ResetMockEngine();
 }
+
+TEST_CASE( "Gladder Spawner: PurgeWaveEntities preserves pre-placed monster_*_dead environmental props while purging wave monsters (SPEC §3, §11.1, Issue #123)", "[gladder][spawner][corpses]" )
+{
+	ResetMockEngine();
+	gpGlobals->maxEntities = 32;
+
+	const char *deadPropClasses[] = {
+		"monster_dead_barney",
+		"monster_scientist_dead",
+		"monster_hgrunt_dead",
+		"monster_hevsuit_dead",
+		"monster_gonome_dead",
+		"monster_massassin_dead",
+		"monster_zombie_soldier_dead",
+		"monster_houndeye_dead",
+		"monster_bullsquid_dead",
+		"monster_headcrab_dead"
+	};
+
+	const size_t numDeadProps = sizeof( deadPropClasses ) / sizeof( deadPropClasses[0] );
+	std::vector<CTestBigMommaMonster> deadProps( numDeadProps );
+
+	for ( size_t i = 0; i < numDeadProps; ++i )
+	{
+		int slot = static_cast<int>( i + 1 );
+		edict_t *pSlot = GetMockClientEntity( slot );
+		REQUIRE( pSlot != nullptr );
+		memset( pSlot, 0, sizeof( edict_t ) );
+		pSlot->free = 0;
+		pSlot->v.pContainingEntity = pSlot;
+		pSlot->v.classname         = MAKE_STRING( deadPropClasses[i] );
+		pSlot->v.takedamage        = DAMAGE_YES;
+		pSlot->v.solid             = SOLID_BBOX;
+		pSlot->v.deadflag          = DEAD_DEAD;
+		pSlot->pvPrivateData       = &deadProps[i];
+		deadProps[i].pev           = &pSlot->v;
+	}
+
+	// Also place a regular wave monster (e.g. monster_zombie) in slot numDeadProps + 1
+	int liveSlotIdx = static_cast<int>( numDeadProps + 1 );
+	edict_t *pLiveSlot = GetMockClientEntity( liveSlotIdx );
+	REQUIRE( pLiveSlot != nullptr );
+	memset( pLiveSlot, 0, sizeof( edict_t ) );
+	pLiveSlot->free = 0;
+	pLiveSlot->v.pContainingEntity = pLiveSlot;
+	pLiveSlot->v.classname         = MAKE_STRING( "monster_zombie" );
+	CTestBigMommaMonster waveZombie;
+	pLiveSlot->pvPrivateData       = &waveZombie;
+	waveZombie.pev                 = &pLiveSlot->v;
+
+	GladderSpawner spawner;
+	spawner.PurgeWaveEntities();
+
+	// 1. All 10 pre-placed monster_*_dead props must NOT have FL_KILLME and must be configured as indestructible non-solid props
+	for ( size_t i = 0; i < numDeadProps; ++i )
+	{
+		int slot = static_cast<int>( i + 1 );
+		edict_t *pSlot = GetMockClientEntity( slot );
+		CHECK( ( pSlot->v.flags & FL_KILLME ) == 0 );
+		CHECK( pSlot->v.takedamage == DAMAGE_NO );
+		CHECK( pSlot->v.solid == SOLID_NOT );
+		CHECK( pSlot->v.deadflag == DEAD_DEAD );
+	}
+
+	// 2. Regular wave monster MUST be purged (FL_KILLME set)
+	CHECK( ( pLiveSlot->v.flags & FL_KILLME ) != 0 );
+
+	ResetMockEngine();
+}

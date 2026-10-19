@@ -371,24 +371,39 @@ TEST_CASE( "GladderVisuals: Dead player corpse model orientation lock (SPEC §10
 	GladderResetCorpseVisualState();
 }
 
-TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qualification (SPEC §6, §7.2, Issue #81)", "[gladder][visuals][triggers]" )
+TEST_CASE( "GladderVisuals: Start and finish trigger Red and Gray bounding glow shell qualification (SPEC §2, §6, §7.2, Issue #81, #122)", "[gladder][visuals][triggers]" )
 {
 	cl_entity_t ent;
 	memset( &ent, 0, sizeof( ent ) );
 	ent.curstate.renderfx = kRenderFxGlowShell;
-	ent.curstate.rendercolor.r = 255;
-	ent.curstate.rendercolor.g = 32;
-	ent.curstate.rendercolor.b = 32;
+	ent.curstate.rendercolor.r = GladderPalette::Triggers.r;
+	ent.curstate.rendercolor.g = GladderPalette::Triggers.g;
+	ent.curstate.rendercolor.b = GladderPalette::Triggers.b;
 	ent.curstate.frame = 0;
 
-	SECTION( "Brush entity with trigger red color qualifies for glow shell" )
+	SECTION( "Brush entity with active trigger Red color (255, 32, 32) qualifies for glow shell" )
 	{
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == true );
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*12" ) == true );
 	}
 
-	SECTION( "Non-brush entity with trigger red color does not qualify" )
+	SECTION( "Brush entity with inactive/locked trigger Gray color (128, 128, 128) qualifies for glow shell" )
 	{
+		ent.curstate.rendercolor.r = GladderPalette::TriggersInactive.r;
+		ent.curstate.rendercolor.g = GladderPalette::TriggersInactive.g;
+		ent.curstate.rendercolor.b = GladderPalette::TriggersInactive.b;
+
+		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == true );
+		CHECK( ShouldApplyChargerGlowShell( &ent, "*12" ) == true );
+	}
+
+	SECTION( "Non-brush entity with trigger Red or Gray color does not qualify" )
+	{
+		CHECK( ShouldApplyChargerGlowShell( &ent, "models/player.mdl" ) == false );
+
+		ent.curstate.rendercolor.r = GladderPalette::TriggersInactive.r;
+		ent.curstate.rendercolor.g = GladderPalette::TriggersInactive.g;
+		ent.curstate.rendercolor.b = GladderPalette::TriggersInactive.b;
 		CHECK( ShouldApplyChargerGlowShell( &ent, "models/player.mdl" ) == false );
 	}
 
@@ -398,7 +413,7 @@ TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qua
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == false );
 	}
 
-	SECTION( "Visual modifier registers red glow shell for trigger" )
+	SECTION( "Visual modifier registers and dynamically transitions trigger glow shell between Red and Gray" )
 	{
 		GladderClearActiveChargers();
 		model_t mockModel;
@@ -408,6 +423,7 @@ TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qua
 		ent.index = 88;
 		ent.model = &mockModel;
 
+		// 1. Active Red state
 		GladderChargerVisualModifier( 0, &ent, "*2" );
 		REQUIRE( GladderGetActiveChargerCount() == 1 );
 
@@ -417,6 +433,30 @@ TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qua
 		CHECK( info.r == 255 );
 		CHECK( info.g == 32 );
 		CHECK( info.b == 32 );
+
+		// 2. Transition to Inactive/Locked Gray state (128, 128, 128)
+		ent.curstate.rendercolor.r = GladderPalette::TriggersInactive.r;
+		ent.curstate.rendercolor.g = GladderPalette::TriggersInactive.g;
+		ent.curstate.rendercolor.b = GladderPalette::TriggersInactive.b;
+		GladderChargerVisualModifier( 0, &ent, "*2" );
+		REQUIRE( GladderGetActiveChargerCount() == 1 );
+		REQUIRE( GladderGetActiveChargerInfo( 0, info ) == true );
+		CHECK( info.entityIndex == 88 );
+		CHECK( info.r == 128 );
+		CHECK( info.g == 128 );
+		CHECK( info.b == 128 );
+
+		// 3. Transition back to Active/Unlocked Red state (255, 32, 32)
+		ent.curstate.rendercolor.r = GladderPalette::Triggers.r;
+		ent.curstate.rendercolor.g = GladderPalette::Triggers.g;
+		ent.curstate.rendercolor.b = GladderPalette::Triggers.b;
+		GladderChargerVisualModifier( 0, &ent, "*2" );
+		REQUIRE( GladderGetActiveChargerCount() == 1 );
+		REQUIRE( GladderGetActiveChargerInfo( 0, info ) == true );
+		CHECK( info.r == 255 );
+		CHECK( info.g == 32 );
+		CHECK( info.b == 32 );
+
 		GladderClearActiveChargers();
 	}
 }

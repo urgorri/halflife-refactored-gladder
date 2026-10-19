@@ -217,12 +217,12 @@ int GladderMonsterModifiers::GetScheduleInterruptMask( CBaseMonster *pMonster, S
 	return iDefaultMask;
 }
 
-float GladderMonsterModifiers::GetDifficultyFramerateMultiplier( int iSkillLevel )
+float GladderMonsterModifiers::GetHoundeyeCastSpeed( int iSkillLevel )
 {
 	if ( iSkillLevel == SKILL_HARD )
-		return 1.50f;
+		return 2.00f;
 	if ( iSkillLevel == SKILL_MEDIUM )
-		return 1.25f;
+		return 1.50f;
 	return 1.00f;
 }
 
@@ -235,7 +235,7 @@ float GladderMonsterModifiers::GetBullsquidSpitSpread( int iSkillLevel )
 	return 0.050f;     // Authentic vanilla spread
 }
 
-float GladderMonsterModifiers::GetToxicCloudDuration( int iSkillLevel )
+float GladderMonsterModifiers::GetBullsquidCloudDuration( int iSkillLevel )
 {
 	if ( iSkillLevel == SKILL_HARD )
 		return 5.0f;
@@ -244,12 +244,185 @@ float GladderMonsterModifiers::GetToxicCloudDuration( int iSkillLevel )
 	return 3.0f;
 }
 
+float GladderMonsterModifiers::GetToxicCloudDuration( int iSkillLevel )
+{
+	return GetBullsquidCloudDuration( iSkillLevel );
+}
+
+float GladderMonsterModifiers::GetHeadcrabMoveSpeed( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 1.50f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 1.25f;
+	return 1.00f;
+}
+
+float GladderMonsterModifiers::GetHeadcrabJumpSpeed( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 850.0f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 750.0f;
+	return 650.0f;
+}
+
+float GladderMonsterModifiers::GetHeadcrabAttackRange( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 380.0f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 320.0f;
+	return 256.0f;
+}
+
+float GladderMonsterModifiers::GetZombieMoveSpeed( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 1.50f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 1.25f;
+	return 1.00f;
+}
+
+float GladderMonsterModifiers::GetDifficultyFramerateMultiplier( int iSkillLevel )
+{
+	return GetZombieMoveSpeed( iSkillLevel );
+}
+
+float GladderMonsterModifiers::GetVortigauntCastSpeed( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 1.60f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 1.30f;
+	return 1.00f;
+}
+
+float GladderMonsterModifiers::GetAGruntHornetSpeed( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 810.0f; // +35% hornet velocity
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 720.0f; // +20% hornet velocity
+	return 600.0f;     // Vanilla hornet velocity
+}
+
+float GladderMonsterModifiers::GetHornetTrackAgility( int iSkillLevel, float flDefaultWeight )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 0.75f; // Tighter homing turn rate on Skill 3
+	return flDefaultWeight;
+}
+
+float GladderMonsterModifiers::GetHGruntWaitTime( int iSkillLevel, float flDefaultWait )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return flDefaultWait * 0.50f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return flDefaultWait * 0.65f;
+	return flDefaultWait;
+}
+
+float GladderMonsterModifiers::GetHGruntGrenadeCheckDelay( int iSkillLevel, float flDefaultDelay )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return flDefaultDelay * 0.50f; // Rapid flush grenade cadence on Skill 3
+	return flDefaultDelay;
+}
+
+float GladderMonsterModifiers::GetControllerMoveSpeed( int iSkillLevel )
+{
+	if ( iSkillLevel >= SKILL_MEDIUM )
+		return 1.20f; // +20% flight and strafing velocity on Skill 2 & 3
+	return 1.00f;
+}
+
+int GladderMonsterModifiers::GetControllerBurstCount( int iSkillLevel, int iDefaultCount )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 2; // Twin energy balls on Skill 3
+	return iDefaultCount;
+}
+
 float GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( int iSkillLevel )
 {
 	if ( iSkillLevel == SKILL_HARD )
-		return 0.30f; // 30% faster recovery
+		return 1.30f; // 30% faster recovery
 	if ( iSkillLevel == SKILL_MEDIUM )
-		return 0.15f; // 15% faster recovery
-	return 0.00f;     // Vanilla recovery
+		return 1.15f; // 15% faster recovery
+	return 1.00f;     // Vanilla recovery
 }
+
+bool GladderMonsterModifiers::IsHeavyFlinchResistantMonster( const CBaseMonster *pMonster )
+{
+	if ( !pMonster || !pMonster->pev || !pMonster->pev->classname )
+		return false;
+
+	const char *pszClass = STRING( pMonster->pev->classname );
+	if ( !pszClass || !*pszClass )
+		return false;
+
+	return ( strcmp( pszClass, "monster_bullchicken" ) == 0 ||
+	         strcmp( pszClass, "monster_alien_grunt" ) == 0 ||
+	         strcmp( pszClass, "monster_gargantua" ) == 0 );
+}
+
+void GladderMonsterModifiers::ApplySkillDataOverrides( int iSkillLevel )
+{
+	gSkillData.iSkillLevel         = iSkillLevel;
+	gSkillData.houndeyeCastSpeed   = GetHoundeyeCastSpeed( iSkillLevel );
+	gSkillData.bullsquidSpitSpread = GetBullsquidSpitSpread( iSkillLevel );
+	gSkillData.headcrabMoveSpeed   = GetHeadcrabMoveSpeed( iSkillLevel );
+	gSkillData.headcrabJumpSpeed   = GetHeadcrabJumpSpeed( iSkillLevel );
+	gSkillData.headcrabAttackRange = GetHeadcrabAttackRange( iSkillLevel );
+	gSkillData.zombieMoveSpeed     = GetZombieMoveSpeed( iSkillLevel );
+	gSkillData.slaveCastSpeed      = GetVortigauntCastSpeed( iSkillLevel );
+	gSkillData.agruntHornetSpeed   = GetAGruntHornetSpeed( iSkillLevel );
+}
+
+bool GladderMonsterModifiers::IsDeadMonsterPropClassname( const char *pszClassname )
+{
+	if ( !pszClassname || !*pszClassname )
+		return false;
+
+	if ( strncmp( pszClassname, "monster_dead_", 13 ) == 0 )
+		return true;
+
+	if ( strncmp( pszClassname, "monster_", 8 ) == 0 )
+	{
+		size_t len = strlen( pszClassname );
+		if ( len > 13 && strcmp( pszClassname + len - 5, "_dead" ) == 0 )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool GladderMonsterModifiers::IsDeadMonsterProp( const CBaseEntity *pEntity )
+{
+	if ( !pEntity || !pEntity->pev || !pEntity->pev->classname )
+		return false;
+
+	return IsDeadMonsterPropClassname( STRING( pEntity->pev->classname ) );
+}
+
+void GladderMonsterModifiers::ConfigureDeadMonsterProp( CBaseEntity *pEntity )
+{
+	if ( !pEntity || !pEntity->pev )
+		return;
+
+	pEntity->pev->takedamage = DAMAGE_NO;
+	pEntity->pev->solid      = SOLID_NOT;
+	pEntity->pev->deadflag   = DEAD_DEAD;
+
+	if ( pEntity->edict() && !FNullEnt( pEntity->edict() ) )
+	{
+		DROP_TO_FLOOR( ENT( pEntity->pev ) );
+		UTIL_SetOrigin( pEntity->pev, pEntity->pev->origin );
+	}
+}
+
 

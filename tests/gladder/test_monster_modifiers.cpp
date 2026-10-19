@@ -348,13 +348,78 @@ TEST_CASE( "GladderMonsterModifiers: Damage interruption during movement schedul
 	}
 }
 
-TEST_CASE( "GladderMonsterModifiers: Difficulty-scaled combat parameters across Skill 1, 2, 3 (SPEC §3, Issue #116)", "[gladder][difficulty][monsters]" )
+TEST_CASE( "GladderMonsterModifiers: Difficulty-scaled combat parameters across Skill 1, 2, 3 (SPEC §3, Issue #116, #121)", "[gladder][difficulty][monsters]" )
 {
+	SECTION( "Houndeye sonic blast cast speed scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetHoundeyeCastSpeed( SKILL_EASY ) == Catch::Approx( 1.00f ) );
+		CHECK( GladderMonsterModifiers::GetHoundeyeCastSpeed( SKILL_MEDIUM ) == Catch::Approx( 1.50f ) );
+		CHECK( GladderMonsterModifiers::GetHoundeyeCastSpeed( SKILL_HARD ) == Catch::Approx( 2.00f ) );
+	}
+
 	SECTION( "Locomotion and sprint framerate scaling across skills" )
 	{
 		CHECK( GladderMonsterModifiers::GetDifficultyFramerateMultiplier( SKILL_EASY ) == Catch::Approx( 1.00f ) );
 		CHECK( GladderMonsterModifiers::GetDifficultyFramerateMultiplier( SKILL_MEDIUM ) == Catch::Approx( 1.25f ) );
 		CHECK( GladderMonsterModifiers::GetDifficultyFramerateMultiplier( SKILL_HARD ) == Catch::Approx( 1.50f ) );
+		CHECK( GladderMonsterModifiers::GetZombieMoveSpeed( SKILL_EASY ) == Catch::Approx( 1.00f ) );
+		CHECK( GladderMonsterModifiers::GetZombieMoveSpeed( SKILL_MEDIUM ) == Catch::Approx( 1.25f ) );
+		CHECK( GladderMonsterModifiers::GetZombieMoveSpeed( SKILL_HARD ) == Catch::Approx( 1.50f ) );
+	}
+
+	SECTION( "Headcrab & Baby Headcrab locomotion speed, leap velocity, and attack range across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetHeadcrabMoveSpeed( SKILL_EASY ) == Catch::Approx( 1.00f ) );
+		CHECK( GladderMonsterModifiers::GetHeadcrabMoveSpeed( SKILL_MEDIUM ) == Catch::Approx( 1.25f ) );
+		CHECK( GladderMonsterModifiers::GetHeadcrabMoveSpeed( SKILL_HARD ) == Catch::Approx( 1.50f ) );
+
+		CHECK( GladderMonsterModifiers::GetHeadcrabJumpSpeed( SKILL_EASY ) == Catch::Approx( 650.0f ) );
+		CHECK( GladderMonsterModifiers::GetHeadcrabJumpSpeed( SKILL_MEDIUM ) == Catch::Approx( 750.0f ) );
+		CHECK( GladderMonsterModifiers::GetHeadcrabJumpSpeed( SKILL_HARD ) == Catch::Approx( 850.0f ) );
+
+		CHECK( GladderMonsterModifiers::GetHeadcrabAttackRange( SKILL_EASY ) == Catch::Approx( 256.0f ) );
+		CHECK( GladderMonsterModifiers::GetHeadcrabAttackRange( SKILL_MEDIUM ) == Catch::Approx( 320.0f ) );
+		CHECK( GladderMonsterModifiers::GetHeadcrabAttackRange( SKILL_HARD ) == Catch::Approx( 380.0f ) );
+	}
+
+	SECTION( "Vortigaunt / Alien Slave zap powerup cast speed scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetVortigauntCastSpeed( SKILL_EASY ) == Catch::Approx( 1.00f ) );
+		CHECK( GladderMonsterModifiers::GetVortigauntCastSpeed( SKILL_MEDIUM ) == Catch::Approx( 1.30f ) );
+		CHECK( GladderMonsterModifiers::GetVortigauntCastSpeed( SKILL_HARD ) == Catch::Approx( 1.60f ) );
+	}
+
+	SECTION( "Alien Grunt hornet velocity and Skill 3 tracking agility scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetAGruntHornetSpeed( SKILL_EASY ) == Catch::Approx( 600.0f ) );
+		CHECK( GladderMonsterModifiers::GetAGruntHornetSpeed( SKILL_MEDIUM ) == Catch::Approx( 720.0f ) );
+		CHECK( GladderMonsterModifiers::GetAGruntHornetSpeed( SKILL_HARD ) == Catch::Approx( 810.0f ) );
+
+		CHECK( GladderMonsterModifiers::GetHornetTrackAgility( SKILL_EASY, 0.50f ) == Catch::Approx( 0.50f ) );
+		CHECK( GladderMonsterModifiers::GetHornetTrackAgility( SKILL_MEDIUM, 0.50f ) == Catch::Approx( 0.50f ) );
+		CHECK( GladderMonsterModifiers::GetHornetTrackAgility( SKILL_HARD, 0.50f ) == Catch::Approx( 0.75f ) );
+	}
+
+	SECTION( "HECU Grunt aim reaction wait time and grenade check delay scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetHGruntWaitTime( SKILL_EASY, 2.0f ) == Catch::Approx( 2.0f ) );
+		CHECK( GladderMonsterModifiers::GetHGruntWaitTime( SKILL_MEDIUM, 2.0f ) == Catch::Approx( 1.3f ) );
+		CHECK( GladderMonsterModifiers::GetHGruntWaitTime( SKILL_HARD, 2.0f ) == Catch::Approx( 1.0f ) );
+
+		CHECK( GladderMonsterModifiers::GetHGruntGrenadeCheckDelay( SKILL_EASY, 6.0f ) == Catch::Approx( 6.0f ) );
+		CHECK( GladderMonsterModifiers::GetHGruntGrenadeCheckDelay( SKILL_MEDIUM, 6.0f ) == Catch::Approx( 6.0f ) );
+		CHECK( GladderMonsterModifiers::GetHGruntGrenadeCheckDelay( SKILL_HARD, 6.0f ) == Catch::Approx( 3.0f ) );
+	}
+
+	SECTION( "Alien Controller flight speed and energy ball burst count scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetControllerMoveSpeed( SKILL_EASY ) == Catch::Approx( 1.00f ) );
+		CHECK( GladderMonsterModifiers::GetControllerMoveSpeed( SKILL_MEDIUM ) == Catch::Approx( 1.20f ) );
+		CHECK( GladderMonsterModifiers::GetControllerMoveSpeed( SKILL_HARD ) == Catch::Approx( 1.20f ) );
+
+		CHECK( GladderMonsterModifiers::GetControllerBurstCount( SKILL_EASY ) == 1 );
+		CHECK( GladderMonsterModifiers::GetControllerBurstCount( SKILL_MEDIUM ) == 1 );
+		CHECK( GladderMonsterModifiers::GetControllerBurstCount( SKILL_HARD ) == 2 );
 	}
 
 	SECTION( "Bullsquid projectile accuracy spread tightening across skills" )
@@ -369,13 +434,130 @@ TEST_CASE( "GladderMonsterModifiers: Difficulty-scaled combat parameters across 
 		CHECK( GladderMonsterModifiers::GetToxicCloudDuration( SKILL_EASY ) == Catch::Approx( 3.0f ) );
 		CHECK( GladderMonsterModifiers::GetToxicCloudDuration( SKILL_MEDIUM ) == Catch::Approx( 4.0f ) );
 		CHECK( GladderMonsterModifiers::GetToxicCloudDuration( SKILL_HARD ) == Catch::Approx( 5.0f ) );
+		CHECK( GladderMonsterModifiers::GetBullsquidCloudDuration( SKILL_EASY ) == Catch::Approx( 3.0f ) );
+		CHECK( GladderMonsterModifiers::GetBullsquidCloudDuration( SKILL_MEDIUM ) == Catch::Approx( 4.0f ) );
+		CHECK( GladderMonsterModifiers::GetBullsquidCloudDuration( SKILL_HARD ) == Catch::Approx( 5.0f ) );
 	}
 
 	SECTION( "Heavy monster pain flinch stun resistance scaling across skills" )
 	{
-		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_EASY ) == Catch::Approx( 0.00f ) );
-		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_MEDIUM ) == Catch::Approx( 0.15f ) );
-		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_HARD ) == Catch::Approx( 0.30f ) );
+		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_EASY ) == Catch::Approx( 1.00f ) );
+		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_MEDIUM ) == Catch::Approx( 1.15f ) );
+		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_HARD ) == Catch::Approx( 1.30f ) );
+
+		CTestYawMonster bullsquid( "monster_bullchicken" );
+		CTestYawMonster agrunt( "monster_alien_grunt" );
+		CTestYawMonster gargantua( "monster_gargantua" );
+		CTestYawMonster headcrab( "monster_headcrab" );
+		CTestYawMonster zombie( "monster_zombie" );
+
+		CHECK( GladderMonsterModifiers::IsHeavyFlinchResistantMonster( &bullsquid ) == true );
+		CHECK( GladderMonsterModifiers::IsHeavyFlinchResistantMonster( &agrunt ) == true );
+		CHECK( GladderMonsterModifiers::IsHeavyFlinchResistantMonster( &gargantua ) == true );
+		CHECK( GladderMonsterModifiers::IsHeavyFlinchResistantMonster( &headcrab ) == false );
+		CHECK( GladderMonsterModifiers::IsHeavyFlinchResistantMonster( &zombie ) == false );
+		CHECK( GladderMonsterModifiers::IsHeavyFlinchResistantMonster( nullptr ) == false );
+	}
+
+	SECTION( "ApplySkillDataOverrides synchronizes gSkillData fields for each skill tier" )
+	{
+		GladderMonsterModifiers::ApplySkillDataOverrides( SKILL_EASY );
+		CHECK( gSkillData.iSkillLevel == SKILL_EASY );
+		CHECK( gSkillData.houndeyeCastSpeed == Catch::Approx( 1.00f ) );
+		CHECK( gSkillData.bullsquidSpitSpread == Catch::Approx( 0.050f ) );
+		CHECK( gSkillData.headcrabMoveSpeed == Catch::Approx( 1.00f ) );
+		CHECK( gSkillData.headcrabJumpSpeed == Catch::Approx( 650.0f ) );
+		CHECK( gSkillData.headcrabAttackRange == Catch::Approx( 256.0f ) );
+		CHECK( gSkillData.zombieMoveSpeed == Catch::Approx( 1.00f ) );
+		CHECK( gSkillData.slaveCastSpeed == Catch::Approx( 1.00f ) );
+		CHECK( gSkillData.agruntHornetSpeed == Catch::Approx( 600.0f ) );
+
+		GladderMonsterModifiers::ApplySkillDataOverrides( SKILL_MEDIUM );
+		CHECK( gSkillData.iSkillLevel == SKILL_MEDIUM );
+		CHECK( gSkillData.houndeyeCastSpeed == Catch::Approx( 1.50f ) );
+		CHECK( gSkillData.bullsquidSpitSpread == Catch::Approx( 0.025f ) );
+		CHECK( gSkillData.headcrabMoveSpeed == Catch::Approx( 1.25f ) );
+		CHECK( gSkillData.headcrabJumpSpeed == Catch::Approx( 750.0f ) );
+		CHECK( gSkillData.headcrabAttackRange == Catch::Approx( 320.0f ) );
+		CHECK( gSkillData.zombieMoveSpeed == Catch::Approx( 1.25f ) );
+		CHECK( gSkillData.slaveCastSpeed == Catch::Approx( 1.30f ) );
+		CHECK( gSkillData.agruntHornetSpeed == Catch::Approx( 720.0f ) );
+
+		GladderMonsterModifiers::ApplySkillDataOverrides( SKILL_HARD );
+		CHECK( gSkillData.iSkillLevel == SKILL_HARD );
+		CHECK( gSkillData.houndeyeCastSpeed == Catch::Approx( 2.00f ) );
+		CHECK( gSkillData.bullsquidSpitSpread == Catch::Approx( 0.000f ) );
+		CHECK( gSkillData.headcrabMoveSpeed == Catch::Approx( 1.50f ) );
+		CHECK( gSkillData.headcrabJumpSpeed == Catch::Approx( 850.0f ) );
+		CHECK( gSkillData.headcrabAttackRange == Catch::Approx( 380.0f ) );
+		CHECK( gSkillData.zombieMoveSpeed == Catch::Approx( 1.50f ) );
+		CHECK( gSkillData.slaveCastSpeed == Catch::Approx( 1.60f ) );
+		CHECK( gSkillData.agruntHornetSpeed == Catch::Approx( 810.0f ) );
+	}
+}
+
+TEST_CASE( "GladderMonsterModifiers: Dead monster environmental props classification and configuration (SPEC §3, §11.1, Issue #123)", "[gladder][monsters][corpses]" )
+{
+	ResetMockEngine();
+
+	const char *deadPropClasses[] = {
+		"monster_dead_barney",
+		"monster_scientist_dead",
+		"monster_hgrunt_dead",
+		"monster_hevsuit_dead",
+		"monster_gonome_dead",
+		"monster_massassin_dead",
+		"monster_zombie_soldier_dead",
+		"monster_houndeye_dead",
+		"monster_bullsquid_dead",
+		"monster_headcrab_dead"
+	};
+
+	SECTION( "IsDeadMonsterPropClassname and IsDeadMonsterProp recognize all dead monster prop classes" )
+	{
+		for ( const char *szClass : deadPropClasses )
+		{
+			CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( szClass ) == true );
+
+			CTestYawMonster prop( szClass );
+			CHECK( GladderMonsterModifiers::IsDeadMonsterProp( &prop ) == true );
+		}
+
+		// Live monsters and non-prop entities must return false
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_barney" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_scientist" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_human_grunt" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_gonome" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_male_assassin" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_zombie_soldier" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_houndeye" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_bullchicken" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "monster_headcrab" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "item_healthkit" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( "" ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterPropClassname( nullptr ) == false );
+		CHECK( GladderMonsterModifiers::IsDeadMonsterProp( nullptr ) == false );
+	}
+
+	SECTION( "ConfigureDeadMonsterProp makes dead monster props indestructible and non-solid after MonsterInitDead" )
+	{
+		for ( const char *szClass : deadPropClasses )
+		{
+			CTestYawMonster prop( szClass );
+			prop.pev->health = 8;
+			prop.MonsterInitDead();
+
+			// Vanilla MonsterInitDead sets DAMAGE_YES and SOLID_BBOX
+			CHECK( prop.pev->takedamage == DAMAGE_YES );
+			CHECK( prop.pev->solid == SOLID_BBOX );
+			CHECK( prop.pev->deadflag == DEAD_DEAD );
+
+			// Gladder configuration overrides to indestructible, non-solid environmental prop
+			GladderMonsterModifiers::ConfigureDeadMonsterProp( &prop );
+			CHECK( prop.pev->takedamage == DAMAGE_NO );
+			CHECK( prop.pev->solid == SOLID_NOT );
+			CHECK( prop.pev->deadflag == DEAD_DEAD );
+		}
 	}
 }
 

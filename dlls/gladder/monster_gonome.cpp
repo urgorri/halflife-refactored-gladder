@@ -15,6 +15,8 @@
 #include "core/player.h"
 #include "core/animation.h"
 #include "core/skill_manager.h"
+#include "gameplay/gamerules.h"
+#include "gladder_monster_modifiers.h"
 
 #define ZOMBIE_AE_ATTACK_RIGHT       0x01
 #define ZOMBIE_AE_ATTACK_LEFT        0x02
@@ -767,6 +769,8 @@ void COFGonome::SetActivity( Activity NewActivity )
 
 		pev->sequence = iSequence;
 		ResetSequenceInfo();
+		if ( ( NewActivity == ACT_SMALL_FLINCH || NewActivity == ACT_BIG_FLINCH ) && g_pGameRules )
+			pev->framerate = g_pGameRules->FlMonsterCastSpeed( this, NewActivity, pev->framerate );
 		SetYawSpeed();
 	}
 	else
@@ -829,4 +833,5 @@ void CDeadGonome::Spawn()
 
 	pev->health = 8;
 	MonsterInitDead();
+	GladderMonsterModifiers::ConfigureDeadMonsterProp( this );
 }
