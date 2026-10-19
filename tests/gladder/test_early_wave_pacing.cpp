@@ -186,6 +186,7 @@ TEST_CASE( "Gladder Early-Wave Pacing: Telemetry audit & quantitative evaluation
 
 	SECTION( "Baseline (pre-tuning) audit: low monster density and scarce route encounters" )
 	{
+		std::srand( 12345 );
 		GladderMapConfig baselineConfig;
 		baselineConfig.baseMonsters        = 6;
 		baselineConfig.monstersPerWave     = 1.5f;
@@ -212,6 +213,7 @@ TEST_CASE( "Gladder Early-Wave Pacing: Telemetry audit & quantitative evaluation
 
 	SECTION( "Tuned configuration audit: guaranteed route encounters and smooth progression" )
 	{
+		std::srand( 12345 );
 		GladderMapConfig tunedConfig;
 		// Tuned parameters: baseMonsters 10, monstersPerWave 2.0, basePickups 6, 60% corridor bias
 		CHECK( tunedConfig.baseMonsters == 10 );

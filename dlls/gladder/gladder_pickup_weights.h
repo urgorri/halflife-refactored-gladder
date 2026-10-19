@@ -46,12 +46,9 @@ struct GladderPickupWeightInput
 	std::unordered_map<std::string, float> ammoReserveFractions;
 	// Consecutive waves elapsed since ammo entity was last spawned
 	std::unordered_map<std::string, int> wavesSinceLastAmmoSpawn;
-	std::vector<std::string> weaponWhitelist;
-	std::vector<std::string> weaponBlacklist;
 
 	GladderPickupWeightInput() : iWaveNumber( 1 ), allowFixedWeapons( true ) {}
 
-	bool IsWeaponAllowed( const char *szClassname ) const;
 	bool HasWeapon( const char *szClassname ) const;
 	float GetAmmoReserveFraction( const char *szClassname, const char *szAmmoType ) const;
 	int GetWavesSinceLastAmmoSpawn( const char *szClassname ) const;

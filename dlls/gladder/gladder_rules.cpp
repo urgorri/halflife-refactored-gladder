@@ -112,7 +112,6 @@ CGladderRules::CGladderRules()
 				ALERT( at_console, "[Gladder] Loaded %u spatial grid cells from '%s'\n",
 				       static_cast<unsigned int>( m_gridIndexer.GetCellCount() ), gridPath.c_str() );
 			}
-			m_mapConfig.LoadForMap( pszMap );
 		}
 	}
 }
@@ -659,7 +658,6 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 			if ( pszMap && *pszMap )
 			{
 				m_gridIndexer.LoadOrCreate( pszMap );
-				m_mapConfig.LoadForMap( pszMap );
 			}
 		}
 
