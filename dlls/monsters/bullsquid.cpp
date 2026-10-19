@@ -26,6 +26,7 @@
 #include "core/decals.h"
 #include "ai/soundent.h"
 #include "core/game.h"
+#include "gameplay/gamerules.h"
 
 #include "monsters/bullsquid.h"
 
@@ -354,9 +355,15 @@ void CBullsquid ::HandleAnimEvent( MonsterEvent_t *pEvent )
 		vecSpitOffset = ( pev->origin + vecSpitOffset );
 		vecSpitDir    = ( ( m_hEnemy->pev->origin + m_hEnemy->pev->view_ofs ) - vecSpitOffset ).Normalize();
 
-		vecSpitDir.x += RANDOM_FLOAT( -0.05, 0.05 );
-		vecSpitDir.y += RANDOM_FLOAT( -0.05, 0.05 );
-		vecSpitDir.z += RANDOM_FLOAT( -0.05, 0 );
+		float flSpread = gSkillData.bullsquidSpitSpread;
+		if ( g_pGameRules )
+		{
+			flSpread = g_pGameRules->FlMonsterProjectileSpread( this, "squidspit", flSpread );
+		}
+
+		vecSpitDir.x += RANDOM_FLOAT( -flSpread, flSpread );
+		vecSpitDir.y += RANDOM_FLOAT( -flSpread, flSpread );
+		vecSpitDir.z += RANDOM_FLOAT( -flSpread, 0 );
 
 		// do stuff for this event.
 		AttackSound();
@@ -1128,7 +1135,7 @@ void CSquidSpit::Shoot( entvars_t *pevOwner, Vector vecStart, Vector vecVelocity
 
 void CSquidSpit::Touch( CBaseEntity *pOther )
 {
-	TraceResult tr;
+	TraceResult tr = UTIL_GetGlobalTrace();
 	int iPitch;
 
 	// splat sound
@@ -1171,6 +1178,11 @@ void CSquidSpit::Touch( CBaseEntity *pOther )
 	else
 	{
 		pOther->TakeDamage( pev, pev, gSkillData.bullsquidDmgSpit, DMG_GENERIC );
+	}
+
+	if ( g_pGameRules )
+	{
+		g_pGameRules->OnMonsterProjectileImpact( this, tr );
 	}
 
 	SetThink( &CSquidSpit::SUB_Remove );

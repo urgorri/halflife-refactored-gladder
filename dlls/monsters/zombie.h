@@ -32,6 +32,7 @@ class CZombie : public CBaseMonster
 	void Spawn( void );
 	void Precache( void );
 	void SetYawSpeed( void );
+	void SetActivity( Activity NewActivity );
 	int Classify( void );
 	void HandleAnimEvent( MonsterEvent_t *pEvent );
 	int IgnoreConditions( void );

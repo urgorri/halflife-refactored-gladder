@@ -140,6 +140,16 @@ struct skilldata_t
 	float plrStomach;
 	float plrLeg;
 	float plrArm;
+
+	// Monster Behavioral Attributes (Difficulty-scaled)
+	float houndeyeCastSpeed;
+	float bullsquidSpitSpread;
+	float headcrabJumpSpeed;
+	float headcrabAttackRange;
+	float headcrabMoveSpeed;
+	float zombieMoveSpeed;
+	float slaveCastSpeed;
+	float agruntHornetSpeed;
 };
 
 extern DLL_GLOBAL skilldata_t gSkillData;

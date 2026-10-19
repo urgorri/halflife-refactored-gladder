@@ -26,6 +26,7 @@
 #include "ai/squadmonster.h"
 #include "ai/soundent.h"
 #include "core/game.h"
+#include "gameplay/gamerules.h"
 
 extern CGraph WorldGraph;
 
@@ -184,6 +185,16 @@ void CHoundeye ::SetActivity( Activity NewActivity )
 	else
 	{
 		CSquadMonster ::SetActivity( NewActivity );
+	}
+
+	if ( m_Activity == ACT_RANGE_ATTACK1 )
+	{
+		float flSpeed = gSkillData.houndeyeCastSpeed;
+		if ( g_pGameRules )
+		{
+			flSpeed = g_pGameRules->FlMonsterCastSpeed( this, ACT_RANGE_ATTACK1, flSpeed );
+		}
+		pev->framerate = flSpeed;
 	}
 }
 
@@ -490,6 +501,11 @@ void CHoundeye ::SonicAttack( void )
 	case 2:
 		EMIT_SOUND( ENT( pev ), CHAN_WEAPON, "houndeye/he_blast3.wav", 1, ATTN_NORM );
 		break;
+	}
+
+	if ( g_pGameRules )
+	{
+		g_pGameRules->OnMonsterAttackDetonation( this, "sonic_blast", pev->origin );
 	}
 
 	// blast circles

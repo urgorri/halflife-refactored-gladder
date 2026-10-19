@@ -42,6 +42,7 @@ class SkillManager
 
 	// Register default tier values [easy, medium, hard] for custom parameters
 	static void RegisterDefault( const char *pszBaseCvarName, float flEasy, float flMedium, float flHard );
+	static void RegisterBuiltinDefaults( void );
 
 	// Direct runtime override for a base parameter name
 	static void SetOverride( const char *pszBaseCvarName, float flValue );
