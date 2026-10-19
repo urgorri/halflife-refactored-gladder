@@ -53,18 +53,11 @@ static const OrdnanceDef s_ordnanceDefs[] = {
 	{ "weapon_snark",       3, 0.5f }
 };
 
-struct FixedWeaponDef
-{
-	const char *szClassname;
-	int tier;
-	float relativeWeight;
-};
-
-static const FixedWeaponDef s_fixedWeaponDefs[] = {
-	{ "weapon_knife",      1, 0.7f },
-	{ "weapon_pipewrench", 1, 0.6f },
+static const GladderFixedWeaponDef s_fixedWeaponDefs[] = {
 	{ "weapon_glock",      1, 0.8f },
 	{ "weapon_shotgun",    1, 0.7f },
+	{ "weapon_knife",      2, 0.6f },
+	{ "weapon_pipewrench", 2, 0.6f },
 	{ "weapon_mp5",        2, 0.8f },
 	{ "weapon_357",        2, 0.6f },
 	{ "weapon_eagle",      2, 0.6f },
@@ -361,4 +354,24 @@ std::vector<GladderWeightedPickup> ComputePickupWeights( const GladderPickupWeig
 	}
 
 	return result;
+}
+
+const GladderFixedWeaponDef *GetFixedWeaponDef( const char *szClassname )
+{
+	if ( !szClassname || !*szClassname )
+		return nullptr;
+
+	for ( const auto &def : s_fixedWeaponDefs )
+	{
+		if ( std::strcmp( def.szClassname, szClassname ) == 0 )
+			return &def;
+	}
+	return nullptr;
+}
+
+const std::vector<GladderFixedWeaponDef> &GetFixedWeaponDefs( void )
+{
+	static const std::vector<GladderFixedWeaponDef> s_defs(
+	    std::begin( s_fixedWeaponDefs ), std::end( s_fixedWeaponDefs ) );
+	return s_defs;
 }
