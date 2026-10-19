@@ -652,7 +652,8 @@ int CGladderRules::CountLivingWaveHostiles( void ) const
 		if ( !GladderComboTracker::IsValidCombatant( pMonster ) )
 			continue;
 
-		if ( pMonster->IsAlive() )
+		// Monster must be alive, actively take damage, and not currently dying
+		if ( pMonster->IsAlive() && pMonster->pev->deadflag == DEAD_NO && pMonster->pev->takedamage != DAMAGE_NO )
 		{
 			iLivingCount++;
 		}

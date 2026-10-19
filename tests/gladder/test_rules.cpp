@@ -1377,6 +1377,36 @@ TEST_CASE( "GladderRules: Mandatory hostile elimination, finish trigger denial &
 		CHECK( bCompleted == true );
 	}
 
+	SECTION( "Barnacle kills properly advance wave hostiles count and eliminate hostiles" )
+	{
+		CTestDropMonster barnacle;
+		edict_t *pBarnacleSlot = GetMockClientEntity( 4 );
+		pBarnacleSlot->free = 0;
+		pBarnacleSlot->v.flags = FL_MONSTER;
+		pBarnacleSlot->v.classname = MAKE_STRING( "monster_barnacle" );
+		pBarnacleSlot->v.pContainingEntity = pBarnacleSlot;
+		pBarnacleSlot->pvPrivateData = &barnacle;
+		barnacle.pev = &pBarnacleSlot->v;
+		barnacle.pev->deadflag = DEAD_NO;
+		barnacle.pev->takedamage = DAMAGE_AIM;
+
+		rules.SetWaveMonstersTotal( 1 );
+		rules.SetWaveMonstersKilled( 0 );
+		CHECK( rules.AreWaveHostilesEliminated() == false );
+
+		// Killing barnacle triggers MonsterKilled and sets deadflag
+		rules.MonsterKilled( &barnacle, pPlayer->pev, pPlayer->pev );
+		barnacle.pev->deadflag = DEAD_DEAD;
+		barnacle.pev->takedamage = DAMAGE_NO;
+
+		CHECK( rules.GetWaveMonstersKilled() == 1 );
+		CHECK( rules.AreWaveHostilesEliminated() == true );
+		CHECK( rules.GetWaveMonstersRemaining() == 0 );
+
+		bool bCompleted = finishTrigger.FinishTouch( pPlayer, &rules );
+		CHECK( bCompleted == true );
+	}
+
 	g_pGameRules = nullptr;
 }
 
