@@ -1282,8 +1282,16 @@ TEST_CASE( "Gladder Spawner: Breakable candidate flags forbid monsters and lambd
 	ResetMockEngine();
 
 	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
-	RegisterMockEntityFactory( "item_healthkit", FactoryTestItem );
-	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+
+	const char *pickupsToRegister[] = {
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades",
+		"ammo_crossbow", "ammo_gaussclip", "ammo_egonclip", "ammo_762", "ammo_556", "ammo_rpgclip",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark", "item_gladder_lambda"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
 
 	GladderGridIndexer indexer;
 	// Cell 0: Normal ground cell
@@ -1355,8 +1363,16 @@ TEST_CASE( "Gladder Spawner: Big Momma Boss Battle mutator wave (SPEC §3, Issue
 
 	RegisterMockEntityFactory( "monster_bigmomma", FactoryTestBigMomma );
 	RegisterMockEntityFactory( "monster_babycrab", FactoryTestMonster );
-	RegisterMockEntityFactory( "item_healthkit", FactoryTestItem );
-	RegisterMockEntityFactory( "item_gladder_lambda", FactoryTestItem );
+
+	const char *pickupsToRegister[] = {
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades",
+		"ammo_crossbow", "ammo_gaussclip", "ammo_egonclip", "ammo_762", "ammo_556", "ammo_rpgclip",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark", "item_gladder_lambda"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
 
 	GladderGridIndexer indexer;
 	// Grid of 30 cells along a corridor from x=0 to x=960
