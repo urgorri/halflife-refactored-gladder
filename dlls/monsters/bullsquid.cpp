@@ -1131,6 +1131,11 @@ void CSquidSpit::Shoot( entvars_t *pevOwner, Vector vecStart, Vector vecVelocity
 
 	pSpit->SetThink( &CSquidSpit::Animate );
 	pSpit->pev->nextthink = gpGlobals->time + 0.1;
+
+	if ( g_pGameRules )
+	{
+		g_pGameRules->OnEntitySpawned( pSpit );
+	}
 }
 
 void CSquidSpit::Touch( CBaseEntity *pOther )

@@ -1117,13 +1117,38 @@ BOOL CBaseMonster::CheckRangeAttack2( float flDot, float flDist ) { return FALSE
 BOOL CBaseMonster::CheckMeleeAttack1( float flDot, float flDist ) { return FALSE; }
 BOOL CBaseMonster::CheckMeleeAttack2( float flDot, float flDist ) { return FALSE; }
 Schedule_t *CBaseMonster::ScheduleFromName( const char *pName ) { return nullptr; }
-void CBaseMonster::StartTask( Task_t *pTask ) {}
+void CBaseMonster::StartTask( Task_t *pTask )
+{
+	if ( !pTask )
+		return;
+	if ( pTask->iTask == TASK_WAIT || pTask->iTask == TASK_WAIT_FACE_ENEMY )
+	{
+		float flWait = pTask->flData;
+		if ( g_pGameRules )
+		{
+			flWait = g_pGameRules->FlMonsterWaitTime( this, flWait );
+		}
+		m_flWaitFinished = gpGlobals->time + flWait;
+	}
+}
 void CBaseMonster::RunTask( Task_t *pTask ) {}
 Schedule_t *CBaseMonster::GetScheduleOfType( int Type ) { return nullptr; }
 Schedule_t *CBaseMonster::GetSchedule( void ) { return nullptr; }
 int CBaseMonster::CanPlaySequence( BOOL fDisregardState, int interruptLevel ) { return FALSE; }
 MONSTERSTATE CBaseMonster::GetIdealState( void ) { return MONSTERSTATE_NONE; }
-void CBaseMonster::SetActivity( Activity NewActivity ) { m_Activity = NewActivity; }
+void CBaseMonster::SetActivity( Activity NewActivity )
+{
+	m_Activity      = NewActivity;
+	m_IdealActivity = m_Activity;
+	if ( pev )
+	{
+		pev->framerate = 1.0f;
+		if ( ( NewActivity == ACT_SMALL_FLINCH || NewActivity == ACT_BIG_FLINCH ) && g_pGameRules )
+		{
+			pev->framerate = g_pGameRules->FlMonsterCastSpeed( this, NewActivity, pev->framerate );
+		}
+	}
+}
 void CBaseMonster::ReportAIState( void ) {}
 int CBaseMonster::CheckEnemy( CBaseEntity *pEnemy ) { return 0; }
 int CBaseMonster::FTriangulate( const Vector &vecStart, const Vector &vecEnd, float flDist, CBaseEntity *pTargetEnt, Vector *pApex ) { return 0; }

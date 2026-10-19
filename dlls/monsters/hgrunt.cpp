@@ -40,6 +40,7 @@
 #include "ai/talkmonster.h"
 #include "systems/effects.h"
 #include "customentity.h"
+#include "gameplay/gamerules.h"
 
 int g_fGruntQuestion; // true if an idle grunt asked a question. Cleared when someone answers.
 
@@ -376,13 +377,21 @@ BOOL CHGrunt ::CheckRangeAttack2( float flDot, float flDist )
 			vecTarget = vecTarget + ( ( vecTarget - pev->origin ).Length() / gSkillData.hgruntGrenadeSpeed ) * m_hEnemy->pev->velocity;
 	}
 
+	const auto ApplyGrenadeDelay = [this]( float flDefaultDelay ) -> float {
+		if ( g_pGameRules )
+		{
+			return g_pGameRules->FlMonsterGrenadeCheckDelay( this, flDefaultDelay );
+		}
+		return flDefaultDelay;
+	};
+
 	// are any of my squad members near the intended grenade impact area?
 	if ( InSquad() )
 	{
 		if ( SquadMemberInRange( vecTarget, 256 ) )
 		{
 			// crap, I might blow my own guy up. Don't throw a grenade and don't check again for a while.
-			m_flNextGrenadeCheck = gpGlobals->time + 1; // one full second.
+			m_flNextGrenadeCheck = gpGlobals->time + ApplyGrenadeDelay( 1.0f ); // one full second.
 			m_fThrowGrenade      = FALSE;
 		}
 	}
@@ -390,7 +399,7 @@ BOOL CHGrunt ::CheckRangeAttack2( float flDot, float flDist )
 	if ( ( vecTarget - pev->origin ).Length2D() <= 256 )
 	{
 		// crap, I don't want to blow myself up
-		m_flNextGrenadeCheck = gpGlobals->time + 1; // one full second.
+		m_flNextGrenadeCheck = gpGlobals->time + ApplyGrenadeDelay( 1.0f ); // one full second.
 		m_fThrowGrenade      = FALSE;
 		return m_fThrowGrenade;
 	}
@@ -413,7 +422,7 @@ BOOL CHGrunt ::CheckRangeAttack2( float flDot, float flDist )
 			// don't throw
 			m_fThrowGrenade = FALSE;
 			// don't check again for a while.
-			m_flNextGrenadeCheck = gpGlobals->time + 1; // one full second.
+			m_flNextGrenadeCheck = gpGlobals->time + ApplyGrenadeDelay( 1.0f ); // one full second.
 		}
 	}
 	else
@@ -427,14 +436,14 @@ BOOL CHGrunt ::CheckRangeAttack2( float flDot, float flDist )
 			// throw a hand grenade
 			m_fThrowGrenade = TRUE;
 			// don't check again for a while.
-			m_flNextGrenadeCheck = gpGlobals->time + 0.3; // 1/3 second.
+			m_flNextGrenadeCheck = gpGlobals->time + ApplyGrenadeDelay( 0.3f ); // 1/3 second.
 		}
 		else
 		{
 			// don't throw
 			m_fThrowGrenade = FALSE;
 			// don't check again for a while.
-			m_flNextGrenadeCheck = gpGlobals->time + 1; // one full second.
+			m_flNextGrenadeCheck = gpGlobals->time + ApplyGrenadeDelay( 1.0f ); // one full second.
 		}
 	}
 
@@ -726,9 +735,14 @@ void CHGrunt ::HandleAnimEvent( MonsterEvent_t *pEvent )
 		// CGrenade::ShootTimed( pev, pev->origin + gpGlobals->v_forward * 34 + Vector (0, 0, 32), m_vecTossVelocity, 3.5 );
 		CGrenade::ShootTimed( pev, GetGunPosition(), m_vecTossVelocity, 3.5 );
 
-		m_fThrowGrenade      = FALSE;
-		m_flNextGrenadeCheck = gpGlobals->time + 6; // wait six seconds before even looking again to see if a grenade can be thrown.
-		                                            // !!!LATER - when in a group, only try to throw grenade if ordered.
+		m_fThrowGrenade = FALSE;
+		float flDelay   = 6.0f;
+		if ( g_pGameRules )
+		{
+			flDelay = g_pGameRules->FlMonsterGrenadeCheckDelay( this, flDelay );
+		}
+		m_flNextGrenadeCheck = gpGlobals->time + flDelay; // wait six seconds before even looking again to see if a grenade can be thrown.
+		                                                  // !!!LATER - when in a group, only try to throw grenade if ordered.
 	}
 	break;
 
@@ -737,10 +751,12 @@ void CHGrunt ::HandleAnimEvent( MonsterEvent_t *pEvent )
 		EMIT_SOUND( ENT( pev ), CHAN_WEAPON, "weapons/glauncher.wav", 0.8, ATTN_NORM );
 		CGrenade::ShootContact( pev, GetGunPosition(), m_vecTossVelocity );
 		m_fThrowGrenade = FALSE;
-		if ( g_iSkillLevel == SKILL_HARD )
-			m_flNextGrenadeCheck = gpGlobals->time + RANDOM_FLOAT( 2, 5 ); // wait a random amount of time before shooting again
-		else
-			m_flNextGrenadeCheck = gpGlobals->time + 6; // wait six seconds before even looking again to see if a grenade can be thrown.
+		float flDelay   = ( g_iSkillLevel == SKILL_HARD ) ? RANDOM_FLOAT( 2, 5 ) : 6.0f;
+		if ( g_pGameRules )
+		{
+			flDelay = g_pGameRules->FlMonsterGrenadeCheckDelay( this, flDelay );
+		}
+		m_flNextGrenadeCheck = gpGlobals->time + flDelay;
 	}
 	break;
 
@@ -962,6 +978,18 @@ void CHGrunt ::StartTask( Task_t *pTask )
 			m_IdealActivity = ACT_GLIDE;
 		}
 		break;
+
+	case TASK_WAIT:
+	case TASK_WAIT_FACE_ENEMY:
+	{
+		float flWait = pTask->flData;
+		if ( g_pGameRules )
+		{
+			flWait = g_pGameRules->FlMonsterWaitTime( this, flWait );
+		}
+		m_flWaitFinished = gpGlobals->time + flWait;
+		break;
+	}
 
 	default:
 		CSquadMonster ::StartTask( pTask );
@@ -1737,6 +1765,10 @@ void CHGrunt ::SetActivity( Activity NewActivity )
 
 		pev->sequence = iSequence; // Set to the reset anim (if it's there)
 		ResetSequenceInfo();
+		if ( ( NewActivity == ACT_SMALL_FLINCH || NewActivity == ACT_BIG_FLINCH ) && g_pGameRules )
+		{
+			pev->framerate = g_pGameRules->FlMonsterCastSpeed( this, NewActivity, pev->framerate );
+		}
 		SetYawSpeed();
 	}
 	else

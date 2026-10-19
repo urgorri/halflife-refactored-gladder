@@ -316,6 +316,11 @@ void CBaseMonster ::SetActivity( Activity NewActivity )
 
 	// In case someone calls this with something other than the ideal activity
 	m_IdealActivity = m_Activity;
+
+	if ( iSequence > ACTIVITY_NOT_AVAILABLE && ( NewActivity == ACT_SMALL_FLINCH || NewActivity == ACT_BIG_FLINCH ) && g_pGameRules )
+	{
+		pev->framerate = g_pGameRules->FlMonsterCastSpeed( this, NewActivity, pev->framerate );
+	}
 }
 
 //=========================================================

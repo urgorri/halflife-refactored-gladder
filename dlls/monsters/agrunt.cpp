@@ -376,7 +376,8 @@ void CAGrunt ::HandleAnimEvent( MonsterEvent_t *pEvent )
 
 		CBaseEntity *pHornet = CBaseEntity::Create( "hornet", vecArmPos, UTIL_VecToAngles( vecDirToEnemy ), edict() );
 		UTIL_MakeVectors( pHornet->pev->angles );
-		pHornet->pev->velocity = gpGlobals->v_forward * 300;
+		const float flInitialSpeed = ( gSkillData.agruntHornetSpeed > 0.0f ) ? ( 300.0f * ( gSkillData.agruntHornetSpeed / 600.0f ) ) : 300.0f;
+		pHornet->pev->velocity     = gpGlobals->v_forward * flInitialSpeed;
 
 		switch ( RANDOM_LONG( 0, 2 ) )
 		{

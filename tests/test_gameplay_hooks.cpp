@@ -225,6 +225,38 @@ class CTestHookRules : public CGameRules
 		m_iProjectileImpactCount++;
 		m_pLastImpactProjectile = pProjectile;
 	}
+
+	float m_customHornetAgility = -1.0f;
+	float FlHornetTrackAgility( CBaseEntity *pHornet, float flDefaultWeight ) override
+	{
+		if ( m_customHornetAgility >= 0.0f )
+			return m_customHornetAgility;
+		return CGameRules::FlHornetTrackAgility( pHornet, flDefaultWeight );
+	}
+
+	float m_customMonsterWaitTime = -1.0f;
+	float FlMonsterWaitTime( CBaseMonster *pMonster, float flDefaultWait ) override
+	{
+		if ( m_customMonsterWaitTime >= 0.0f )
+			return m_customMonsterWaitTime;
+		return CGameRules::FlMonsterWaitTime( pMonster, flDefaultWait );
+	}
+
+	float m_customGrenadeCheckDelay = -1.0f;
+	float FlMonsterGrenadeCheckDelay( CBaseMonster *pMonster, float flDefaultDelay ) override
+	{
+		if ( m_customGrenadeCheckDelay >= 0.0f )
+			return m_customGrenadeCheckDelay;
+		return CGameRules::FlMonsterGrenadeCheckDelay( pMonster, flDefaultDelay );
+	}
+
+	int m_customProjectileBurstCount = -1;
+	int IMonsterProjectileBurstCount( CBaseMonster *pMonster, const char *pszProjectile, int iDefaultCount ) override
+	{
+		if ( m_customProjectileBurstCount >= 0 )
+			return m_customProjectileBurstCount;
+		return CGameRules::IMonsterProjectileBurstCount( pMonster, pszProjectile, iDefaultCount );
+	}
 };
 
 class CTestMonster : public CBaseMonster
@@ -1298,4 +1330,94 @@ TEST_CASE( "GameplayHooks: CGameRules monster behavioral and combat lifecycle ho
 	delete pVanillaRules;
 	g_pGameRules = nullptr;
 }
+
+TEST_CASE( "GameplayHooks: CGameRules monster combat extension hooks and flinch scaling (#208)", "[gameplay][gamerules][monsters]" )
+{
+	InitMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	CTestMonster monster;
+	CBaseEntity hornet;
+
+	SECTION( "Default CGameRules hooks preserve 100% vanilla behavior" )
+	{
+		g_pGameRules = pVanillaRules;
+		gpGlobals->time = 10.0f;
+
+		CHECK( pVanillaRules->FlHornetTrackAgility( &hornet, 0.5f ) == Catch::Approx( 0.5f ) );
+		CHECK( pVanillaRules->FlMonsterWaitTime( &monster, 1.5f ) == Catch::Approx( 1.5f ) );
+		CHECK( pVanillaRules->FlMonsterGrenadeCheckDelay( &monster, 6.0f ) == Catch::Approx( 6.0f ) );
+		CHECK( pVanillaRules->IMonsterProjectileBurstCount( &monster, "controller_energy_ball", 1 ) == 1 );
+
+		Task_t waitTask = { TASK_WAIT_FACE_ENEMY, 1.0f };
+		monster.StartTask( &waitTask );
+		CHECK( monster.m_flWaitFinished == Catch::Approx( 11.0f ) );
+
+		monster.SetActivity( ACT_SMALL_FLINCH );
+		CHECK( monster.pev->framerate == Catch::Approx( 1.0f ) );
+
+		monster.SetActivity( ACT_BIG_FLINCH );
+		CHECK( monster.pev->framerate == Catch::Approx( 1.0f ) );
+	}
+
+	SECTION( "Custom game rules override hornet agility, wait time, grenade delay, burst count, and flinch speed" )
+	{
+		CTestHookRules customRules;
+		customRules.m_customHornetAgility        = 0.8f;
+		customRules.m_customMonsterWaitTime      = 0.4f;
+		customRules.m_customGrenadeCheckDelay    = 2.0f;
+		customRules.m_customProjectileBurstCount = 2;
+		customRules.m_customCastSpeed            = 1.3f;
+		g_pGameRules                             = &customRules;
+		gpGlobals->time                          = 20.0f;
+
+		CHECK( g_pGameRules->FlHornetTrackAgility( &hornet, 0.5f ) == Catch::Approx( 0.8f ) );
+		CHECK( g_pGameRules->FlMonsterWaitTime( &monster, 1.5f ) == Catch::Approx( 0.4f ) );
+		CHECK( g_pGameRules->FlMonsterGrenadeCheckDelay( &monster, 6.0f ) == Catch::Approx( 2.0f ) );
+		CHECK( g_pGameRules->IMonsterProjectileBurstCount( &monster, "controller_energy_ball", 1 ) == 2 );
+
+		Task_t waitFaceTask = { TASK_WAIT_FACE_ENEMY, 1.0f };
+		monster.StartTask( &waitFaceTask );
+		CHECK( monster.m_flWaitFinished == Catch::Approx( 20.4f ) );
+
+		Task_t waitTask = { TASK_WAIT, 1.5f };
+		monster.StartTask( &waitTask );
+		CHECK( monster.m_flWaitFinished == Catch::Approx( 20.4f ) );
+
+		monster.SetActivity( ACT_SMALL_FLINCH );
+		CHECK( monster.pev->framerate == Catch::Approx( 1.3f ) );
+
+		monster.SetActivity( ACT_BIG_FLINCH );
+		CHECK( monster.pev->framerate == Catch::Approx( 1.3f ) );
+
+		monster.SetActivity( ACT_IDLE );
+		CHECK( monster.pev->framerate == Catch::Approx( 1.0f ) );
+	}
+
+	SECTION( "Proportional skill scaling preserves vanilla Baby Headcrab range and Orange Hornet speed" )
+	{
+		pVanillaRules->RefreshSkillData();
+		CHECK( gSkillData.headcrabAttackRange == Catch::Approx( 256.0f ) );
+		CHECK( gSkillData.agruntHornetSpeed == Catch::Approx( 600.0f ) );
+
+		const float flVanillaBabyRange = 180.0f * ( gSkillData.headcrabAttackRange / 256.0f );
+		const float flVanillaOrangeSpeed = 800.0f * ( gSkillData.agruntHornetSpeed / 600.0f );
+		CHECK( flVanillaBabyRange == Catch::Approx( 180.0f ) );
+		CHECK( flVanillaOrangeSpeed == Catch::Approx( 800.0f ) );
+
+		gSkillData.headcrabAttackRange = 380.0f;
+		gSkillData.agruntHornetSpeed   = 810.0f;
+		const float flScaledBabyRange   = 180.0f * ( gSkillData.headcrabAttackRange / 256.0f );
+		const float flScaledOrangeSpeed = 800.0f * ( gSkillData.agruntHornetSpeed / 600.0f );
+		CHECK( flScaledBabyRange == Catch::Approx( 267.1875f ) );
+		CHECK( flScaledOrangeSpeed == Catch::Approx( 1080.0f ) );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
+}
+
 
