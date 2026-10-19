@@ -1341,6 +1341,43 @@ TEST_CASE( "GladderRules: Mandatory hostile elimination, finish trigger denial &
 		CHECK( rules.GetWaveManager().IsWaveActive() == false );
 	}
 
+	SECTION( "Monster infighting or hazard death eliminates hostiles even without player kill credit" )
+	{
+		CTestDropMonster monster1;
+		edict_t *pMonster1Slot = GetMockClientEntity( 4 );
+		pMonster1Slot->free = 0;
+		pMonster1Slot->v.flags = FL_MONSTER;
+		pMonster1Slot->v.classname = MAKE_STRING( "monster_headcrab" );
+		pMonster1Slot->v.pContainingEntity = pMonster1Slot;
+		pMonster1Slot->pvPrivateData = &monster1;
+		monster1.pev = &pMonster1Slot->v;
+
+		CTestDropMonster monster2;
+		edict_t *pMonster2Slot = GetMockClientEntity( 5 );
+		pMonster2Slot->free = 0;
+		pMonster2Slot->v.flags = FL_MONSTER;
+		pMonster2Slot->v.classname = MAKE_STRING( "monster_bullchicken" );
+		pMonster2Slot->v.pContainingEntity = pMonster2Slot;
+		pMonster2Slot->pvPrivateData = &monster2;
+		monster2.pev = &pMonster2Slot->v;
+
+		rules.SetWaveMonstersTotal( 2 );
+		rules.SetWaveMonstersKilled( 1 );
+		CHECK( rules.AreWaveHostilesEliminated() == false );
+
+		// Bullsquid kills headcrab (infighting between monsters: attacker is monster2, NOT player!)
+		rules.MonsterKilled( &monster1, monster2.pev, monster2.pev );
+
+		// Hostiles eliminated must be satisfied so the wave can be completed
+		CHECK( rules.GetWaveMonstersKilled() == 2 );
+		CHECK( rules.AreWaveHostilesEliminated() == true );
+		CHECK( rules.GetWaveMonstersRemaining() == 0 );
+
+		bool bCompleted = finishTrigger.FinishTouch( pPlayer, &rules );
+		CHECK( bCompleted == true );
+	}
+
 	g_pGameRules = nullptr;
 }
+
 

@@ -215,10 +215,11 @@ class CGladderRules : public CHalfLifeRules
 	int GetWaveMonstersTotal( void ) const { return m_iWaveMonstersTotal; }
 	int GetWaveMonstersKilled( void ) const { return m_iWaveMonstersKilled; }
 	int GetWaveMonstersRemaining( void ) const { return ( m_iWaveMonstersTotal > m_iWaveMonstersKilled ) ? ( m_iWaveMonstersTotal - m_iWaveMonstersKilled ) : 0; }
-	bool AreWaveHostilesEliminated( void ) const { return m_iWaveMonstersKilled >= m_iWaveMonstersTotal; }
+	bool AreWaveHostilesEliminated( void ) const;
 	void SetWaveMonstersTotal( int count ) { m_iWaveMonstersTotal = count; }
 	void SetWaveMonstersKilled( int count ) { m_iWaveMonstersKilled = count; }
 	void CheckAllHostilesEliminated( CBaseEntity *pActivator = nullptr );
+	int CountLivingWaveHostiles( void ) const;
 
   private:
 	CGladderWaveManager m_waveManager;
