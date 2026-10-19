@@ -52,6 +52,7 @@
 @SolidClass base(Trigger) = trigger_gladder_finish : "Gladder: Wave Finish Trigger"
 [
 	target(target_destination) : "Teleport Target Destination (Point A)"
+	cleartarget(target_destination) : "All Hostiles Eliminated Target (Optional)" : "" : "Optional entity target to fire when all monsters in the current wave are defeated (e.g. to open security blast doors revealing the finish trigger)."
 	spawnflags(flags) =
 	[
 		1 : "Monsters" : 0
@@ -79,6 +80,7 @@
 		1 : "On Wave Win / Completed (reaching Point B)"
 		2 : "On Match Over / Victory (all laps finished)"
 		3 : "On Player Death / Defeat"
+		4 : "On All Hostiles Eliminated (All wave monsters defeated)"
 	]
 ]
 

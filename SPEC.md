@@ -12,9 +12,18 @@ Instead of progressing linearly through a series of maps, players run through a 
 
 1. **Spawn at Point A (Safe Staging & Initial Loadout)**: The player begins any game session already equipped with the **HEV Suit (`item_suit`)** and the **Crowbar (`weapon_crowbar`)**, eliminating the need for map-placed suit entities. Point A is an author-guaranteed safe staging area with no monster spawn points.
 2. **On-Demand Wave Activation**: The wave does not force immediate combat upon arrival. The player triggers wave activation on demand (e.g., crossing a start boundary or cycling airlock doors), initiating procedural spawns and starting the active wave stopwatch.
-3. **Traversal & Combat**: The player navigates through the map toward Point B while battling procedurally spawned enemies and scavenging randomized supplies.
-4. **Reaching Point B (Finish)**: Entering the designated extraction / completion zone (Point B) immediately completes the current wave.
-5. **Screen Fade & Teleportation**: The moment Point B is touched, the screen immediately turns solid black (instant 100% black fade). The viewport remains completely black during the exact instant the player is teleported back to Point A, followed by a smooth progressive screen fade from black back to 0% transparency to reveal the reset staging area.
+3. **Traversal, Resource Scavenging & Mandatory Hostile Elimination**: The player navigates through the map toward Point B while scavenging randomized supplies and engaging all procedurally spawned enemies. Eliminating every hostile monster spawned in the wave is a mandatory objective; players cannot bypass or ignore combat by simply sprinting to the finish.
+4. **All Hostiles Eliminated & Reaching Point B (Finish Gate)**:
+   * **Mandatory Wave Clearance**: To complete the wave, the player must eliminate **100% of all hostile monsters** spawned for that wave.
+   * **Early Touch Denial**: If a player touches `trigger_gladder_finish` while hostile monsters remain alive, wave completion is strictly denied:
+     * Plays an acoustic denial cue (`GLADDER_CUE_DENY`).
+     * Displays an on-screen HUD alert: `OBJECTIVE INCOMPLETE: ELIMINATE ALL HOSTILES FIRST (%d REMAINING)`.
+     * The player is prevented from completing or teleporting until the arena is fully cleared.
+   * **Environmental Objective Triggering (Optional `cleartarget`)**:
+     * To support realistic level design progression (e.g. opening security blast doors, lowering laser barriers, or extending bridges to reveal the extraction portal once the battle is won), level designers can specify an optional target (`cleartarget` on `trigger_gladder_finish` or via `gladder_wave_relay` event `4`).
+     * The instant the final monster of the wave is defeated, this target fires automatically, unlocking access to the finish trigger.
+   * **Wave Completion & Extraction**: Once all hostiles are destroyed, crossing `trigger_gladder_finish` completes the wave.
+5. **Screen Fade & Teleportation**: The moment Point B is touched after clearing all hostiles, the screen immediately turns solid black (instant 100% black fade). The viewport remains completely black during the exact instant the player is teleported back to Point A, followed by a smooth progressive screen fade from black back to 0% transparency to reveal the reset staging area.
 6. **Wave Increment & Respawn**: The wave counter increases (Wave 1 → Wave 2 → ...), a comprehensive garbage collection clears leftover monsters and entities, and a fresh wave of threats and supplies is generated across the map.
 7. **Player State Persistence**: The player preserves all collected weapons, remaining ammunition, and current health/armor across waves, making continuous resource preservation critical.
 8. **Persistence**: The loop repeats continuously without map reloads or level transitions until match completion.
@@ -419,6 +428,34 @@ To reinforce the fast-paced arcade feel, dropped and procedurally spawned items 
 * **Maintainability**: new weapons and ammo must be added to the cheat by registering them with the cheat loadout extension point, not by editing the vanilla list. Forgetting a new weapon must be caught by a unit test that compares the registered weapon roster (§3, §7.1) with the `impulse 101` grant list.
 * The cheat must respect the existing `MAX_WEAPONS` limit (weapon IDs up to 31) and must not alter vanilla behavior in non-Gladder game rules.
 
+### 7.13 Weapon Weight Hierarchy & Procedural Arsenal Rebalance
+To ensure that weapon autoselection priority (`iWeight` in `ItemInfo` / `GetNextBestWeapon`) and procedural spawn distribution (`gladder_pickup_weights.cpp`) accurately mirror actual combat lethality and damage potential, weapon weights are calibrated as follows:
+* **Autoselection Weight Priority (`iWeight`)**:
+  * **Master Tier (Apex Lethality & Heavy Firepower)**:
+    * `weapon_sniper`: **Weight 30** (100 DMG instant hitscan precision; apex single-shot weapon).
+    * `weapon_m249`: **Weight 28** (Sustained heavy suppressive fire).
+  * **High-Impact & Combat Melee Tier**:
+    * `weapon_knife`: **Weight 24** (Elevated from legacy 5; prioritizes the 60 DMG lethal knife stab).
+    * `weapon_pipewrench`: **Weight 22** (Elevated from legacy 10; lethality reflects 85+ DMG charged heavy swing).
+    * `weapon_rpg`, `weapon_gauss`, `weapon_egon`: **Weight 22** (Explosive / energy power weapons).
+    * `weapon_eagle`: **Weight 18** (Elevated from legacy 15; reflects 65 DMG magnum stopping power).
+  * **Standard Combat Tier**:
+    * `weapon_357`: **Weight 16**
+    * `weapon_shotgun`: **Weight 15**
+    * `weapon_crossbow`: **Weight 15** (Elevated from legacy 10)
+    * `weapon_mp5`: **Weight 15**
+    * `weapon_glock`: **Weight 10**
+    * `weapon_crowbar`: **Weight 0**
+  * **Consumable & Tactical Ordnance**:
+    * `weapon_handgrenade`, `weapon_snark`: **Weight 5**
+    * `weapon_satchel`, `weapon_tripmine`: **Weight -10**
+* **Procedural Spawner Rebalance (`gladder_pickup_weights.cpp`)**:
+  * **Tier 2 Promotion for High-Lethality Melee**:
+    * `weapon_knife` and `weapon_pipewrench` are promoted from **Tier 1** to **Tier 2** (`relativeWeight = 0.6f`).
+    * This prevents players from obtaining an infinite-ammo 1-hit kill melee weapon on Wave 1 (where basic zombies, headcrabs, and houndeyes have 10-50 HP), preserving early-wave survival tension and reserving high-tier melee weapons as meaningful tactical rewards in mid waves.
+  * **Tier 3 Apex Retention**:
+    * `weapon_sniper` and `weapon_m249` remain in **Tier 3** (`relativeWeight = 0.5f`) as late-game power drops.
+
 ---
 
 ## 8. Arcade Audio Cues & Soundscapes
@@ -445,6 +482,12 @@ A dedicated on-screen text overlay is rendered at all times (matching classic Ha
 * **Current Wave Timer**: Stopwatch tracking elapsed time spent in the active wave (`WAVE TIME: 00:38`).
 * **Total Frags / Kills**: Real-time counter of total living hostile monsters eliminated directly or indirectly by the player during the match (`FRAGS: 187`). Excludes environmental deaths, monster infighting, pre-placed dead corpse props (`monster_*_dead`), and hostile projectile entities (`hornet`). 
   * **Player-Deployed Ordnance Is Never a Frag**: Entities that the player launches, throws, or plants as part of their own arsenal are weapons, not enemies. Destroying them (by any means, including the player's own fire or explosions) must never increment the frag counter, the combo multiplier, the per-species kill log, or any score derived from them. This covers live snarks (`monster_snark`), planted satchel charges (`monster_satchel`), planted tripmines (`monster_tripmine`), thrown/launched grenades (`grenade`), and any other entity of this kind that is a `CBaseMonster` or otherwise reaches the monster-killed path (e.g., player-owned hivehand `hornet`, crossbow `bolt`, `rpg_rocket`). The filter must apply regardless of the entity's dynamic `Classify()` result, since a snark changes its class depending on its current enemy. The `Snarks` entry in the itemized kill log (Section 9.2) is therefore obsolete and must not appear.
+* **Active Wave Hostiles Counter (`HOSTILES: KILLED / TOTAL`)**:
+  * Live indicator tracking monster elimination progress for the current wave in real time (e.g. `HOSTILES: 0 / 20`, incrementing with every kill `HOSTILES: 14 / 20`, and signaling clearance once all enemies are defeated: `HOSTILES: 20 / 20 [CLEARED]`).
+  * **Dynamic Visibility Lifecycle**:
+    * Rendered on the HUD **strictly while a wave is actively running** (`GLADDER_STATE_WAVE_ACTIVE`).
+    * The moment the wave concludes (upon crossing `trigger_gladder_finish`), the counter is immediately **hidden** during safe staging, standby intermission, and end-of-run states.
+    * When a new wave commences (upon crossing `trigger_gladder_start`), the counter **reappears fresh**, reset to `HOSTILES: 0 / <new_wave_total_spawned>` (e.g. `HOSTILES: 0 / 24`).
 * **Average Wave Duration**: Dynamically recalculated average completion time across all finished waves (`AVG WAVE: 00:46`).
 * **Weapon Pickup Notification**: Temporary weapon icon sprite flashed in the bottom-right HUD quadrant (positioned immediately above the primary/secondary ammunition display) upon acquiring any new weapon or ordnance item, confirming immediate loadout delivery.
 
