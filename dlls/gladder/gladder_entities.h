@@ -96,17 +96,25 @@ class CTriggerGladderStart : public CBaseTrigger
 class CTriggerGladderFinish : public CBaseTrigger
 {
   public:
+	CTriggerGladderFinish() : m_iszClearTarget( 0 ), m_flNextDenySoundTime( 0.0f ) {}
 	void Spawn( void );
+	void KeyValue( KeyValueData *pkvd );
 	void EXPORT FinishTouch( CBaseEntity *pOther );
 	void EXPORT FinishUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	CGladderTriggerClip *GetClip( void ) { return (CGladderTriggerClip *)( (CBaseEntity *)m_hClip ); }
+	void FireClearTarget( CBaseEntity *pActivator );
+	const char *GetClearTarget( void ) const { return STRING( m_iszClearTarget ); }
 
   private:
 	void DoFinish( CBaseEntity *pActivator );
 	void CreateClipBrush( void );
 
 	EHANDLE m_hClip;
+	string_t m_iszClearTarget;
+	float m_flNextDenySoundTime;
 };
+
+void Gladder_FireClearTargets( CBaseEntity *pActivator );
 
 //
 // trigger_gladder_area

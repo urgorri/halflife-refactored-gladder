@@ -31,13 +31,15 @@ static inline void WriteCoord( std::vector<uint8_t> &buf, float val )
 	WriteInt16( buf, raw );
 }
 
-TEST_CASE( "Gladder UserMsg: GladWave Serialization Symmetry (#14)", "[gladder][hud][usermsg]" )
+TEST_CASE( "Gladder UserMsg: GladWave Serialization Symmetry (#14, #118)", "[gladder][hud][usermsg]" )
 {
 	std::vector<uint8_t> buf;
 	buf.push_back( 1 ); // Active
 	WriteInt16( buf, 7 ); // Wave 7
 	WriteCoord( buf, 450.0f ); // Time left
 	WriteCoord( buf, 35.5f ); // Lap time
+	WriteInt16( buf, 14 ); // Monsters killed
+	WriteInt16( buf, 20 ); // Monsters total
 
 	REQUIRE( buf.size() == GLADDER_MSG_WAVE_SIZE );
 
@@ -47,9 +49,19 @@ TEST_CASE( "Gladder UserMsg: GladWave Serialization Symmetry (#14)", "[gladder][
 	CHECK( msg.iWaveNumber == 7 );
 	CHECK( msg.flSessionTimeRemaining == Catch::Approx( 450.0f ).epsilon( 0.2f ) );
 	CHECK( msg.flLapTime == Catch::Approx( 35.5f ).epsilon( 0.2f ) );
+	CHECK( msg.iMonstersKilled == 14 );
+	CHECK( msg.iMonstersTotal == 20 );
 
 	// Truncated buffer check
 	CHECK( Gladder_ParseWaveMsg( buf.data(), 5, msg ) == false );
+
+	// Legacy 7-byte buffer backwards-compatibility check
+	std::vector<uint8_t> legacyBuf( buf.begin(), buf.begin() + 7 );
+	GladderWaveMsg legacyMsg;
+	REQUIRE( Gladder_ParseWaveMsg( legacyBuf.data(), static_cast<int>( legacyBuf.size() ), legacyMsg ) == true );
+	CHECK( legacyMsg.iWaveState == 1 );
+	CHECK( legacyMsg.iMonstersKilled == 0 );
+	CHECK( legacyMsg.iMonstersTotal == 0 );
 }
 
 TEST_CASE( "Gladder UserMsg: GladTelem Serialization Symmetry (#14)", "[gladder][hud][usermsg]" )

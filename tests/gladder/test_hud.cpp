@@ -57,6 +57,61 @@ TEST_CASE( "CHudGladderOverlay: Telemetry and Collectibles Field Tracking (#15)"
 	CHECK( overlay.GetFrags() == 0 );
 }
 
+TEST_CASE( "CHudGladderOverlay: Real-time HUD enemy counter and dynamic visibility lifecycle (SPEC §2, §9.1, Issue #118)", "[gladder][hud][hostiles]" )
+{
+	CHudGladderOverlay overlay;
+	CHECK( overlay.IsHostilesCounterVisible() == false );
+	CHECK( overlay.GetHostilesKilled() == 0 );
+	CHECK( overlay.GetHostilesTotal() == 0 );
+
+	// 1. Initialized on wave start via MsgFunc_GladderWave (state = 1, killed = 0, total = 20)
+	std::vector<uint8_t> startBuf;
+	startBuf.push_back( 1 ); // Active wave
+	// Wave 1
+	startBuf.push_back( 1 ); startBuf.push_back( 0 );
+	// Time left 600.0f
+	int16_t timeLeft = static_cast<int16_t>( 600.0f * 8.0f );
+	startBuf.push_back( timeLeft & 0xFF ); startBuf.push_back( ( timeLeft >> 8 ) & 0xFF );
+	// Lap time 0.0f
+	startBuf.push_back( 0 ); startBuf.push_back( 0 );
+	// Killed 0, Total 20
+	startBuf.push_back( 0 ); startBuf.push_back( 0 );
+	startBuf.push_back( 20 ); startBuf.push_back( 0 );
+
+	overlay.MsgFunc_GladderWave( "GladWave", static_cast<int>( startBuf.size() ), startBuf.data() );
+	CHECK( overlay.IsHostilesCounterVisible() == true );
+	CHECK( overlay.GetHostilesKilled() == 0 );
+	CHECK( overlay.GetHostilesTotal() == 20 );
+
+	// 2. Incremental update during combat (e.g. 14 / 20)
+	startBuf[7] = 14; startBuf[8] = 0;
+	overlay.MsgFunc_GladderWave( "GladWave", static_cast<int>( startBuf.size() ), startBuf.data() );
+	CHECK( overlay.IsHostilesCounterVisible() == true );
+	CHECK( overlay.GetHostilesKilled() == 14 );
+	CHECK( overlay.GetHostilesTotal() == 20 );
+
+	// 3. Fully cleared wave (20 / 20)
+	startBuf[7] = 20; startBuf[8] = 0;
+	overlay.MsgFunc_GladderWave( "GladWave", static_cast<int>( startBuf.size() ), startBuf.data() );
+	CHECK( overlay.IsHostilesCounterVisible() == true );
+	CHECK( overlay.GetHostilesKilled() == 20 );
+	CHECK( overlay.GetHostilesTotal() == 20 );
+
+	// 4. Wave finishes: state transitions to GLADDER_STATE_WAVE_COMPLETED (2) or STANDBY (0) -> counter hides
+	startBuf[0] = 2; // Completed
+	overlay.MsgFunc_GladderWave( "GladWave", static_cast<int>( startBuf.size() ), startBuf.data() );
+	CHECK( overlay.IsHostilesCounterVisible() == false );
+
+	// 5. New wave commences: state transitions back to active (1) with fresh total (24) -> counter reappears fresh
+	startBuf[0] = 1; // Active
+	startBuf[7] = 0; startBuf[8] = 0; // 0 killed
+	startBuf[9] = 24; startBuf[10] = 0; // 24 total
+	overlay.MsgFunc_GladderWave( "GladWave", static_cast<int>( startBuf.size() ), startBuf.data() );
+	CHECK( overlay.IsHostilesCounterVisible() == true );
+	CHECK( overlay.GetHostilesKilled() == 0 );
+	CHECK( overlay.GetHostilesTotal() == 24 );
+}
+
 TEST_CASE( "CHudGladderLambda: Center-screen notification lifecycle & replacement (SPEC §7.3, Issue #92)", "[gladder][hud][lambda]" )
 {
 	CHudGladderLambda lambda;

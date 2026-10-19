@@ -42,7 +42,9 @@ class CHudGladderOverlay : public CHudBase
 	      m_iCompletedLaps( 0 ),
 	      m_iFrags( 0 ),
 	      m_iCollectibles( 0 ),
-	      m_iDecalPurgeCount( 0 )
+	      m_iDecalPurgeCount( 0 ),
+	      m_iHostilesKilled( 0 ),
+	      m_iHostilesTotal( 0 )
 	{
 		m_iFlags = HUD_ACTIVE;
 	}
@@ -63,6 +65,8 @@ class CHudGladderOverlay : public CHudBase
 		m_iFrags           = 0;
 		m_iCollectibles    = 0;
 		m_iDecalPurgeCount = 0;
+		m_iHostilesKilled  = 0;
+		m_iHostilesTotal   = 0;
 	}
 
 	// User message handlers
@@ -81,6 +85,9 @@ class CHudGladderOverlay : public CHudBase
 	float GetSlowestLap( void ) const { return m_flSlowestLap; }
 	float GetAverageLap( void ) const { return m_flAverageLap; }
 	int GetDecalPurgeCount( void ) const { return m_iDecalPurgeCount; }
+	int GetHostilesKilled( void ) const { return m_iHostilesKilled; }
+	int GetHostilesTotal( void ) const { return m_iHostilesTotal; }
+	bool IsHostilesCounterVisible( void ) const { return m_iWaveState == GLADDER_STATE_WAVE_ACTIVE; }
 
 	// Test/Simulation setters
 	void SetWaveState( int state, int waveNum, float timeRemaining, float lapTime )
@@ -89,6 +96,12 @@ class CHudGladderOverlay : public CHudBase
 		m_iWaveNumber     = waveNum;
 		m_flTimeRemaining = timeRemaining;
 		m_flLapTime       = lapTime;
+	}
+
+	void SetHostiles( int killed, int total )
+	{
+		m_iHostilesKilled = killed;
+		m_iHostilesTotal  = total;
 	}
 
 	void SetTelemetry( float fastest, float slowest, float avg, int completedLaps, int frags, int collectibles = 0 )
@@ -114,6 +127,8 @@ class CHudGladderOverlay : public CHudBase
 	int m_iFrags;
 	int m_iCollectibles;
 	int m_iDecalPurgeCount;
+	int m_iHostilesKilled;
+	int m_iHostilesTotal;
 };
 
 extern CHudGladderOverlay g_HudGladderOverlay;
