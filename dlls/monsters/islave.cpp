@@ -25,6 +25,7 @@
 #include "systems/effects.h"
 #include "weapons/weapon_base.h"
 #include "ai/soundent.h"
+#include "gameplay/gamerules.h"
 
 extern DLL_GLOBAL int g_iSkillLevel;
 
@@ -259,9 +260,13 @@ void CISlave ::HandleAnimEvent( MonsterEvent_t *pEvent )
 
 	case ISLAVE_AE_ZAP_POWERUP:
 	{
-		// speed up attack when on hard
-		if ( g_iSkillLevel == SKILL_HARD )
-			pev->framerate = 1.5;
+		// speed up attack when on hard / difficulty-scaled
+		float flSpeed = gSkillData.slaveCastSpeed;
+		if ( g_pGameRules )
+		{
+			flSpeed = g_pGameRules->FlMonsterCastSpeed( this, m_Activity, flSpeed );
+		}
+		pev->framerate = flSpeed;
 
 		UTIL_MakeAimVectors( pev->angles );
 

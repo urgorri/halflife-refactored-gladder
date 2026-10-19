@@ -17,10 +17,10 @@
 // GameRules
 //=========================================================
 
-// #include "weapons/weapon_base.h"
-// #include "items/item_base.h"
+#include "ai/activity.h"
 #include "core/skill.h"
 
+class CBaseEntity;
 class CBasePlayerItem;
 class CBasePlayer;
 class CItem;
@@ -185,6 +185,16 @@ class CGameRules
 	virtual BOOL FCanMonsterDropItem( CBaseMonster *pMonster, const char *pszItemName ) { return TRUE; }
 	// Allows gamemodes to augment or override a monster's schedule interrupt mask
 	virtual int FlMonsterScheduleInterruptMask( CBaseMonster *pMonster, Schedule_t *pSchedule, int iDefaultMask ) { return iDefaultMask; }
+	// Allows gamemodes to scale animation / channeling playback speed for monster attacks
+	virtual float FlMonsterCastSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed ) { return flDefaultSpeed; }
+	// Allows gamemodes to scale locomotion animation speed (walk, run, crawl)
+	virtual float FlMonsterMoveSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed ) { return flDefaultSpeed; }
+	// Allows gamemodes to adjust projectile spread angles
+	virtual float FlMonsterProjectileSpread( CBaseMonster *pMonster, const char *pszProjectile, float flDefaultSpread ) { return flDefaultSpread; }
+	// Dispatches an event when a monster detonates an area attack (e.g. Houndeye SonicAttack)
+	virtual void OnMonsterAttackDetonation( CBaseMonster *pMonster, const char *pszAttackType, const Vector &vecOrigin ) {}
+	// Dispatches an event when a monster projectile impacts geometry or entities (e.g. Bullsquid spit)
+	virtual void OnMonsterProjectileImpact( CBaseEntity *pProjectile, const TraceResult &tr ) {}
 
 	// Weapons, audio, and combat lifecycle hooks
 	virtual BOOL FFixMeleeCorpseAttackDelay( void ) { return FALSE; }

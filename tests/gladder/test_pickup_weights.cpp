@@ -286,6 +286,34 @@ TEST_CASE( "GladderPickupWeights: Fixed weapon ownership and fallback behavior (
 		CHECK( foundGauss );
 	}
 
+	SECTION( "High-lethality melee weapons (knife, pipewrench) are promoted to Tier 2 (SPEC §7.13, Issue #119)" )
+	{
+		const GladderFixedWeaponDef *pDefKnife = GetFixedWeaponDef( "weapon_knife" );
+		REQUIRE( pDefKnife != nullptr );
+		CHECK( pDefKnife->tier == 2 );
+		CHECK( pDefKnife->relativeWeight == Catch::Approx( 0.6f ) );
+
+		const GladderFixedWeaponDef *pDefWrench = GetFixedWeaponDef( "weapon_pipewrench" );
+		REQUIRE( pDefWrench != nullptr );
+		CHECK( pDefWrench->tier == 2 );
+		CHECK( pDefWrench->relativeWeight == Catch::Approx( 0.6f ) );
+
+		const GladderFixedWeaponDef *pDefSniper = GetFixedWeaponDef( "weapon_sniper" );
+		REQUIRE( pDefSniper != nullptr );
+		CHECK( pDefSniper->tier == 3 );
+		CHECK( pDefSniper->relativeWeight == Catch::Approx( 0.5f ) );
+
+		const GladderFixedWeaponDef *pDefM249 = GetFixedWeaponDef( "weapon_m249" );
+		REQUIRE( pDefM249 != nullptr );
+		CHECK( pDefM249->tier == 3 );
+		CHECK( pDefM249->relativeWeight == Catch::Approx( 0.5f ) );
+
+		const GladderFixedWeaponDef *pDefEagle = GetFixedWeaponDef( "weapon_eagle" );
+		REQUIRE( pDefEagle != nullptr );
+		CHECK( pDefEagle->tier == 2 );
+		CHECK( pDefEagle->relativeWeight == Catch::Approx( 0.6f ) );
+	}
+
 	SECTION( "When all fixed weapons are owned, weapon budget reallocates to ordnance or ammo" )
 	{
 		GladderPickupWeightInput input;

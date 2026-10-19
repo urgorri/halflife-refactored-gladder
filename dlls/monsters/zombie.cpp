@@ -21,8 +21,8 @@
 #include "core/extdll.h"
 #include "core/util.h"
 #include "core/cbase.h"
-#include "ai/monsters.h"
 #include "ai/schedule.h"
+#include "gameplay/gamerules.h"
 
 #include "monsters/zombie.h"
 
@@ -88,6 +88,24 @@ void CZombie ::SetYawSpeed( void )
 	ys = 120;
 
 	pev->yaw_speed = ys;
+}
+
+//=========================================================
+// SetActivity - query FlMonsterMoveSpeed / zombieMoveSpeed
+//=========================================================
+void CZombie ::SetActivity( Activity NewActivity )
+{
+	CBaseMonster::SetActivity( NewActivity );
+
+	if ( m_Activity == ACT_WALK || m_Activity == ACT_RUN )
+	{
+		float flSpeed = gSkillData.zombieMoveSpeed;
+		if ( g_pGameRules )
+		{
+			flSpeed = g_pGameRules->FlMonsterMoveSpeed( this, m_Activity, flSpeed );
+		}
+		pev->framerate = flSpeed;
+	}
 }
 
 int CZombie ::TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType )

@@ -410,3 +410,85 @@ TEST_CASE( "SkillManager: GetSkillCvar backward compatibility delegation (#94)",
 
 	SkillManager::Reset();
 }
+
+// ============================================================================
+// Issue #204: Difficulty-based Monster Behavioral Attributes in skilldata_t
+// ============================================================================
+
+TEST_CASE( "SkillManager: difficulty-based monster behavioral attribute defaults across skill levels (#204)", "[skill][monster][gamerules]" )
+{
+	ResetMockEngine();
+	SkillManager::Reset();
+	CCustomCoopRules rules;
+
+	// Easy (1)
+	SetMockCvar( "skill", 1.0f );
+	rules.RefreshSkillData();
+	CHECK( gSkillData.iSkillLevel == SKILL_EASY );
+	CHECK( gSkillData.houndeyeCastSpeed == 1.0f );
+	CHECK( gSkillData.bullsquidSpitSpread == 0.05f );
+	CHECK( gSkillData.headcrabJumpSpeed == 650.0f );
+	CHECK( gSkillData.headcrabAttackRange == 256.0f );
+	CHECK( gSkillData.headcrabMoveSpeed == 1.0f );
+	CHECK( gSkillData.zombieMoveSpeed == 1.0f );
+	CHECK( gSkillData.slaveCastSpeed == 1.0f );
+	CHECK( gSkillData.agruntHornetSpeed == 600.0f );
+
+	// Medium (2)
+	SetMockCvar( "skill", 2.0f );
+	rules.RefreshSkillData();
+	CHECK( gSkillData.iSkillLevel == SKILL_MEDIUM );
+	CHECK( gSkillData.houndeyeCastSpeed == 1.0f );
+	CHECK( gSkillData.bullsquidSpitSpread == 0.05f );
+	CHECK( gSkillData.headcrabJumpSpeed == 650.0f );
+	CHECK( gSkillData.headcrabAttackRange == 256.0f );
+	CHECK( gSkillData.headcrabMoveSpeed == 1.0f );
+	CHECK( gSkillData.zombieMoveSpeed == 1.0f );
+	CHECK( gSkillData.slaveCastSpeed == 1.0f );
+	CHECK( gSkillData.agruntHornetSpeed == 600.0f );
+
+	// Hard (3) - slaveCastSpeed scales to 1.5 preserving vanilla hard-mode acceleration
+	SetMockCvar( "skill", 3.0f );
+	rules.RefreshSkillData();
+	CHECK( gSkillData.iSkillLevel == SKILL_HARD );
+	CHECK( gSkillData.houndeyeCastSpeed == 1.0f );
+	CHECK( gSkillData.bullsquidSpitSpread == 0.05f );
+	CHECK( gSkillData.headcrabJumpSpeed == 650.0f );
+	CHECK( gSkillData.headcrabAttackRange == 256.0f );
+	CHECK( gSkillData.headcrabMoveSpeed == 1.0f );
+	CHECK( gSkillData.zombieMoveSpeed == 1.0f );
+	CHECK( gSkillData.slaveCastSpeed == 1.5f );
+	CHECK( gSkillData.agruntHornetSpeed == 600.0f );
+
+	SkillManager::Reset();
+}
+
+TEST_CASE( "SkillManager: monster behavioral attributes can be overridden via CVars (#204)", "[skill][monster][gamerules]" )
+{
+	ResetMockEngine();
+	SkillManager::Reset();
+	CCustomCoopRules rules;
+
+	SetMockCvar( "skill", 2.0f );
+	SetMockCvar( "sk_houndeye_cast_speed2", 2.2f );
+	SetMockCvar( "sk_bullsquid_spit_spread2", 0.02f );
+	SetMockCvar( "sk_headcrab_jump_speed2", 850.0f );
+	SetMockCvar( "sk_headcrab_attack_range2", 400.0f );
+	SetMockCvar( "sk_headcrab_move_speed2", 1.5f );
+	SetMockCvar( "sk_zombie_move_speed2", 1.3f );
+	SetMockCvar( "sk_islave_cast_speed2", 2.0f );
+	SetMockCvar( "sk_agrunt_hornet_speed2", 750.0f );
+
+	rules.RefreshSkillData();
+
+	CHECK( gSkillData.houndeyeCastSpeed == 2.2f );
+	CHECK( gSkillData.bullsquidSpitSpread == 0.02f );
+	CHECK( gSkillData.headcrabJumpSpeed == 850.0f );
+	CHECK( gSkillData.headcrabAttackRange == 400.0f );
+	CHECK( gSkillData.headcrabMoveSpeed == 1.5f );
+	CHECK( gSkillData.zombieMoveSpeed == 1.3f );
+	CHECK( gSkillData.slaveCastSpeed == 2.0f );
+	CHECK( gSkillData.agruntHornetSpeed == 750.0f );
+
+	SkillManager::Reset();
+}

@@ -183,6 +183,48 @@ class CTestHookRules : public CGameRules
 	{
 		return m_bFixMP5UnderwaterDebounce ? TRUE : FALSE;
 	}
+
+	float m_customCastSpeed = -1.0f;
+	float FlMonsterCastSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed ) override
+	{
+		if ( m_customCastSpeed >= 0.0f )
+			return m_customCastSpeed;
+		return CGameRules::FlMonsterCastSpeed( pMonster, activity, flDefaultSpeed );
+	}
+
+	float m_customMoveSpeed = -1.0f;
+	float FlMonsterMoveSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed ) override
+	{
+		if ( m_customMoveSpeed >= 0.0f )
+			return m_customMoveSpeed;
+		return CGameRules::FlMonsterMoveSpeed( pMonster, activity, flDefaultSpeed );
+	}
+
+	float m_customProjectileSpread = -1.0f;
+	float FlMonsterProjectileSpread( CBaseMonster *pMonster, const char *pszProjectile, float flDefaultSpread ) override
+	{
+		if ( m_customProjectileSpread >= 0.0f )
+			return m_customProjectileSpread;
+		return CGameRules::FlMonsterProjectileSpread( pMonster, pszProjectile, flDefaultSpread );
+	}
+
+	int m_iAttackDetonationCount = 0;
+	std::string m_lastAttackDetonationType;
+	Vector m_lastAttackDetonationOrigin;
+	void OnMonsterAttackDetonation( CBaseMonster *pMonster, const char *pszAttackType, const Vector &vecOrigin ) override
+	{
+		m_iAttackDetonationCount++;
+		m_lastAttackDetonationType = pszAttackType ? pszAttackType : "";
+		m_lastAttackDetonationOrigin = vecOrigin;
+	}
+
+	int m_iProjectileImpactCount = 0;
+	CBaseEntity *m_pLastImpactProjectile = nullptr;
+	void OnMonsterProjectileImpact( CBaseEntity *pProjectile, const TraceResult &tr ) override
+	{
+		m_iProjectileImpactCount++;
+		m_pLastImpactProjectile = pProjectile;
+	}
 };
 
 class CTestMonster : public CBaseMonster
@@ -1192,3 +1234,68 @@ TEST_CASE( "GameplayHooks: CGameRules::GetMaxAmmo extensible capacity hook (#201
 	delete pVanillaRules;
 	g_pGameRules = nullptr;
 }
+
+TEST_CASE( "GameplayHooks: CGameRules monster behavioral and combat lifecycle hooks (#204)", "[gameplay][gamerules][monsters]" )
+{
+	InitMockEngine();
+	GameRulesFactory::Reset();
+	gpGlobals->deathmatch = 0.0f;
+	CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+	REQUIRE( pVanillaRules != nullptr );
+
+	CTestMonster monster;
+	CBaseEntity projectile;
+
+	SECTION( "Default CGameRules hooks guarantee 100% backward-compatible passthrough" )
+	{
+		CHECK( pVanillaRules->FlMonsterCastSpeed( &monster, ACT_RANGE_ATTACK1, 1.25f ) == 1.25f );
+		CHECK( pVanillaRules->FlMonsterMoveSpeed( &monster, ACT_WALK, 1.5f ) == 1.5f );
+		CHECK( pVanillaRules->FlMonsterProjectileSpread( &monster, "squidspit", 0.05f ) == 0.05f );
+
+		Vector vecDetonation( 100.0f, 200.0f, 300.0f );
+		pVanillaRules->OnMonsterAttackDetonation( &monster, "sonic_blast", vecDetonation );
+
+		TraceResult tr;
+		std::memset( &tr, 0, sizeof( tr ) );
+		tr.flFraction = 1.0f;
+		pVanillaRules->OnMonsterProjectileImpact( &projectile, tr );
+	}
+
+	SECTION( "Custom game rules can intercept and scale monster behavioral attributes" )
+	{
+		CTestHookRules customRules;
+		customRules.m_customCastSpeed = 2.0f;
+		customRules.m_customMoveSpeed = 1.75f;
+		customRules.m_customProjectileSpread = 0.01f;
+
+		CHECK( customRules.FlMonsterCastSpeed( &monster, ACT_RANGE_ATTACK1, 1.0f ) == 2.0f );
+		CHECK( customRules.FlMonsterMoveSpeed( &monster, ACT_WALK, 1.0f ) == 1.75f );
+		CHECK( customRules.FlMonsterProjectileSpread( &monster, "squidspit", 0.05f ) == 0.01f );
+	}
+
+	SECTION( "Custom game rules receive monster attack detonation and projectile impact events" )
+	{
+		CTestHookRules customRules;
+		Vector vecDetonation( 50.0f, -60.0f, 120.0f );
+
+		CHECK( customRules.m_iAttackDetonationCount == 0 );
+		customRules.OnMonsterAttackDetonation( &monster, "sonic_blast", vecDetonation );
+		CHECK( customRules.m_iAttackDetonationCount == 1 );
+		CHECK( customRules.m_lastAttackDetonationType == "sonic_blast" );
+		CHECK( customRules.m_lastAttackDetonationOrigin.x == 50.0f );
+		CHECK( customRules.m_lastAttackDetonationOrigin.y == -60.0f );
+		CHECK( customRules.m_lastAttackDetonationOrigin.z == 120.0f );
+
+		CHECK( customRules.m_iProjectileImpactCount == 0 );
+		TraceResult tr;
+		std::memset( &tr, 0, sizeof( tr ) );
+		tr.vecEndPos = Vector( 10.0f, 20.0f, 30.0f );
+		customRules.OnMonsterProjectileImpact( &projectile, tr );
+		CHECK( customRules.m_iProjectileImpactCount == 1 );
+		CHECK( customRules.m_pLastImpactProjectile == &projectile );
+	}
+
+	delete pVanillaRules;
+	g_pGameRules = nullptr;
+}
+

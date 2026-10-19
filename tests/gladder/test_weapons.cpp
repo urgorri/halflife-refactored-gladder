@@ -61,6 +61,15 @@ TEST_CASE( "GladderWeapons: Damage balance constants", "[gladder][weapons]" )
 	CHECK( GLADDER_DMG_M249 == 16.0f );
 }
 
+TEST_CASE( "GladderWeapons: Weapon autoselection priority weights hierarchy (SPEC §7.13, Issue #119)", "[gladder][weapons][autoselect]" )
+{
+	CHECK( SNIPER_WEIGHT == 30 );
+	CHECK( M249_WEIGHT == 28 );
+	CHECK( KNIFE_WEIGHT == 24 );
+	CHECK( PIPEWRENCH_WEIGHT == 22 );
+	CHECK( EAGLE_WEIGHT == 18 );
+}
+
 TEST_CASE( "GladderWeapons: WeaponRegistry registration of OpFor arsenal", "[gladder][weapons]" )
 {
 	WeaponDescriptor dKnife = { "weapon_knife", 0, nullptr };

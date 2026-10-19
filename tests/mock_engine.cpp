@@ -971,7 +971,29 @@ CGameRules *g_pGameRules = nullptr;
 int g_iSkillLevel = 1;
 
 
-void CGameRules::RefreshSkillData( void ) {}
+void CGameRules::RefreshSkillData( void )
+{
+	int iSkill = (int)CVAR_GET_FLOAT( "skill" );
+	if ( iSkill < 1 )
+		iSkill = 1;
+	else if ( iSkill > 3 )
+		iSkill = 3;
+
+	gSkillData.iSkillLevel = iSkill;
+
+	SkillManager::RegisterBuiltinDefaults();
+	SkillManager::InvalidateCache();
+	SkillManager::SetSkillLevel( iSkill );
+
+	gSkillData.houndeyeCastSpeed   = SkillManager::Query( "sk_houndeye_cast_speed", 1.0f );
+	gSkillData.bullsquidSpitSpread = SkillManager::Query( "sk_bullsquid_spit_spread", 0.05f );
+	gSkillData.headcrabJumpSpeed   = SkillManager::Query( "sk_headcrab_jump_speed", 650.0f );
+	gSkillData.headcrabAttackRange = SkillManager::Query( "sk_headcrab_attack_range", 256.0f );
+	gSkillData.headcrabMoveSpeed   = SkillManager::Query( "sk_headcrab_move_speed", 1.0f );
+	gSkillData.zombieMoveSpeed     = SkillManager::Query( "sk_zombie_move_speed", 1.0f );
+	gSkillData.slaveCastSpeed      = SkillManager::Query( "sk_islave_cast_speed", ( gSkillData.iSkillLevel == SKILL_HARD ) ? 1.5f : 1.0f );
+	gSkillData.agruntHornetSpeed   = SkillManager::Query( "sk_agrunt_hornet_speed", 600.0f );
+}
 edict_t *CGameRules::GetPlayerSpawnSpot( CBasePlayer *pPlayer ) { return nullptr; }
 BOOL CGameRules::CanHavePlayerItem( CBasePlayer *pPlayer, CBasePlayerItem *pWeapon ) { return TRUE; }
 BOOL CGameRules::CanHaveAmmo( CBasePlayer *pPlayer, const char *pszAmmoName, int iMaxCarry ) { return TRUE; }

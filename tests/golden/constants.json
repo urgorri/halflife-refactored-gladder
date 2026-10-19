@@ -314,7 +314,15 @@
       "plrChest",
       "plrStomach",
       "plrLeg",
-      "plrArm"
+      "plrArm",
+      "houndeyeCastSpeed",
+      "bullsquidSpitSpread",
+      "headcrabJumpSpeed",
+      "headcrabAttackRange",
+      "headcrabMoveSpeed",
+      "zombieMoveSpeed",
+      "slaveCastSpeed",
+      "agruntHornetSpeed"
     ]
   },
   "damage_defs.h": {

@@ -64,7 +64,10 @@ CGladderRules::CGladderRules()
       m_iFrozenPlayerGaitSequence( 0 ),
       m_bMatchConcluded( false ),
       m_bMatchFrozen( false ),
-      m_flMatchFreezeTime( 0.0f )
+      m_flMatchFreezeTime( 0.0f ),
+      m_iWaveMonstersTotal( 0 ),
+      m_iWaveMonstersKilled( 0 ),
+      m_bHostilesEliminatedFired( false )
 {
 	g_fGameOver = FALSE;
 	m_comboTracker.Reset();
@@ -165,6 +168,23 @@ void CGladderRules::Think( void )
 	if ( m_bInitialSpawnDone && ( flTime - m_flLastTelemetryBroadcast >= 0.25f ) )
 	{
 		m_flLastTelemetryBroadcast = flTime;
+
+		// Reconcile living hostiles with counter in case any monster died without triggering MonsterKilled
+		// (e.g. infighting between monsters, crushers, acid, or falling into void)
+		if ( m_waveManager.IsWaveActive() && m_iWaveMonstersTotal > 0 )
+		{
+			int iLiving = CountLivingWaveHostiles();
+			int iDerivedKilled = m_iWaveMonstersTotal - iLiving;
+			if ( iDerivedKilled > m_iWaveMonstersKilled )
+			{
+				m_iWaveMonstersKilled = iDerivedKilled;
+			}
+			if ( iLiving == 0 )
+			{
+				CheckAllHostilesEliminated();
+			}
+		}
+
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
 		BroadcastComboUpdate();
@@ -599,6 +619,70 @@ void CGladderRules::MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, en
 	{
 		BroadcastComboUpdate();
 	}
+
+	// Wave hostile tracking & finish gate enforcement (SPEC §2, §9.1, Issue #118)
+	if ( GladderComboTracker::IsValidCombatant( pVictim ) && m_waveManager.IsWaveActive() )
+	{
+		m_iWaveMonstersKilled++;
+		BroadcastWaveUpdate();
+		CheckAllHostilesEliminated( pKiller ? CBaseEntity::Instance( pKiller ) : nullptr );
+	}
+}
+
+int CGladderRules::CountLivingWaveHostiles( void ) const
+{
+	if ( !gpGlobals )
+		return 0;
+
+	int iLivingCount = 0;
+	for ( int i = 1; i < gpGlobals->maxEntities; i++ )
+	{
+		edict_t *pEdict = INDEXENT( i );
+		if ( !pEdict || pEdict->free || ( pEdict->v.flags & FL_KILLME ) )
+			continue;
+
+		CBaseEntity *pEntity = CBaseEntity::Instance( pEdict );
+		if ( !pEntity || !pEntity->pev || pEntity->IsPlayer() )
+			continue;
+
+		CBaseMonster *pMonster = pEntity->MyMonsterPointer();
+		if ( !pMonster )
+			continue;
+
+		if ( !GladderComboTracker::IsValidCombatant( pMonster ) )
+			continue;
+
+		// Monster must be alive, actively take damage, and not currently dying
+		if ( pMonster->IsAlive() && pMonster->pev->deadflag == DEAD_NO && pMonster->pev->takedamage != DAMAGE_NO )
+		{
+			iLivingCount++;
+		}
+	}
+
+	return iLivingCount;
+}
+
+bool CGladderRules::AreWaveHostilesEliminated( void ) const
+{
+	if ( m_iWaveMonstersTotal <= 0 )
+		return true;
+
+	if ( m_iWaveMonstersKilled >= m_iWaveMonstersTotal )
+		return true;
+
+	// Infallible fallback: if no living combatant monsters exist anywhere in the world,
+	// wave hostiles are guaranteed to be eliminated (even if monsters killed each other or died to hazards)
+	return ( CountLivingWaveHostiles() == 0 );
+}
+
+void CGladderRules::CheckAllHostilesEliminated( CBaseEntity *pActivator )
+{
+	if ( m_iWaveMonstersTotal > 0 && AreWaveHostilesEliminated() && !m_bHostilesEliminatedFired )
+	{
+		m_bHostilesEliminatedFired = true;
+		Gladder_FireClearTargets( pActivator );
+		Gladder_FireWaveRelays( 4, pActivator );
+	}
 }
 
 float CGladderRules::FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed )
@@ -678,6 +762,11 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		// Procedurally spawn wave threats, weapons & supplies across indexed spatial grid
 		CBasePlayer *pPlayer = ( pActivator && pActivator->IsPlayer() ) ? dynamic_cast<CBasePlayer *>( pActivator ) : nullptr;
 		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies(), pPlayer, m_modifiers.GetActiveMutator() );
+
+		// Hostile elimination tracking (SPEC §2, §9.1, Issue #118)
+		m_iWaveMonstersTotal = m_spawner.GetLastSpawnedMonsterCount();
+		m_iWaveMonstersKilled = 0;
+		m_bHostilesEliminatedFired = false;
 
 		// Acoustic cue for wave start & mutator alert
 		GladderAudio::PlayCue( GLADDER_CUE_WAVE_START, pActivator );
@@ -780,6 +869,9 @@ void CGladderRules::ResetWave( void )
 	ResetBreakableEntities();
 	RestoreStaticDecals();
 	ResetStartTriggers();
+	m_iWaveMonstersTotal = 0;
+	m_iWaveMonstersKilled = 0;
+	m_bHostilesEliminatedFired = false;
 }
 
 void CGladderRules::ResetStartTriggers( void )
@@ -1131,6 +1223,8 @@ void CGladderRules::BroadcastWaveUpdate( CBasePlayer *pPlayer )
 	WRITE_SHORT( m_waveManager.GetWaveNumber() );
 	WRITE_COORD( m_waveManager.GetSessionTimeRemaining( flTime ) );
 	WRITE_COORD( m_waveManager.GetActiveLapTime( flTime ) );
+	WRITE_SHORT( m_iWaveMonstersKilled );
+	WRITE_SHORT( m_iWaveMonstersTotal );
 	MESSAGE_END();
 }
 

@@ -22,6 +22,7 @@
 #include "ai/monsters.h"
 #include "ai/schedule.h"
 #include "core/game.h"
+#include "gameplay/gamerules.h"
 
 //=========================================================
 // Monster's Anim Events Go Here
@@ -168,6 +169,24 @@ void CHeadCrab ::SetYawSpeed( void )
 }
 
 //=========================================================
+// SetActivity - query FlMonsterMoveSpeed / headcrabMoveSpeed
+//=========================================================
+void CHeadCrab ::SetActivity( Activity NewActivity )
+{
+	CBaseMonster::SetActivity( NewActivity );
+
+	if ( m_Activity == ACT_WALK || m_Activity == ACT_RUN )
+	{
+		float flSpeed = gSkillData.headcrabMoveSpeed;
+		if ( g_pGameRules )
+		{
+			flSpeed = g_pGameRules->FlMonsterMoveSpeed( this, m_Activity, flSpeed );
+		}
+		pev->framerate = flSpeed;
+	}
+}
+
+//=========================================================
 // HandleAnimEvent - catches the monster-specific messages
 // that occur when tagged animation frames are played.
 //=========================================================
@@ -206,9 +225,10 @@ void CHeadCrab ::HandleAnimEvent( MonsterEvent_t *pEvent )
 			// Don't jump too far/fast
 			float distance = vecJumpDir.Length();
 
-			if ( distance > 650 )
+			float flMaxJumpSpeed = gSkillData.headcrabJumpSpeed;
+			if ( distance > flMaxJumpSpeed )
 			{
-				vecJumpDir = vecJumpDir * ( 650.0 / distance );
+				vecJumpDir = vecJumpDir * ( flMaxJumpSpeed / distance );
 			}
 		}
 		else
@@ -359,7 +379,7 @@ void CHeadCrab ::StartTask( Task_t *pTask )
 //=========================================================
 BOOL CHeadCrab ::CheckRangeAttack1( float flDot, float flDist )
 {
-	if ( FBitSet( pev->flags, FL_ONGROUND ) && flDist <= 256 && flDot >= 0.65 )
+	if ( FBitSet( pev->flags, FL_ONGROUND ) && flDist <= gSkillData.headcrabAttackRange && flDot >= 0.65 )
 	{
 		return TRUE;
 	}

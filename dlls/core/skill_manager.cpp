@@ -191,6 +191,18 @@ void SkillManager::RegisterDefault( const char *pszBaseCvarName, float flEasy, f
 	InvalidateCache();
 }
 
+void SkillManager::RegisterBuiltinDefaults( void )
+{
+	RegisterDefault( "sk_houndeye_cast_speed", 1.0f, 1.0f, 1.0f );
+	RegisterDefault( "sk_bullsquid_spit_spread", 0.05f, 0.05f, 0.05f );
+	RegisterDefault( "sk_headcrab_jump_speed", 650.0f, 650.0f, 650.0f );
+	RegisterDefault( "sk_headcrab_attack_range", 256.0f, 256.0f, 256.0f );
+	RegisterDefault( "sk_headcrab_move_speed", 1.0f, 1.0f, 1.0f );
+	RegisterDefault( "sk_zombie_move_speed", 1.0f, 1.0f, 1.0f );
+	RegisterDefault( "sk_islave_cast_speed", 1.0f, 1.0f, 1.5f );
+	RegisterDefault( "sk_agrunt_hornet_speed", 600.0f, 600.0f, 600.0f );
+}
+
 void SkillManager::SetOverride( const char *pszBaseCvarName, float flValue )
 {
 	if ( !pszBaseCvarName || !*pszBaseCvarName )

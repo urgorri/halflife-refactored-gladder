@@ -35,6 +35,17 @@ bool Gladder_ParseWaveMsg( const void *pbuf, int iSize, GladderWaveMsg &outMsg )
 	outMsg.flSessionTimeRemaining = ReadCoord( p + 3 );
 	outMsg.flLapTime              = ReadCoord( p + 5 );
 
+	if ( iSize >= 11 )
+	{
+		outMsg.iMonstersKilled = ReadInt16( p + 7 );
+		outMsg.iMonstersTotal  = ReadInt16( p + 9 );
+	}
+	else
+	{
+		outMsg.iMonstersKilled = 0;
+		outMsg.iMonstersTotal  = 0;
+	}
+
 	return true;
 }
 

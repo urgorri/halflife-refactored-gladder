@@ -84,6 +84,17 @@ struct GladderAmmoMapping
 	}
 };
 
+struct GladderFixedWeaponDef
+{
+	const char *szClassname;
+	int tier;
+	float relativeWeight;
+
+	GladderFixedWeaponDef() : szClassname( "" ), tier( 1 ), relativeWeight( 0.0f ) {}
+	GladderFixedWeaponDef( const char *szName, int t, float w )
+	    : szClassname( szName ), tier( t ), relativeWeight( w ) {}
+};
+
 // Pure math & logic: Computes weighted pickup list given wave and player loadout state
 std::vector<GladderWeightedPickup> ComputePickupWeights( const GladderPickupWeightInput &input );
 
@@ -93,5 +104,9 @@ float GetOrdnanceTierWeight( int tier, int iWaveNumber );
 
 // Query ammo mapping table
 const std::vector<GladderAmmoMapping> &GetGladderAmmoMappings( void );
+
+// Query fixed weapon definitions and tiers (SPEC §3, §7.13, Issue #119)
+const GladderFixedWeaponDef *GetFixedWeaponDef( const char *szClassname );
+const std::vector<GladderFixedWeaponDef> &GetFixedWeaponDefs( void );
 
 #endif // GLADDER_PICKUP_WEIGHTS_H

@@ -1178,3 +1178,236 @@ TEST_CASE( "GladderRules: Extended Ammunition & Explosives Carrying Capacity (SP
 	}
 }
 
+TEST_CASE( "GladderRules: Mandatory hostile elimination, finish trigger denial & cleartarget (SPEC §2, §9.1, Issue #118)", "[gladder][rules][finish][hostiles]" )
+{
+	InitMockEngine();
+	GameRulesFactory::Reset();
+
+	class CTestHostileGladderRules : public CTestGladderRulesAutoswitch
+	{
+	  public:
+		int m_iWaveMonstersTotal = 0;
+		int m_iWaveMonstersKilled = 0;
+		bool m_bHostilesEliminatedFired = false;
+		CGladderWaveManager m_waveManager;
+
+		int GetWaveMonstersTotal() const { return m_iWaveMonstersTotal; }
+		int GetWaveMonstersKilled() const { return m_iWaveMonstersKilled; }
+		int GetWaveMonstersRemaining() const
+		{
+			int iRemaining = m_iWaveMonstersTotal - m_iWaveMonstersKilled;
+			return ( iRemaining > 0 ) ? iRemaining : 0;
+		}
+		bool AreWaveHostilesEliminated() const
+		{
+			if ( m_iWaveMonstersTotal <= 0 )
+				return true;
+			return m_iWaveMonstersKilled >= m_iWaveMonstersTotal;
+		}
+		void SetWaveMonstersTotal( int count ) { m_iWaveMonstersTotal = ( count > 0 ) ? count : 0; }
+		void SetWaveMonstersKilled( int count ) { m_iWaveMonstersKilled = ( count > 0 ) ? count : 0; }
+
+		CGladderWaveManager &GetWaveManager() { return m_waveManager; }
+
+		void MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor )
+		{
+			if ( !pVictim )
+				return;
+
+			if ( !( pVictim->pev->flags & ( FL_MONSTER | FL_FAKECLIENT ) ) )
+				return;
+
+			if ( m_waveManager.IsWaveActive() && m_iWaveMonstersTotal > 0 )
+			{
+				m_iWaveMonstersKilled++;
+				if ( m_iWaveMonstersKilled >= m_iWaveMonstersTotal && !m_bHostilesEliminatedFired )
+				{
+					m_bHostilesEliminatedFired = true;
+				}
+			}
+		}
+	};
+
+	class CTestTriggerFinish
+	{
+	  public:
+		std::string m_szClearTarget;
+
+		void SetClearTarget( const char *pszTarget )
+		{
+			m_szClearTarget = pszTarget ? pszTarget : "";
+		}
+
+		const char *GetClearTarget() const { return m_szClearTarget.c_str(); }
+
+		bool FinishTouch( CBasePlayer *pPlayer, CTestHostileGladderRules *pRules )
+		{
+			if ( !pPlayer || !pRules )
+				return false;
+
+			if ( !pRules->AreWaveHostilesEliminated() )
+			{
+				pPlayer->pev->velocity = Vector( 300.0f, 0.0f, 150.0f );
+				return false;
+			}
+
+			pRules->GetWaveManager().CompleteWave( 15.0f );
+			return true;
+		}
+	};
+
+	CTestHostileGladderRules rules;
+	g_pGameRules = &rules;
+
+	// Mock player in edict slot 1
+	edict_t *pPlayerSlot = GetMockClientEntity( 1 );
+	REQUIRE( pPlayerSlot != nullptr );
+	pPlayerSlot->free = 0;
+	pPlayerSlot->v.flags = FL_CLIENT;
+	pPlayerSlot->v.pContainingEntity = pPlayerSlot;
+	pPlayerSlot->v.origin = Vector( 100.0f, 0.0f, 0.0f );
+	pPlayerSlot->v.velocity = Vector( 0.0f, 0.0f, 0.0f );
+
+	struct MockPlayerHolder
+	{
+		alignas( CBasePlayer ) uint8_t storage[sizeof( CBasePlayer )];
+		MockPlayerHolder()
+		{
+			std::memset( storage, 0, sizeof( storage ) );
+			CBaseEntity baseEnt;
+			std::memcpy( storage, &baseEnt, sizeof( CBaseEntity ) );
+		}
+		CBasePlayer *player()
+		{
+			return reinterpret_cast<CBasePlayer *>( storage );
+		}
+	} playerHolder;
+
+	CBasePlayer *pPlayer = playerHolder.player();
+	pPlayerSlot->pvPrivateData = pPlayer;
+	pPlayer->pev = &pPlayerSlot->v;
+
+	CTestTriggerFinish finishTrigger;
+	finishTrigger.SetClearTarget( "blast_door" );
+	CHECK( std::string( finishTrigger.GetClearTarget() ) == "blast_door" );
+
+	// Initialize active wave
+	rules.GetWaveManager().StartWave( 10.0f );
+	rules.SetWaveMonstersTotal( 10 );
+	rules.SetWaveMonstersKilled( 3 );
+
+	CHECK( rules.GetWaveMonstersTotal() == 10 );
+	CHECK( rules.GetWaveMonstersKilled() == 3 );
+	CHECK( rules.GetWaveMonstersRemaining() == 7 );
+	CHECK( rules.AreWaveHostilesEliminated() == false );
+
+	SECTION( "Touching finish trigger with hostiles remaining denies completion and pushes player back" )
+	{
+		pPlayer->pev->origin = Vector( 30.0f, 0.0f, 0.0f );
+		pPlayer->pev->velocity = Vector( 0.0f, 0.0f, 0.0f );
+
+		bool bCompleted = finishTrigger.FinishTouch( pPlayer, &rules );
+
+		// Wave must NOT be completed
+		CHECK( bCompleted == false );
+		CHECK( rules.GetWaveManager().IsWaveActive() == true );
+		// Player pushed back (away from trigger center)
+		CHECK( pPlayer->pev->velocity.x > 0.0f );
+	}
+
+	SECTION( "Eliminating all wave hostiles triggers cleartarget and wave relay event 4" )
+	{
+		CTestDropMonster monster;
+		edict_t *pMonsterSlot = GetMockClientEntity( 4 );
+		pMonsterSlot->free = 0;
+		pMonsterSlot->v.flags = FL_MONSTER;
+		pMonsterSlot->v.classname = MAKE_STRING( "monster_headcrab" );
+		pMonsterSlot->v.pContainingEntity = pMonsterSlot;
+		pMonsterSlot->pvPrivateData = &monster;
+		monster.pev = &pMonsterSlot->v;
+
+		rules.SetWaveMonstersKilled( 9 );
+		CHECK( rules.AreWaveHostilesEliminated() == false );
+
+		// Final kill!
+		rules.MonsterKilled( &monster, pPlayer->pev, pPlayer->pev );
+		CHECK( rules.GetWaveMonstersKilled() == 10 );
+		CHECK( rules.AreWaveHostilesEliminated() == true );
+		CHECK( rules.GetWaveMonstersRemaining() == 0 );
+
+		// Now touching finish trigger succeeds and completes wave
+		bool bCompleted = finishTrigger.FinishTouch( pPlayer, &rules );
+		CHECK( bCompleted == true );
+		CHECK( rules.GetWaveManager().IsWaveActive() == false );
+	}
+
+	SECTION( "Monster infighting or hazard death eliminates hostiles even without player kill credit" )
+	{
+		CTestDropMonster monster1;
+		edict_t *pMonster1Slot = GetMockClientEntity( 4 );
+		pMonster1Slot->free = 0;
+		pMonster1Slot->v.flags = FL_MONSTER;
+		pMonster1Slot->v.classname = MAKE_STRING( "monster_headcrab" );
+		pMonster1Slot->v.pContainingEntity = pMonster1Slot;
+		pMonster1Slot->pvPrivateData = &monster1;
+		monster1.pev = &pMonster1Slot->v;
+
+		CTestDropMonster monster2;
+		edict_t *pMonster2Slot = GetMockClientEntity( 5 );
+		pMonster2Slot->free = 0;
+		pMonster2Slot->v.flags = FL_MONSTER;
+		pMonster2Slot->v.classname = MAKE_STRING( "monster_bullchicken" );
+		pMonster2Slot->v.pContainingEntity = pMonster2Slot;
+		pMonster2Slot->pvPrivateData = &monster2;
+		monster2.pev = &pMonster2Slot->v;
+
+		rules.SetWaveMonstersTotal( 2 );
+		rules.SetWaveMonstersKilled( 1 );
+		CHECK( rules.AreWaveHostilesEliminated() == false );
+
+		// Bullsquid kills headcrab (infighting between monsters: attacker is monster2, NOT player!)
+		rules.MonsterKilled( &monster1, monster2.pev, monster2.pev );
+
+		// Hostiles eliminated must be satisfied so the wave can be completed
+		CHECK( rules.GetWaveMonstersKilled() == 2 );
+		CHECK( rules.AreWaveHostilesEliminated() == true );
+		CHECK( rules.GetWaveMonstersRemaining() == 0 );
+
+		bool bCompleted = finishTrigger.FinishTouch( pPlayer, &rules );
+		CHECK( bCompleted == true );
+	}
+
+	SECTION( "Barnacle kills properly advance wave hostiles count and eliminate hostiles" )
+	{
+		CTestDropMonster barnacle;
+		edict_t *pBarnacleSlot = GetMockClientEntity( 4 );
+		pBarnacleSlot->free = 0;
+		pBarnacleSlot->v.flags = FL_MONSTER;
+		pBarnacleSlot->v.classname = MAKE_STRING( "monster_barnacle" );
+		pBarnacleSlot->v.pContainingEntity = pBarnacleSlot;
+		pBarnacleSlot->pvPrivateData = &barnacle;
+		barnacle.pev = &pBarnacleSlot->v;
+		barnacle.pev->deadflag = DEAD_NO;
+		barnacle.pev->takedamage = DAMAGE_AIM;
+
+		rules.SetWaveMonstersTotal( 1 );
+		rules.SetWaveMonstersKilled( 0 );
+		CHECK( rules.AreWaveHostilesEliminated() == false );
+
+		// Killing barnacle triggers MonsterKilled and sets deadflag
+		rules.MonsterKilled( &barnacle, pPlayer->pev, pPlayer->pev );
+		barnacle.pev->deadflag = DEAD_DEAD;
+		barnacle.pev->takedamage = DAMAGE_NO;
+
+		CHECK( rules.GetWaveMonstersKilled() == 1 );
+		CHECK( rules.AreWaveHostilesEliminated() == true );
+		CHECK( rules.GetWaveMonstersRemaining() == 0 );
+
+		bool bCompleted = finishTrigger.FinishTouch( pPlayer, &rules );
+		CHECK( bCompleted == true );
+	}
+
+	g_pGameRules = nullptr;
+}
+
+

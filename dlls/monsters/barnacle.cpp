@@ -23,6 +23,9 @@
 #include "ai/schedule.h"
 
 #include "monsters/barnacle.h"
+#include "gameplay/gamerules.h"
+
+extern entvars_t *g_pevLastInflictor;
 
 LINK_ENTITY_TO_CLASS( monster_barnacle, CBarnacle );
 
@@ -330,6 +333,19 @@ void CBarnacle ::Killed( entvars_t *pevAttacker, int iGib )
 
 	StudioFrameAdvance( 0.1 );
 
+	pev->deadflag = DEAD_DYING;
+
+	CBaseEntity *pOwner = CBaseEntity::Instance( pev->owner );
+	if ( pOwner )
+	{
+		pOwner->DeathNotice( pev );
+	}
+
+	if ( g_pGameRules )
+	{
+		g_pGameRules->MonsterKilled( this, pevAttacker, g_pevLastInflictor );
+	}
+
 	pev->nextthink = gpGlobals->time + 0.1;
 	SetThink( &CBarnacle::WaitTillDead );
 }
@@ -346,6 +362,7 @@ void CBarnacle ::WaitTillDead( void )
 	if ( m_fSequenceFinished )
 	{
 		// death anim finished.
+		pev->deadflag = DEAD_DEAD;
 		StopAnimation();
 		SetThink( NULL );
 	}

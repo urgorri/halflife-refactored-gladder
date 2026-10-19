@@ -1,4 +1,4 @@
-﻿/***
+/***
  *
  *	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
  *
@@ -81,7 +81,7 @@ void CHornet ::Spawn( void )
 	if ( RANDOM_LONG( 1, 5 ) <= 2 )
 	{
 		m_iHornetType = HORNET_TYPE_RED;
-		m_flFlySpeed  = HORNET_RED_SPEED;
+		m_flFlySpeed  = ( pev->owner && ( pev->owner->v.flags & FL_MONSTER ) ) ? gSkillData.agruntHornetSpeed : HORNET_RED_SPEED;
 	}
 	else
 	{

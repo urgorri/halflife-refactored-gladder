@@ -7,6 +7,7 @@
 
 #include "gladder_entities.h"
 #include "gladder_rules.h"
+#include "gladder_audio.h"
 #include <cstdio>
 #include <cstdlib>
 
@@ -285,6 +286,40 @@ void CTriggerGladderFinish::CreateClipBrush( void )
 	}
 }
 
+void CTriggerGladderFinish::KeyValue( KeyValueData *pkvd )
+{
+	if ( FStrEq( pkvd->szKeyName, "cleartarget" ) )
+	{
+		m_iszClearTarget = ALLOC_STRING( pkvd->szValue );
+		pkvd->fHandled = TRUE;
+	}
+	else
+	{
+		CBaseTrigger::KeyValue( pkvd );
+	}
+}
+
+void CTriggerGladderFinish::FireClearTarget( CBaseEntity *pActivator )
+{
+	if ( !FStringNull( m_iszClearTarget ) )
+	{
+		FireTargets( STRING( m_iszClearTarget ), pActivator, this, USE_TOGGLE, 0 );
+	}
+}
+
+void Gladder_FireClearTargets( CBaseEntity *pActivator )
+{
+	CBaseEntity *pEnt = nullptr;
+	while ( ( pEnt = UTIL_FindEntityByClassname( pEnt, "trigger_gladder_finish" ) ) != nullptr )
+	{
+		CTriggerGladderFinish *pFinish = dynamic_cast<CTriggerGladderFinish *>( pEnt );
+		if ( pFinish )
+		{
+			pFinish->FireClearTarget( pActivator );
+		}
+	}
+}
+
 void CTriggerGladderFinish::FinishTouch( CBaseEntity *pOther )
 {
 	if ( !pOther )
@@ -295,6 +330,32 @@ void CTriggerGladderFinish::FinishTouch( CBaseEntity *pOther )
 	{
 		if ( !UTIL_IsMasterTriggered( m_sMaster, pOther ) )
 			return;
+
+		CGladderRules *pGladderRules = dynamic_cast<CGladderRules *>( g_pGameRules );
+		if ( pGladderRules && !pGladderRules->AreWaveHostilesEliminated() )
+		{
+			// Wave completion denied: living hostiles remain (SPEC §2, Issue #118)
+			int iRemaining = pGladderRules->GetWaveMonstersRemaining();
+			float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+			if ( flTime >= m_flNextDenySoundTime )
+			{
+				m_flNextDenySoundTime = flTime + 1.0f;
+				GladderAudio::PlayCue( GLADDER_CUE_DENY, pOther );
+				ClientPrint( pOther->pev, HUD_PRINTCENTER, UTIL_VarArgs( "OBJECTIVE INCOMPLETE: ELIMINATE ALL HOSTILES FIRST (%d REMAINING)", iRemaining ) );
+			}
+
+			// Push player slightly back from trigger bounds so they do not remain stuck in the brush
+			Vector vecCenter = ( pev->absmin + pev->absmax ) * 0.5f;
+			Vector vecDir = pOther->pev->origin - vecCenter;
+			vecDir.z = 0.0f;
+			if ( vecDir.Length() > 0.001f )
+				vecDir = vecDir.Normalize();
+			else
+				vecDir = Vector( -1.0f, 0.0f, 0.0f );
+
+			pOther->pev->velocity = vecDir * 250.0f;
+			return;
+		}
 
 		DoFinish( pOther );
 		return;
@@ -320,7 +381,7 @@ void CTriggerGladderFinish::FinishUse( CBaseEntity *pActivator, CBaseEntity *pCa
 {
 	if ( pActivator && pActivator->IsPlayer() )
 	{
-		DoFinish( pActivator );
+		FinishTouch( pActivator );
 	}
 }
 

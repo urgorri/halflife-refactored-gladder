@@ -35,12 +35,14 @@ extern int gmsgGladderGridDebug;
 #define GLADDER_MSG_GRID_DEBUG_SIZE -1
 
 // Fixed sizes for network messages (-1 means variable, or exact byte count)
-// GladderWave wire format (7 bytes total):
+// GladderWave wire format (11 bytes total):
 //   WRITE_BYTE  iState                  (1 byte)
 //   WRITE_SHORT iWaveNumber             (2 bytes)
 //   WRITE_COORD flSessionTimeRemaining  (2 bytes — GoldSrc WRITE_COORD is a scaled short)
 //   WRITE_COORD flLapTime               (2 bytes)
-#define GLADDER_MSG_WAVE_SIZE 7
+//   WRITE_SHORT iWaveMonstersKilled     (2 bytes)
+//   WRITE_SHORT iWaveMonstersTotal      (2 bytes)
+#define GLADDER_MSG_WAVE_SIZE 11
 
 // GladderTelemetry wire format (12 bytes total):
 //   WRITE_COORD flFastestLap    (2 bytes)

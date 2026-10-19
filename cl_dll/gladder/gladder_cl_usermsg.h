@@ -16,10 +16,18 @@
 
 struct GladderWaveMsg
 {
-	int iWaveState              = 0;
-	int iWaveNumber             = 1;
-	float flSessionTimeRemaining = 0.0f;
-	float flLapTime             = 0.0f;
+	int iWaveState;
+	int iWaveNumber;
+	float flSessionTimeRemaining;
+	float flLapTime;
+	int iMonstersKilled;
+	int iMonstersTotal;
+
+	GladderWaveMsg()
+	    : iWaveState( 0 ), iWaveNumber( 1 ), flSessionTimeRemaining( 0.0f ),
+	      flLapTime( 0.0f ), iMonstersKilled( 0 ), iMonstersTotal( 0 )
+	{
+	}
 };
 
 struct GladderTelemetryMsg

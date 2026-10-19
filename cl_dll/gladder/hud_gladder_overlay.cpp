@@ -122,6 +122,16 @@ int CHudGladderOverlay::MsgFunc_GladderWave( const char *pszName, int iSize, voi
 	m_iWaveNumber     = READ_SHORT();
 	m_flTimeRemaining = READ_COORD();
 	m_flLapTime       = READ_COORD();
+	if ( iSize >= 11 )
+	{
+		m_iHostilesKilled = READ_SHORT();
+		m_iHostilesTotal  = READ_SHORT();
+	}
+	else
+	{
+		m_iHostilesKilled = 0;
+		m_iHostilesTotal  = 0;
+	}
 
 	// Purge dynamic combat decals whenever an active wave completes (SPEC §11.3, Issue #49).
 	// In Gladder gameplay, completing a wave transitions FROM GLADDER_STATE_WAVE_ACTIVE (1) to
@@ -146,6 +156,17 @@ int CHudGladderOverlay::MsgFunc_GladderWave( const char *pszName, int iSize, voi
 	{
 		const unsigned char *pData = static_cast<const unsigned char *>( pbuf );
 		int iNewWaveState = pData[0];
+		if ( iSize >= 11 )
+		{
+			m_iHostilesKilled = static_cast<int>( pData[7] | ( pData[8] << 8 ) );
+			m_iHostilesTotal  = static_cast<int>( pData[9] | ( pData[10] << 8 ) );
+		}
+		else
+		{
+			m_iHostilesKilled = 0;
+			m_iHostilesTotal  = 0;
+		}
+
 		bool bActiveWaveFinished = ( m_iWaveState == GLADDER_STATE_WAVE_ACTIVE &&
 		                             ( iNewWaveState == GLADDER_STATE_WAITING_FOR_START ||
 		                               iNewWaveState == GLADDER_STATE_WAVE_COMPLETED ||
@@ -238,7 +259,23 @@ int CHudGladderOverlay::Draw( float flTime )
 	DrawConsoleString( x, y, szBuf );
 	y += 16;
 
-	// 4. Collectibles Counter (SPEC §9.1)
+	// 4. Active Wave Hostiles Counter (SPEC §2, §9.1, Issue #118)
+	// Rendered on the HUD strictly while a wave is actively running (GLADDER_STATE_WAVE_ACTIVE = 1)
+	if ( m_iWaveState == 1 )
+	{
+		if ( m_iHostilesTotal > 0 && m_iHostilesKilled >= m_iHostilesTotal )
+		{
+			sprintf( szBuf, "HOSTILES: %d / %d [CLEARED]", m_iHostilesKilled, m_iHostilesTotal );
+		}
+		else
+		{
+			sprintf( szBuf, "HOSTILES: %d / %d", m_iHostilesKilled, m_iHostilesTotal );
+		}
+		DrawConsoleString( x, y, szBuf );
+		y += 16;
+	}
+
+	// 5. Collectibles Counter (SPEC §9.1)
 	sprintf( szBuf, "COLLECTIBLES: %02d", m_iCollectibles );
 	DrawConsoleString( x, y, szBuf );
 	y += 16;

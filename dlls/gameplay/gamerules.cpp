@@ -108,6 +108,16 @@ BOOL CGameRules::CanHavePlayerItem( CBasePlayer *pPlayer, CBasePlayerItem *pWeap
 	return TRUE;
 }
 
+// Register default behavioral parameters for monster difficulty scaling
+REGISTER_SKILL_DEFAULT( sk_houndeye_cast_speed, 1.0f, 1.0f, 1.0f );
+REGISTER_SKILL_DEFAULT( sk_bullsquid_spit_spread, 0.05f, 0.05f, 0.05f );
+REGISTER_SKILL_DEFAULT( sk_headcrab_jump_speed, 650.0f, 650.0f, 650.0f );
+REGISTER_SKILL_DEFAULT( sk_headcrab_attack_range, 256.0f, 256.0f, 256.0f );
+REGISTER_SKILL_DEFAULT( sk_headcrab_move_speed, 1.0f, 1.0f, 1.0f );
+REGISTER_SKILL_DEFAULT( sk_zombie_move_speed, 1.0f, 1.0f, 1.0f );
+REGISTER_SKILL_DEFAULT( sk_islave_cast_speed, 1.0f, 1.0f, 1.5f );
+REGISTER_SKILL_DEFAULT( sk_agrunt_hornet_speed, 600.0f, 600.0f, 600.0f );
+
 //=========================================================
 // load the SkillData struct with the proper values based on the skill level.
 //=========================================================
@@ -129,6 +139,7 @@ void CGameRules::RefreshSkillData( void )
 
 	gSkillData.iSkillLevel = iSkill;
 
+	SkillManager::RegisterBuiltinDefaults();
 	SkillManager::InvalidateCache();
 	SkillManager::SetSkillLevel( iSkill );
 
@@ -305,6 +316,16 @@ void CGameRules::RefreshSkillData( void )
 	gSkillData.plrStomach = GetSkillCvar( "sk_player_stomach" );
 	gSkillData.plrLeg     = GetSkillCvar( "sk_player_leg" );
 	gSkillData.plrArm     = GetSkillCvar( "sk_player_arm" );
+
+	// Monster behavioral attributes (difficulty-scaled)
+	gSkillData.houndeyeCastSpeed   = SkillManager::Query( "sk_houndeye_cast_speed", 1.0f );
+	gSkillData.bullsquidSpitSpread = SkillManager::Query( "sk_bullsquid_spit_spread", 0.05f );
+	gSkillData.headcrabJumpSpeed   = SkillManager::Query( "sk_headcrab_jump_speed", 650.0f );
+	gSkillData.headcrabAttackRange = SkillManager::Query( "sk_headcrab_attack_range", 256.0f );
+	gSkillData.headcrabMoveSpeed   = SkillManager::Query( "sk_headcrab_move_speed", 1.0f );
+	gSkillData.zombieMoveSpeed     = SkillManager::Query( "sk_zombie_move_speed", 1.0f );
+	gSkillData.slaveCastSpeed      = SkillManager::Query( "sk_islave_cast_speed", ( gSkillData.iSkillLevel == SKILL_HARD ) ? 1.5f : 1.0f );
+	gSkillData.agruntHornetSpeed   = SkillManager::Query( "sk_agrunt_hornet_speed", 600.0f );
 }
 
 //=========================================================

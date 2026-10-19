@@ -20,12 +20,12 @@
 #define WEAPON_SNIPER     19
 #define WEAPON_M249       20
 
-// Weapon Weights for autoselection priority
-#define PIPEWRENCH_WEIGHT 10
-#define KNIFE_WEIGHT      5
-#define EAGLE_WEIGHT      15
-#define SNIPER_WEIGHT     20
-#define M249_WEIGHT       25
+// Weapon Weights for autoselection priority (SPEC §7.13, Issue #119)
+#define SNIPER_WEIGHT     30
+#define M249_WEIGHT       28
+#define KNIFE_WEIGHT      24
+#define PIPEWRENCH_WEIGHT 22
+#define EAGLE_WEIGHT      18
 
 // HUD Selection Grid Slots & Positions (SPEC §7.13, Issue #96)
 #define PIPEWRENCH_SLOT     0

@@ -211,6 +211,16 @@ class CGladderRules : public CHalfLifeRules
 	size_t GetSummaryCameraCount( void ) const { return m_summaryCameras.size(); }
 	size_t GetCurrentSummaryCameraIndex( void ) const { return m_iCurrentSummaryCameraIndex; }
 
+	// Wave hostile tracking & finish gate enforcement (SPEC §2, §9.1, Issue #118)
+	int GetWaveMonstersTotal( void ) const { return m_iWaveMonstersTotal; }
+	int GetWaveMonstersKilled( void ) const { return m_iWaveMonstersKilled; }
+	int GetWaveMonstersRemaining( void ) const { return ( m_iWaveMonstersTotal > m_iWaveMonstersKilled ) ? ( m_iWaveMonstersTotal - m_iWaveMonstersKilled ) : 0; }
+	bool AreWaveHostilesEliminated( void ) const;
+	void SetWaveMonstersTotal( int count ) { m_iWaveMonstersTotal = count; }
+	void SetWaveMonstersKilled( int count ) { m_iWaveMonstersKilled = count; }
+	void CheckAllHostilesEliminated( CBaseEntity *pActivator = nullptr );
+	int CountLivingWaveHostiles( void ) const;
+
   private:
 	CGladderWaveManager m_waveManager;
 	GladderGridIndexer m_gridIndexer;
@@ -242,6 +252,9 @@ class CGladderRules : public CHalfLifeRules
 	float m_flLastPlayerHealth;
 	float m_flLastPlayerArmor;
 	float m_flLastTelemetryBroadcast;
+	int m_iWaveMonstersTotal;
+	int m_iWaveMonstersKilled;
+	bool m_bHostilesEliminatedFired;
 };
 
 // Purges any emitted .sav files from disk to maintain clean state
