@@ -101,35 +101,6 @@ const std::vector<GladderAmmoMapping> &GetGladderAmmoMappings( void )
 	return GetStaticAmmoMappings();
 }
 
-bool GladderPickupWeightInput::IsWeaponAllowed( const char *szClassname ) const
-{
-	if ( !szClassname || !*szClassname )
-		return false;
-
-	if ( !weaponWhitelist.empty() )
-	{
-		bool found = false;
-		for ( const auto &w : weaponWhitelist )
-		{
-			if ( w == szClassname )
-			{
-				found = true;
-				break;
-			}
-		}
-		if ( !found )
-			return false;
-	}
-
-	for ( const auto &b : weaponBlacklist )
-	{
-		if ( b == szClassname )
-			return false;
-	}
-
-	return true;
-}
-
 bool GladderPickupWeightInput::HasWeapon( const char *szClassname ) const
 {
 	if ( !szClassname || !*szClassname )
@@ -278,16 +249,13 @@ std::vector<GladderWeightedPickup> ComputePickupWeights( const GladderPickupWeig
 	for ( size_t i = 0; i < ordnanceCount; ++i )
 	{
 		const auto &def = s_ordnanceDefs[i];
-		if ( input.IsWeaponAllowed( def.szClassname ) )
+		float tierW = GetOrdnanceTierWeight( def.tier, input.iWaveNumber );
+		float itemWeight = tierW * def.relativeWeight;
+		if ( itemWeight > 0.0f )
 		{
-			float tierW = GetOrdnanceTierWeight( def.tier, input.iWaveNumber );
-			float itemWeight = tierW * def.relativeWeight;
-			if ( itemWeight > 0.0f )
-			{
-				eligibleOrdnanceIndices.push_back( i );
-				ordnanceItemWeights.push_back( itemWeight );
-				sumOrdnance += itemWeight;
-			}
+			eligibleOrdnanceIndices.push_back( i );
+			ordnanceItemWeights.push_back( itemWeight );
+			sumOrdnance += itemWeight;
 		}
 	}
 
@@ -303,7 +271,7 @@ std::vector<GladderWeightedPickup> ComputePickupWeights( const GladderPickupWeig
 		for ( size_t i = 0; i < fixedWeaponCount; ++i )
 		{
 			const auto &def = s_fixedWeaponDefs[i];
-			if ( input.IsWeaponAllowed( def.szClassname ) && !input.HasWeapon( def.szClassname ) )
+			if ( !input.HasWeapon( def.szClassname ) )
 			{
 				float tierW = GetWeaponTierWeight( def.tier, input.iWaveNumber );
 				float itemWeight = tierW * def.relativeWeight;

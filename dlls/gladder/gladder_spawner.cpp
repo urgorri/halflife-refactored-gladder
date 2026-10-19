@@ -16,8 +16,6 @@
 #include <cstring>
 #include <cmath>
 #include <algorithm>
-#include <fstream>
-#include <sstream>
 
 //
 // Predefined monster roster categorized by difficulty tiers
@@ -94,7 +92,7 @@ static const GladderPickupDef s_pickupRoster[] = {
 static const size_t s_pickupRosterCount = sizeof( s_pickupRoster ) / sizeof( s_pickupRoster[0] );
 
 //
-// GladderMapConfig Implementation
+// GladderMapConfig Implementation (code-governed defaults)
 //
 GladderMapConfig::GladderMapConfig()
     : baseMonsters( 20 ),
@@ -103,169 +101,9 @@ GladderMapConfig::GladderMapConfig()
       basePickups( 10 ),
       pickupsPerWave( 1.5f ),
       maxPickups( 24 ),
-      allowBarnacles( true ),
-      allowFlying( true ),
       routeBiasFraction( 0.60f ),
       routeCorridorRadius( 512.0f )
 {
-}
-
-bool GladderMapConfig::LoadForMap( const char *pszMapName )
-{
-	if ( !pszMapName || !*pszMapName )
-		return false;
-
-	mapName = pszMapName;
-	std::string path = "gladder/maps/" + mapName + ".cfg";
-	return LoadFromFile( path.c_str() );
-}
-
-bool GladderMapConfig::LoadFromFile( const char *pszFilePath )
-{
-	if ( !pszFilePath || !*pszFilePath )
-		return false;
-
-	std::ifstream file( pszFilePath );
-	if ( !file.is_open() )
-		return false;
-
-	std::string line;
-	while ( std::getline( file, line ) )
-	{
-		// Trim leading whitespace
-		size_t first = line.find_first_not_of( " \t\r\n" );
-		if ( first == std::string::npos || line[first] == '#' || line[first] == ';' )
-			continue; // Comment or blank
-
-		std::istringstream iss( line.substr( first ) );
-		std::string key;
-		iss >> key;
-
-		if ( key == "whitelist_monster" )
-		{
-			std::string val;
-			if ( iss >> val ) monsterWhitelist.push_back( val );
-		}
-		else if ( key == "blacklist_monster" )
-		{
-			std::string val;
-			if ( iss >> val ) monsterBlacklist.push_back( val );
-		}
-		else if ( key == "whitelist_weapon" )
-		{
-			std::string val;
-			if ( iss >> val ) weaponWhitelist.push_back( val );
-		}
-		else if ( key == "blacklist_weapon" )
-		{
-			std::string val;
-			if ( iss >> val ) weaponBlacklist.push_back( val );
-		}
-		else if ( key == "base_monsters" )
-		{
-			iss >> baseMonsters;
-		}
-		else if ( key == "monsters_per_wave" )
-		{
-			iss >> monstersPerWave;
-		}
-		else if ( key == "max_monsters" )
-		{
-			iss >> maxMonsters;
-		}
-		else if ( key == "base_pickups" )
-		{
-			iss >> basePickups;
-		}
-		else if ( key == "pickups_per_wave" )
-		{
-			iss >> pickupsPerWave;
-		}
-		else if ( key == "max_pickups" )
-		{
-			iss >> maxPickups;
-		}
-		else if ( key == "allow_barnacles" )
-		{
-			int val;
-			if ( iss >> val ) allowBarnacles = ( val != 0 );
-		}
-		else if ( key == "allow_flying" )
-		{
-			int val;
-			if ( iss >> val ) allowFlying = ( val != 0 );
-		}
-		else if ( key == "route_bias_fraction" )
-		{
-			iss >> routeBiasFraction;
-		}
-		else if ( key == "route_corridor_radius" )
-		{
-			iss >> routeCorridorRadius;
-		}
-	}
-
-	return true;
-}
-
-bool GladderMapConfig::IsMonsterAllowed( const char *szClassname ) const
-{
-	if ( !szClassname || !*szClassname )
-		return false;
-
-	// Whitelist check: if non-empty, must be explicitly present
-	if ( !monsterWhitelist.empty() )
-	{
-		bool found = false;
-		for ( const auto &w : monsterWhitelist )
-		{
-			if ( w == szClassname )
-			{
-				found = true;
-				break;
-			}
-		}
-		if ( !found )
-			return false;
-	}
-
-	// Blacklist check: if present, excluded
-	for ( const auto &b : monsterBlacklist )
-	{
-		if ( b == szClassname )
-			return false;
-	}
-
-	return true;
-}
-
-bool GladderMapConfig::IsWeaponAllowed( const char *szClassname ) const
-{
-	if ( !szClassname || !*szClassname )
-		return false;
-
-	if ( !weaponWhitelist.empty() )
-	{
-		bool found = false;
-		for ( const auto &w : weaponWhitelist )
-		{
-			if ( w == szClassname )
-			{
-				found = true;
-				break;
-			}
-		}
-		if ( !found )
-			return false;
-	}
-
-	for ( const auto &b : weaponBlacklist )
-	{
-		if ( b == szClassname )
-			return false;
-	}
-
-	return true;
 }
 
 //
@@ -452,12 +290,12 @@ CBaseEntity *GladderSpawner::CreateWaveEntity( const char *szClassname, const Ve
 	return pEnt;
 }
 
-const char *GladderSpawner::RollMonsterSpecies( int iWaveNumber, const GladderMapConfig &config, bool &outIsFlying, bool &outIsBarnacle )
+const char *GladderSpawner::RollMonsterSpecies( int iWaveNumber, bool &outIsFlying, bool &outIsBarnacle )
 {
 	outIsFlying = false;
 	outIsBarnacle = false;
 
-	// Calculate cumulative probability weights for eligible monsters
+	// Calculate cumulative probability weights across all roster monsters
 	std::vector<float> weights;
 	std::vector<size_t> indices;
 	weights.reserve( s_monsterRosterCount );
@@ -468,16 +306,6 @@ const char *GladderSpawner::RollMonsterSpecies( int iWaveNumber, const GladderMa
 	for ( size_t i = 0; i < s_monsterRosterCount; ++i )
 	{
 		const auto &def = s_monsterRoster[i];
-
-		// Filter map blacklist/whitelist
-		if ( !config.IsMonsterAllowed( def.szClassname ) )
-			continue;
-
-		// Filter feature toggles
-		if ( def.isBarnacle && !config.allowBarnacles )
-			continue;
-		if ( def.isFlying && !config.allowFlying )
-			continue;
 
 		float tierW = GetMonsterTierWeight( def.tier, iWaveNumber );
 		float effectiveW = tierW * def.relativeWeight;
@@ -565,6 +393,7 @@ void GladderSpawner::RecordAmmoSpawned( const char *szPickup )
 
 const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer, bool allowFixedWeapons, const std::vector<std::string> *pExtraOwnedWeapons )
 {
+	(void)config;
 	if ( !pPlayer && gpGlobals )
 	{
 		pPlayer = (CBasePlayer *)UTIL_PlayerByIndex( 1 );
@@ -573,8 +402,6 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 	GladderPickupWeightInput input;
 	input.iWaveNumber = iWaveNumber;
 	input.allowFixedWeapons = allowFixedWeapons;
-	input.weaponWhitelist = config.weaponWhitelist;
-	input.weaponBlacklist = config.weaponBlacklist;
 
 	if ( pExtraOwnedWeapons )
 	{
@@ -645,6 +472,12 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 
 	RecordAmmoSpawned( szSelected );
 	return szSelected;
+}
+
+const GladderMonsterDef *GladderSpawner::GetMonsterRoster( size_t &outCount )
+{
+	outCount = s_monsterRosterCount;
+	return s_monsterRoster;
 }
 
 const GladderPickupDef *GladderSpawner::GetPickupRoster( size_t &outCount )
@@ -759,13 +592,23 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 		else if ( !szSwarmSpecies.empty() )
 		{
 			szSpecies = szSwarmSpecies.c_str();
+			for ( size_t r = 0; r < s_monsterRosterCount; ++r )
+			{
+				if ( strcmp( s_monsterRoster[r].szClassname, szSpecies ) == 0 )
+				{
+					szSpecies  = s_monsterRoster[r].szClassname;
+					isFlying   = s_monsterRoster[r].isFlying;
+					isBarnacle = s_monsterRoster[r].isBarnacle;
+					break;
+				}
+			}
 		}
 		else
 		{
-			szSpecies = RollMonsterSpecies( iWaveNumber, config, isFlying, isBarnacle );
+			szSpecies = RollMonsterSpecies( iWaveNumber, isFlying, isBarnacle );
 		}
 		bool isLarge = IsLargeMonster( szSpecies );
-		int hullNum = isLarge ? large_hull : human_hull;
+		int hullNum = isBarnacle ? head_hull : ( isLarge ? large_hull : human_hull );
 
 		// Select required flags for spatial candidate
 		uint32_t reqFlags = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
@@ -904,7 +747,15 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 				Vector vecSpawnPos = cell.origin;
 				if ( isBarnacle )
 				{
-					vecSpawnPos.z = cell.ceilingZ - 8.0f;
+					// Reject skybox ceilings
+					if ( POINT_CONTENTS( Vector( cell.origin.x, cell.origin.y, cell.ceilingZ ) ) == CONTENTS_SKY )
+					{
+						continue;
+					}
+					// CBarnacle::Spawn sets bounds (-16,-16,-32) to (16,16,0), with origin at the top.
+					// Place origin 1 unit below ceilingZ so top is flush with ceiling while TongueTouchEnt's
+					// downward raycast from pev->origin starts in open air.
+					vecSpawnPos.z = cell.ceilingZ - 1.0f;
 				}
 				else if ( isFlying )
 				{
@@ -967,10 +818,12 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 					continue;
 
 				// 2. Live collision clearance sweep (detect breakables, walls, other entities)
+				// For barnacles, use head_hull (32x32x36, Z in [-18, +18]) centered at vecSpawnPos.z - 18.0f
+				// so the hull top reaches vecSpawnPos.z (ceilingZ - 1.0f) without penetrating the ceiling brush.
 				Vector vecHullCheck = vecSpawnPos + Vector( 0.0f, 0.0f, 36.0f );
 				if ( isBarnacle )
 				{
-					vecHullCheck = vecSpawnPos - Vector( 0.0f, 0.0f, 16.0f );
+					vecHullCheck = vecSpawnPos - Vector( 0.0f, 0.0f, 18.0f );
 				}
 
 				TraceResult trHull;
@@ -980,9 +833,9 @@ void GladderSpawner::SpawnMonsters( int iWaveNumber, const GladderGridIndexer &i
 					continue;
 				}
 
-				// Ensure lateral clearance for ground monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37, Issue #89)
+				// Ensure lateral clearance for ground and ceiling-attached monsters so bounding box doesn't touch walls or solid brush entities (SPEC §4.3, Issue #37, Issue #89)
 				// Checks 8 directions: 4 cardinal and 4 diagonal sweeps.
-				if ( !isBarnacle && !isFlying )
+				if ( !isFlying )
 				{
 					float flRadius = isLarge ? 32.0f : 16.0f;
 					float flDiag = flRadius * 0.7071f;

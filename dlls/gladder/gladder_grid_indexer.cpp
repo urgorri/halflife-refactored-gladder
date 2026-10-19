@@ -444,7 +444,7 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	outCell.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
 	if ( bHitBreakable )
 		outCell.flags |= ( GLADDER_CELL_PICKUP_ONLY | GLADDER_CELL_NO_MONSTERS );
-	if ( trCeiling.flFraction < 1.0f )
+	if ( trCeiling.flFraction < 1.0f && POINT_CONTENTS( trCeiling.vecEndPos ) != CONTENTS_SKY )
 		outCell.flags |= GLADDER_CELL_CEILING_VALID;
 	outCell.ceilingZ = flCeilingZ;
 
