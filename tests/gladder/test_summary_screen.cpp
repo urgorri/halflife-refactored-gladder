@@ -221,16 +221,16 @@ TEST_CASE( "CHudGladderSummary: Leaderboard renders as column-aligned tabular gr
 	g_mockConsoleStrings.clear();
 	summary.Draw( 10.0f );
 
-	// Verify grid coordinates (cx = 320 for 640x480)
-	int cx = 320;
-	int tableX = cx - 230; // 90
-	int colRankX   = tableX;       // 90
-	int colScoreX  = tableX + 55;  // 145
-	int colWavesX  = tableX + 150; // 240
-	int colFragsX  = tableX + 215; // 305
-	int colTimeX   = tableX + 280; // 370
-	int colGradeX  = tableX + 350; // 440
-	int colStatusX = tableX + 410; // 500
+	// Verify grid coordinates (cx = 320 for 640x480, lbWidth = 520, tableX = 60) (SPEC §10.2, #73, #112)
+	int lbWidth = (std::max)( 520, (std::min)( 960, static_cast<int>( 640 * 0.75f ) ) );
+	int tableX    = ( 640 - lbWidth ) / 2;
+	int colRankX   = tableX;
+	int colScoreX  = tableX + static_cast<int>( lbWidth * 0.12f );
+	int colWavesX  = tableX + static_cast<int>( lbWidth * 0.32f );
+	int colFragsX  = tableX + static_cast<int>( lbWidth * 0.46f );
+	int colTimeX   = tableX + static_cast<int>( lbWidth * 0.60f );
+	int colGradeX  = tableX + static_cast<int>( lbWidth * 0.74f );
+	int colStatusX = tableX + static_cast<int>( lbWidth * 0.87f );
 
 	// Verify headers rendered at their dedicated column coordinates
 	bool foundRankHeader = false;
@@ -335,6 +335,108 @@ TEST_CASE( "CHudGladderSummary: gladder_restart resolves map and issues reload c
 		CHudGladderSummary::RestartMatch();
 		REQUIRE_FALSE( g_mockClientCmds.empty() );
 		CHECK( g_mockClientCmds.back() == "restart\n" );
+	}
+}
+
+TEST_CASE( "CHudGladderSummary: Summary and Leaderboard footer displays ESC shortcut (SPEC §9.2, Issue #113)", "[gladder][hud][summary][footer]" )
+{
+	ResetMockClientEngine();
+	SetMockScreenInfo( 640, 480 );
+
+	CHudGladderSummary summary;
+	summary.Init();
+
+	GladderSummaryMsg msg;
+	msg.iFinalScore = 100000;
+	msg.bSurvived   = true;
+	msg.cRankGrade  = 'A';
+	summary.SetSummaryData( msg, 10.0f );
+
+	// 1. On summary page: verify ESC footer prompt is present
+	g_mockConsoleStrings.clear();
+	summary.Draw( 10.0f );
+
+	bool foundSummaryFooter = false;
+	for ( const auto &call : g_mockConsoleStrings )
+	{
+		if ( call.text.find( "[ESC] Game Menu / Restart Match" ) != std::string::npos &&
+		     call.text.find( "[TAB] View High Scores" ) != std::string::npos )
+		{
+			foundSummaryFooter = true;
+			break;
+		}
+	}
+	CHECK( foundSummaryFooter == true );
+
+	// 2. On leaderboard page: verify ESC footer prompt is present
+	summary.ToggleLeaderboardTab();
+	g_mockConsoleStrings.clear();
+	summary.Draw( 10.0f );
+
+	bool foundLeaderboardFooter = false;
+	for ( const auto &call : g_mockConsoleStrings )
+	{
+		if ( call.text.find( "[ESC] Game Menu / Restart Match" ) != std::string::npos &&
+		     call.text.find( "[TAB] Return to Summary" ) != std::string::npos )
+		{
+			foundLeaderboardFooter = true;
+			break;
+		}
+	}
+	CHECK( foundLeaderboardFooter == true );
+}
+
+TEST_CASE( "CHudGladderSummary: Responsive multi-resolution layout scaling (SPEC §9.2, §10.2, Issue #112)", "[gladder][hud][summary][responsive]" )
+{
+	ResetMockClientEngine();
+	CHudGladderSummary summary;
+	summary.Init();
+
+	GladderSummaryMsg msg;
+	msg.iFinalScore = 150000;
+	msg.bSurvived   = true;
+	msg.cRankGrade  = 'S';
+	msg.speciesLog.push_back( { "Headcrabs", 10 } );
+	summary.SetSummaryData( msg, 10.0f );
+
+	const int testResolutions[][2] = {
+		{ 640, 480 },
+		{ 1024, 768 },
+		{ 1920, 1080 },
+		{ 2560, 1440 }
+	};
+
+	for ( const auto &res : testResolutions )
+	{
+		int w = res[0];
+		int h = res[1];
+		SetMockScreenInfo( w, h );
+
+		// 1. Verify summary multi-column layout is centered and non-overlapping
+		g_mockConsoleStrings.clear();
+		summary.Draw( 10.0f );
+
+		int col1X = -1, col2X = -1, col3X = -1;
+		for ( const auto &call : g_mockConsoleStrings )
+		{
+			if ( call.text == "-- SCORE BREAKDOWN --" ) col1X = call.x;
+			if ( call.text == "-- PACING TELEMETRY --" ) col2X = call.x;
+			if ( call.text == "-- SPECIES KILL LOG --" ) col3X = call.x;
+		}
+
+		REQUIRE( col1X > 0 );
+		REQUIRE( col2X > col1X );
+		REQUIRE( col3X > col2X );
+
+		// Verify columns are spaced with at least 150px column width
+		CHECK( ( col2X - col1X ) >= 150 );
+		CHECK( ( col3X - col2X ) >= 150 );
+
+		// Verify symmetric centering: left margin roughly equals right margin
+		int expectedContainerW = (std::max)( 560, (std::min)( 1100, static_cast<int>( w * 0.82f ) ) );
+		if ( expectedContainerW > w - 32 ) expectedContainerW = w - 32;
+		int expectedStartX = ( w - expectedContainerW ) / 2;
+		CHECK( col1X == expectedStartX );
 	}
 }
 

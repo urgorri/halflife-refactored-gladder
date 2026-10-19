@@ -52,6 +52,7 @@
 @SolidClass base(Trigger) = trigger_gladder_finish : "Gladder: Wave Finish Trigger"
 [
 	target(target_destination) : "Teleport Target Destination (Point A)"
+	cleartarget(target_destination) : "All Hostiles Eliminated Target (Optional)" : "" : "Optional entity target to fire when all monsters in the current wave are defeated (e.g. to open security blast doors revealing the finish trigger)."
 	spawnflags(flags) =
 	[
 		1 : "Monsters" : 0
@@ -79,6 +80,7 @@
 		1 : "On Wave Win / Completed (reaching Point B)"
 		2 : "On Match Over / Victory (all laps finished)"
 		3 : "On Player Death / Defeat"
+		4 : "On All Hostiles Eliminated (All wave monsters defeated)"
 	]
 ]
 
@@ -148,3 +150,27 @@
 
 @PointClass base(Targetx, RenderFields) studio("models/w_m40a1clip.mdl") = ammo_762 : "7.62mm Sniper Ammo Clip" []
 @PointClass base(Targetx, RenderFields) studio("models/w_saw_clip.mdl") = ammo_556 : "5.56mm SAW Ammo Box" []
+
+//=============================================================================
+//
+// Opposing Force Extended Monsters
+//
+//=============================================================================
+
+@PointClass base(Monster) studio("models/zombie_barney.mdl") = monster_zombie_barney : "Zombie Barney / Guard" []
+@PointClass base(Monster) studio("models/zombie_soldier.mdl") = monster_zombie_soldier : "Zombie Soldier" []
+@PointClass base(Targetname, RenderFields, Angles) studio("models/zombie_soldier.mdl") = monster_zombie_soldier_dead : "Dead Zombie Soldier" []
+@PointClass base(Monster) studio("models/gonome.mdl") = monster_gonome : "Gonome" []
+@PointClass base(Targetname, RenderFields, Angles) studio("models/gonome.mdl") = monster_gonome_dead : "Dead Gonome" []
+@PointClass base(Monster) studio("models/massn.mdl") = monster_male_assassin : "Black Ops Male Assassin" []
+@PointClass base(Targetname, Targetx) color(0 200 200) = monster_assassin_repel : "Male Assassin (Repel Down)" []
+@PointClass base(Targetname, RenderFields, Angles) studio("models/massn.mdl") = monster_massassin_dead : "Dead Male Assassin" []
+
+//=============================================================================
+//
+// Gladder Combat Hazards & Environmental Entities
+//
+//=============================================================================
+
+@PointClass base(Targetname) color(0 255 50) = squidspit_cloud : "Bullsquid Toxic Spit Cloud Hazard" []
+

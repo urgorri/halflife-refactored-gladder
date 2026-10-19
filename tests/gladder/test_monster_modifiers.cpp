@@ -9,12 +9,14 @@
 #include "core/extdll.h"
 #include "core/util.h"
 #include "core/cbase.h"
+#include "core/player.h"
 #include "ai/basemonster.h"
 #include "ai/monsters.h"
 #include "ai/schedule.h"
 #include "tests/mock_engine.h"
 #include "dlls/gladder/gladder_monster_modifiers.h"
 #include "dlls/gladder/gladder_modifiers.h"
+#include "dlls/gladder/squidspit_cloud.h"
 #include "dlls/gameplay/gamerules.h"
 
 // Test dummy monster
@@ -120,7 +122,36 @@ class CTestGladderRules : public CGameRules
 	void ClientDisconnected( edict_t *pClient ) override {}
 	float FlPlayerFallDamage( CBasePlayer *pPlayer ) override { return 0.0f; }
 	void PlayerSpawn( CBasePlayer *pPlayer ) override {}
-	void PlayerThink( CBasePlayer *pPlayer ) override {}
+	void PlayerThink( CBasePlayer *pPlayer ) override
+	{
+		if ( !pPlayer || !pPlayer->pev )
+			return;
+
+		float flCurrentTime = gpGlobals ? gpGlobals->time : 0.0f;
+		if ( pPlayer->pev->fuser4 > 0.0f && flCurrentTime >= pPlayer->pev->fuser4 )
+		{
+			pPlayer->pev->maxspeed = 0.0f;
+			pPlayer->pev->fuser4 = 0.0f;
+		}
+	}
+
+	void ApplyPlayerSlowDebuff( CBasePlayer *pPlayer, float flDuration = 1.75f, float flMaxSpeed = 175.0f )
+	{
+		if ( !pPlayer || !pPlayer->pev )
+			return;
+
+		pPlayer->pev->maxspeed = flMaxSpeed;
+		pPlayer->pev->fuser4 = ( gpGlobals ? gpGlobals->time : 0.0f ) + flDuration;
+	}
+
+	float GetPlayerSlowRemainingTime( CBasePlayer *pPlayer ) const
+	{
+		if ( !pPlayer || !pPlayer->pev || pPlayer->pev->fuser4 <= 0.0f )
+			return 0.0f;
+
+		float flCurrentTime = gpGlobals ? gpGlobals->time : 0.0f;
+		return ( pPlayer->pev->fuser4 > flCurrentTime ) ? ( pPlayer->pev->fuser4 - flCurrentTime ) : 0.0f;
+	}
 	BOOL FPlayerCanRespawn( CBasePlayer *pPlayer ) override { return TRUE; }
 	float FlPlayerSpawnTime( CBasePlayer *pPlayer ) override { return 0.0f; }
 	void PlayerRespawn( CBasePlayer *pPlayer, BOOL fCopyCorpse ) override {}
@@ -316,3 +347,132 @@ TEST_CASE( "GladderMonsterModifiers: Damage interruption during movement schedul
 		CHECK( ( mask & bits_COND_HEAVY_DAMAGE ) != 0 );
 	}
 }
+
+TEST_CASE( "GladderMonsterModifiers: Difficulty-scaled combat parameters across Skill 1, 2, 3 (SPEC §3, Issue #116)", "[gladder][difficulty][monsters]" )
+{
+	SECTION( "Locomotion and sprint framerate scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetDifficultyFramerateMultiplier( SKILL_EASY ) == Catch::Approx( 1.00f ) );
+		CHECK( GladderMonsterModifiers::GetDifficultyFramerateMultiplier( SKILL_MEDIUM ) == Catch::Approx( 1.25f ) );
+		CHECK( GladderMonsterModifiers::GetDifficultyFramerateMultiplier( SKILL_HARD ) == Catch::Approx( 1.50f ) );
+	}
+
+	SECTION( "Bullsquid projectile accuracy spread tightening across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetBullsquidSpitSpread( SKILL_EASY ) == Catch::Approx( 0.050f ) );
+		CHECK( GladderMonsterModifiers::GetBullsquidSpitSpread( SKILL_MEDIUM ) == Catch::Approx( 0.025f ) );
+		CHECK( GladderMonsterModifiers::GetBullsquidSpitSpread( SKILL_HARD ) == Catch::Approx( 0.000f ) );
+	}
+
+	SECTION( "Bullsquid toxic cloud persistence scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetToxicCloudDuration( SKILL_EASY ) == Catch::Approx( 3.0f ) );
+		CHECK( GladderMonsterModifiers::GetToxicCloudDuration( SKILL_MEDIUM ) == Catch::Approx( 4.0f ) );
+		CHECK( GladderMonsterModifiers::GetToxicCloudDuration( SKILL_HARD ) == Catch::Approx( 5.0f ) );
+	}
+
+	SECTION( "Heavy monster pain flinch stun resistance scaling across skills" )
+	{
+		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_EASY ) == Catch::Approx( 0.00f ) );
+		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_MEDIUM ) == Catch::Approx( 0.15f ) );
+		CHECK( GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( SKILL_HARD ) == Catch::Approx( 0.30f ) );
+	}
+}
+
+TEST_CASE( "SquidSpitCloud: Toxic cloud lifecycle, duration, and periodic area denial damage (SPEC §3, Issue #116)", "[gladder][squidspit_cloud]" )
+{
+	if ( !gpGlobals )
+	{
+		static globalvars_t s_mockGlobals;
+		gpGlobals = &s_mockGlobals;
+	}
+	gpGlobals->time = 100.0f;
+	g_iSkillLevel = SKILL_HARD;
+
+	SECTION( "Create factory initializes cloud duration, position and classname" )
+	{
+		CSquidSpitCloud *pCloud = CSquidSpitCloud::Create( Vector( 200, 300, 50 ), 4.5f );
+		REQUIRE( pCloud != nullptr );
+		CHECK( pCloud->pev != nullptr );
+		CHECK( std::string( STRING( pCloud->pev->classname ) ) == "squidspit_cloud" );
+		CHECK( pCloud->pev->origin.x == Catch::Approx( 200.0f ) );
+		CHECK( pCloud->pev->origin.y == Catch::Approx( 300.0f ) );
+		CHECK( pCloud->pev->origin.z == Catch::Approx( 50.0f ) );
+		CHECK( pCloud->GetDieTime() == Catch::Approx( 104.5f ) );
+
+		// Default duration from skill level
+		CSquidSpitCloud *pCloudSkill = CSquidSpitCloud::Create( Vector( 0, 0, 0 ), 0.0f );
+		REQUIRE( pCloudSkill != nullptr );
+		CHECK( pCloudSkill->GetDieTime() == Catch::Approx( 105.0f ) ); // Skill 3 duration is 5.0s
+	}
+
+	SECTION( "CloudThink removes entity when expiry timestamp is reached" )
+	{
+		CSquidSpitCloud *pCloud = CSquidSpitCloud::Create( Vector( 0, 0, 0 ), 3.0f );
+		REQUIRE( pCloud != nullptr );
+
+		// Advance past dieTime
+		gpGlobals->time = 104.0f;
+		pCloud->CloudThink();
+		CHECK( ( pCloud->pev->flags & FL_KILLME ) != 0 );
+	}
+}
+
+TEST_CASE( "CGladderRules: Player slow debuff application, duration query, and recovery tick (SPEC §3, Issue #116)", "[gladder][rules][slow_debuff]" )
+{
+	if ( !gpGlobals )
+	{
+		static globalvars_t s_mockGlobals;
+		gpGlobals = &s_mockGlobals;
+	}
+	gpGlobals->time = 50.0f;
+
+	// Mock player entity
+	struct MockPlayerObj
+	{
+		alignas( CBasePlayer ) uint8_t storage[sizeof( CBasePlayer )];
+		entvars_t v;
+		MockPlayerObj()
+		{
+			std::memset( storage, 0, sizeof( storage ) );
+			std::memset( &v, 0, sizeof( v ) );
+			CBaseEntity baseEnt;
+			std::memcpy( storage, &baseEnt, sizeof( CBaseEntity ) );
+			player()->pev = &v;
+			v.flags = FL_CLIENT;
+		}
+		CBasePlayer *player() { return reinterpret_cast<CBasePlayer *>( storage ); }
+	};
+
+	MockPlayerObj mockPlayer;
+	CBasePlayer *pPlayer = mockPlayer.player();
+
+	CTestGladderRules rules;
+
+	// Initial player state
+	CHECK( pPlayer->pev->maxspeed == 0.0f );
+	CHECK( pPlayer->pev->fuser4 == 0.0f );
+	CHECK( rules.GetPlayerSlowRemainingTime( pPlayer ) == 0.0f );
+
+	// Apply slow debuff: 1.75s duration, 175.0 maxspeed
+	rules.ApplyPlayerSlowDebuff( pPlayer, 1.75f, 175.0f );
+	CHECK( pPlayer->pev->maxspeed == Catch::Approx( 175.0f ) );
+	CHECK( pPlayer->pev->fuser4 == Catch::Approx( 51.75f ) );
+	CHECK( rules.GetPlayerSlowRemainingTime( pPlayer ) == Catch::Approx( 1.75f ) );
+
+	// Advance time by 0.75s
+	gpGlobals->time = 50.75f;
+	CHECK( rules.GetPlayerSlowRemainingTime( pPlayer ) == Catch::Approx( 1.0f ) );
+
+	// PlayerThink should not expire debuff early
+	rules.PlayerThink( pPlayer );
+	CHECK( pPlayer->pev->maxspeed == Catch::Approx( 175.0f ) );
+
+	// Advance time past expiration (1.75s)
+	gpGlobals->time = 52.0f;
+	rules.PlayerThink( pPlayer );
+	CHECK( pPlayer->pev->maxspeed == 0.0f );
+	CHECK( pPlayer->pev->fuser4 == 0.0f );
+	CHECK( rules.GetPlayerSlowRemainingTime( pPlayer ) == 0.0f );
+}
+

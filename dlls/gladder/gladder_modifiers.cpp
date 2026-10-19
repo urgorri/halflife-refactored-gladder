@@ -7,6 +7,7 @@
  ****/
 
 #include "gladder_modifiers.h"
+#include "gladder_palette.h"
 #include "gladder_audio.h"
 #include "systems/chargers.h"
 #include "core/skill_manager.h"
@@ -81,9 +82,9 @@ void GladderModifiers::MakeEliteChampion( CBaseMonster *pMonster )
 	if ( !pMonster || !pMonster->pev )
 		return;
 
-	// Glowing red shell visual cue
+	// Glowing red shell visual cue (SPEC §7.2, Issue #107)
 	pMonster->pev->renderfx    = kRenderFxGlowShell;
-	pMonster->pev->rendercolor = Vector( 255, 32, 32 );
+	pMonster->pev->rendercolor = Vector( GladderPalette::Threat.r, GladderPalette::Threat.g, GladderPalette::Threat.b );
 	pMonster->pev->renderamt   = CHAMPION_GLOW_RENDERAMT;
 
 	// Enhanced health pool
@@ -101,7 +102,8 @@ bool GladderModifiers::IsEliteChampion( const CBaseMonster *pMonster )
 
 	return ( pMonster->pev->renderfx == kRenderFxGlowShell &&
 	         pMonster->pev->rendercolor.x >= 200.0f &&
-	         pMonster->pev->rendercolor.y <= 64.0f );
+	         pMonster->pev->rendercolor.y <= 64.0f &&
+	         pMonster->pev->rendercolor.z <= 64.0f );
 }
 
 float GladderModifiers::CalculateHealthChargerCapacity( int iWaveNumber, float flBaseCapacity )
@@ -134,9 +136,9 @@ void GladderModifiers::RechargeWallStations( void )
 			pCharger->pev->frame = 0;
 		}
 
-		// Vibrant Green glow shell for active health chargers (SPEC §3, §7.2, Issue #46)
+		// Vibrant Green glow shell for active health chargers (SPEC §3, §7.2, Issues #46, #107)
 		pCharger->pev->renderfx = kRenderFxGlowShell;
-		pCharger->pev->rendercolor = Vector( 32, 255, 32 );
+		pCharger->pev->rendercolor = Vector( GladderPalette::Health.r, GladderPalette::Health.g, GladderPalette::Health.b );
 		pCharger->pev->renderamt = 16;
 	}
 
@@ -154,9 +156,9 @@ void GladderModifiers::RechargeWallStations( void )
 			pCharger->pev->frame = 0;
 		}
 
-		// Vibrant Golden-Amber / Orange glow shell for active HEV suit chargers (SPEC §3, §7.2, Issue #46)
+		// Bright Cyan glow shell for active HEV suit chargers (SPEC §3, §7.2, Issues #46, #107)
 		pCharger->pev->renderfx = kRenderFxGlowShell;
-		pCharger->pev->rendercolor = Vector( 255, 140, 20 );
+		pCharger->pev->rendercolor = Vector( GladderPalette::Shield.r, GladderPalette::Shield.g, GladderPalette::Shield.b );
 		pCharger->pev->renderamt = 16;
 	}
 }
@@ -181,7 +183,7 @@ void GladderModifiers::UpdateWallStations( void )
 			if ( pCharger->pev->renderfx != kRenderFxGlowShell )
 			{
 				pCharger->pev->renderfx = kRenderFxGlowShell;
-				pCharger->pev->rendercolor = Vector( 32, 255, 32 );
+				pCharger->pev->rendercolor = Vector( GladderPalette::Health.r, GladderPalette::Health.g, GladderPalette::Health.b );
 				pCharger->pev->renderamt = 16;
 			}
 		}
@@ -205,7 +207,7 @@ void GladderModifiers::UpdateWallStations( void )
 			if ( pCharger->pev->renderfx != kRenderFxGlowShell )
 			{
 				pCharger->pev->renderfx = kRenderFxGlowShell;
-				pCharger->pev->rendercolor = Vector( 255, 140, 20 );
+				pCharger->pev->rendercolor = Vector( GladderPalette::Shield.r, GladderPalette::Shield.g, GladderPalette::Shield.b );
 				pCharger->pev->renderamt = 16;
 			}
 		}
@@ -222,6 +224,10 @@ const char *GladderModifiers::GetMutatorName( void ) const
 			return "LOW GRAVITY (XEN PHYSICS)";
 		case GLADDER_MUTATOR_SWARM:
 			return "SWARM HORDE";
+		case GLADDER_MUTATOR_ELITE_SURGE:
+			return "ELITE SURGE";
+		case GLADDER_MUTATOR_BIG_MOMMA:
+			return "BIG MOMMA";
 		default:
 			return "STANDARD";
 	}
@@ -239,8 +245,8 @@ GladderMutatorType GladderModifiers::RollAndApplyWaveMutator( int iWaveNumber )
 		return GLADDER_MUTATOR_NONE;
 	}
 
-	// Roll evenly between Blackout, Low Gravity, and Swarm
-	int roll = RANDOM_LONG( 1, 3 );
+	// Roll evenly between Blackout, Low Gravity, Swarm, Elite Surge, and Big Momma (SPEC §3, Issue #108)
+	int roll = RANDOM_LONG( 1, 5 );
 	GladderMutatorType rolledMutator = static_cast<GladderMutatorType>( roll );
 
 	ApplyMutator( rolledMutator, iWaveNumber );
@@ -283,6 +289,16 @@ void GladderModifiers::ApplyMutator( GladderMutatorType mutator, int iWaveNumber
 			m_szSwarmSpecies = s_swarmCandidates[idx];
 			ALERT( at_console, "[Gladder] Mutator ACTIVE: Swarm Horde (%s) at wave %d\n",
 			       m_szSwarmSpecies.c_str(), iWaveNumber );
+			break;
+		}
+		case GLADDER_MUTATOR_ELITE_SURGE:
+		{
+			ALERT( at_console, "[Gladder] Mutator ACTIVE: Elite Surge at wave %d\n", iWaveNumber );
+			break;
+		}
+		case GLADDER_MUTATOR_BIG_MOMMA:
+		{
+			ALERT( at_console, "[Gladder] Mutator ACTIVE: Big Momma Boss Battle at wave %d\n", iWaveNumber );
 			break;
 		}
 		default:

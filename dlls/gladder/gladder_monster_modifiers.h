@@ -42,6 +42,18 @@ class GladderMonsterModifiers
 
 	// Determine if a schedule or monster represents an active movement/chase state
 	static bool IsMovementSchedule( Schedule_t *pSchedule, CBaseMonster *pMonster = nullptr );
+
+	// Difficulty-scaled framerate multiplier for walking/running zombies & monsters (SPEC §3, Issue #116)
+	static float GetDifficultyFramerateMultiplier( int iSkillLevel );
+
+	// Difficulty-scaled Bullsquid spit spread (SPEC §3, Issue #116)
+	static float GetBullsquidSpitSpread( int iSkillLevel );
+
+	// Difficulty-scaled toxic cloud duration (SPEC §3, Issue #116)
+	static float GetToxicCloudDuration( int iSkillLevel );
+
+	// Difficulty-scaled heavy monster flinch recovery resistance (SPEC §3, Issue #116)
+	static float GetHeavyMonsterFlinchResistance( int iSkillLevel );
 };
 
 #endif // GLADDER_MONSTER_MODIFIERS_H

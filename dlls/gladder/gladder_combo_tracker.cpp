@@ -102,7 +102,8 @@ bool GladderComboTracker::IsValidCombatant( CBaseMonster *pVictim )
 	     FClassnameIs( pVictim->pev, "grenade" ) ||
 	     FClassnameIs( pVictim->pev, "hornet" ) ||
 	     FClassnameIs( pVictim->pev, "bolt" ) ||
-	     FClassnameIs( pVictim->pev, "rpg_rocket" ) )
+	     FClassnameIs( pVictim->pev, "rpg_rocket" ) ||
+	     FClassnameIs( pVictim->pev, "gonomeguts" ) )
 	{
 		return false;
 	}
@@ -230,6 +231,9 @@ std::string GladderComboTracker::GetFriendlySpeciesName( const std::string &clas
 		{ "monster_headcrab",          "Headcrabs" },
 		{ "monster_babycrab",          "Baby Headcrabs" },
 		{ "monster_zombie",            "Zombies" },
+		{ "monster_zombie_barney",     "Zombie Guards" },
+		{ "monster_zombie_soldier",    "Zombie Soldiers" },
+		{ "monster_gonome",            "Gonomes" },
 		{ "monster_houndeye",          "Houndeyes" },
 		{ "monster_bullchicken",       "Bullsquids" },
 		{ "monster_alien_slave",       "Vortigaunts" },
@@ -237,6 +241,7 @@ std::string GladderComboTracker::GetFriendlySpeciesName( const std::string &clas
 		{ "monster_alien_grunt",       "Alien Grunts" },
 		{ "monster_human_grunt",       "HECU Grunts" },
 		{ "monster_human_assassin",    "Black Ops Assassins" },
+		{ "monster_male_assassin",     "Male Assassins" },
 		{ "monster_alien_controller",  "Alien Controllers" },
 		{ "monster_gargantua",         "Gargantuas" },
 		{ "monster_bigmomma",          "Big Mommas" },

@@ -120,6 +120,11 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_eagle.o \
 	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_sniper.o \
 	$(HLDLL_OBJ_DIR)/gladder/weapons/weapon_m249.o \
+	$(HLDLL_OBJ_DIR)/gladder/monster_zombie_barney.o \
+	$(HLDLL_OBJ_DIR)/gladder/monster_zombie_soldier.o \
+	$(HLDLL_OBJ_DIR)/gladder/monster_gonome.o \
+	$(HLDLL_OBJ_DIR)/gladder/monster_male_assassin.o \
+	$(HLDLL_OBJ_DIR)/gladder/squidspit_cloud.o \
 	$(HLDLL_OBJ_DIR)/monsters/gargantua.o \
 	$(HLDLL_OBJ_DIR)/weapons/weapon_gauss.o \
 	$(HLDLL_OBJ_DIR)/monsters/genericmonster.o \

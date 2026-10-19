@@ -13,6 +13,7 @@
 #include "common/entity_types.h"
 #include "external/catch2/catch_amalgamated.hpp"
 #include "cl_dll/gladder/gladder_visuals.h"
+#include "gladder_palette.h"
 
 TEST_CASE( "GladderVisuals: ClassifyPickupModel categorization (SPEC §7.2)", "[gladder][visuals]" )
 {
@@ -189,9 +190,9 @@ TEST_CASE( "GladderVisuals: Wall charger qualification for glow shell (SPEC §3,
 
 	SECTION( "Active HealthCharger qualifies for glow shell" )
 	{
-		ent.curstate.rendercolor.r = 32;
+		ent.curstate.rendercolor.r = 0;
 		ent.curstate.rendercolor.g = 255;
-		ent.curstate.rendercolor.b = 32;
+		ent.curstate.rendercolor.b = 50;
 
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == true );
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*14" ) == true );
@@ -199,43 +200,43 @@ TEST_CASE( "GladderVisuals: Wall charger qualification for glow shell (SPEC §3,
 
 	SECTION( "Active HEV suit charger qualifies for glow shell" )
 	{
-		ent.curstate.rendercolor.r = 255;
-		ent.curstate.rendercolor.g = 140;
-		ent.curstate.rendercolor.b = 20;
+		ent.curstate.rendercolor.r = 0;
+		ent.curstate.rendercolor.g = 220;
+		ent.curstate.rendercolor.b = 255;
 
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*2" ) == true );
 	}
 
 	SECTION( "Depleted wall chargers (frame == 1) do NOT qualify (extinguished)" )
 	{
-		ent.curstate.rendercolor.r = 32;
+		ent.curstate.rendercolor.r = 0;
 		ent.curstate.rendercolor.g = 255;
-		ent.curstate.rendercolor.b = 32;
+		ent.curstate.rendercolor.b = 50;
 		ent.curstate.frame = 1; // Depleted!
 
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == false );
 
-		ent.curstate.rendercolor.r = 255;
-		ent.curstate.rendercolor.g = 140;
-		ent.curstate.rendercolor.b = 20;
+		ent.curstate.rendercolor.r = 0;
+		ent.curstate.rendercolor.g = 220;
+		ent.curstate.rendercolor.b = 255;
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*2" ) == false );
 	}
 
 	SECTION( "Wall chargers with renderfx removed do NOT qualify" )
 	{
 		ent.curstate.renderfx = kRenderFxNone;
-		ent.curstate.rendercolor.r = 32;
+		ent.curstate.rendercolor.r = 0;
 		ent.curstate.rendercolor.g = 255;
-		ent.curstate.rendercolor.b = 32;
+		ent.curstate.rendercolor.b = 50;
 
 		CHECK( ShouldApplyChargerGlowShell( &ent, "*1" ) == false );
 	}
 
 	SECTION( "Non-brush models do NOT qualify even with charger colors" )
 	{
-		ent.curstate.rendercolor.r = 32;
+		ent.curstate.rendercolor.r = 0;
 		ent.curstate.rendercolor.g = 255;
-		ent.curstate.rendercolor.b = 32;
+		ent.curstate.rendercolor.b = 50;
 
 		CHECK( ShouldApplyChargerGlowShell( &ent, "models/w_medkit.mdl" ) == false );
 		CHECK( ShouldApplyChargerGlowShell( &ent, "models/player.mdl" ) == false );
@@ -286,9 +287,9 @@ TEST_CASE( "GladderVisuals: Charger glow shell tracking and depletion extinguish
 	entHealth.origin[0] = 500.0f; entHealth.origin[1] = -200.0f; entHealth.origin[2] = 64.0f;
 	entHealth.model = &mockModel;
 	entHealth.curstate.renderfx = kRenderFxGlowShell;
-	entHealth.curstate.rendercolor.r = 32;
+	entHealth.curstate.rendercolor.r = 0;
 	entHealth.curstate.rendercolor.g = 255;
-	entHealth.curstate.rendercolor.b = 32;
+	entHealth.curstate.rendercolor.b = 50;
 	entHealth.curstate.frame = 0; // Active
 
 	SECTION( "Active charger modifier tracks entity for glow shell rendering" )
@@ -300,9 +301,9 @@ TEST_CASE( "GladderVisuals: Charger glow shell tracking and depletion extinguish
 		REQUIRE( GladderGetActiveChargerInfo( 0, info ) == true );
 		CHECK( info.entityIndex == 42 );
 		CHECK( info.origin.x == Catch::Approx( 500.0f ) );
-		CHECK( info.r == 32 );
-		CHECK( info.g == 255 );
-		CHECK( info.b == 32 );
+		CHECK( info.r == GladderPalette::Health.r );
+		CHECK( info.g == GladderPalette::Health.g );
+		CHECK( info.b == GladderPalette::Health.b );
 		CHECK( info.mins.x == Catch::Approx( -12.0f ) );
 		CHECK( info.maxs.x == Catch::Approx( 12.0f ) );
 
@@ -420,43 +421,66 @@ TEST_CASE( "GladderVisuals: Start and finish trigger red bounding glow shell qua
 	}
 }
 
-TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct radiant blue glow shell (SPEC §3, §7.2, Issue #98)", "[gladder][visuals][ordnance]" )
+TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct neon fuchsia glow shell and pickups follow canonical palette (SPEC §3, §7.2, Issue #98, #107)", "[gladder][visuals][ordnance][palette]" )
 {
 	SECTION( "GladderGetPickupGlowColor returns correct color tuples" )
 	{
 		unsigned char r = 0, g = 0, b = 0;
 		GladderGetPickupGlowColor( GLADDER_PICKUP_ORDNANCE, r, g, b );
-		CHECK( r == 32 );
-		CHECK( g == 128 );
-		CHECK( b == 255 );
+		CHECK( r == GladderPalette::Consumables.r );
+		CHECK( g == GladderPalette::Consumables.g );
+		CHECK( b == GladderPalette::Consumables.b );
 
 		GladderGetPickupGlowColor( GLADDER_PICKUP_HEALTH, r, g, b );
-		CHECK( r == 32 );
-		CHECK( g == 255 );
-		CHECK( b == 32 );
+		CHECK( r == GladderPalette::Health.r );
+		CHECK( g == GladderPalette::Health.g );
+		CHECK( b == GladderPalette::Health.b );
 
 		GladderGetPickupGlowColor( GLADDER_PICKUP_HEV, r, g, b );
-		CHECK( r == 32 );
-		CHECK( g == 192 );
-		CHECK( b == 255 );
+		CHECK( r == GladderPalette::Shield.r );
+		CHECK( g == GladderPalette::Shield.g );
+		CHECK( b == GladderPalette::Shield.b );
 
 		GladderGetPickupGlowColor( GLADDER_PICKUP_AMMO, r, g, b );
-		CHECK( r == 255 );
-		CHECK( g == 180 );
-		CHECK( b == 20 );
+		CHECK( r == GladderPalette::Ammunition.r );
+		CHECK( g == GladderPalette::Ammunition.g );
+		CHECK( b == GladderPalette::Ammunition.b );
 
 		GladderGetPickupGlowColor( GLADDER_PICKUP_LAMBDA, r, g, b );
-		CHECK( r == 255 );
-		CHECK( g == 140 );
-		CHECK( b == 20 );
+		CHECK( r == GladderPalette::Collectible.r );
+		CHECK( g == GladderPalette::Collectible.g );
+		CHECK( b == GladderPalette::Collectible.b );
 
 		GladderGetPickupGlowColor( GLADDER_PICKUP_WEAPON, r, g, b );
-		CHECK( r == 220 );
-		CHECK( g == 40 );
-		CHECK( b == 220 );
+		CHECK( r == GladderPalette::FixedWeapons.r );
+		CHECK( g == GladderPalette::FixedWeapons.g );
+		CHECK( b == GladderPalette::FixedWeapons.b );
 	}
 
-	SECTION( "Visual modifier applies radiant blue glow to ordnance pickups" )
+	SECTION( "All 7 canonical palette categories are mutually distinguishable (SPEC §7.2, Issue #107)" )
+	{
+		const GladderColorRGB colors[] = {
+			GladderPalette::Health,
+			GladderPalette::Shield,
+			GladderPalette::Ammunition,
+			GladderPalette::FixedWeapons,
+			GladderPalette::Consumables,
+			GladderPalette::Collectible,
+			GladderPalette::Threat
+		};
+		for ( size_t i = 0; i < 7; ++i )
+		{
+			for ( size_t j = i + 1; j < 7; ++j )
+			{
+				bool same = ( colors[i].r == colors[j].r &&
+				              colors[i].g == colors[j].g &&
+				              colors[i].b == colors[j].b );
+				CHECK_FALSE( same );
+			}
+		}
+	}
+
+	SECTION( "Visual modifier applies canonical palette glow to pickups" )
 	{
 		cl_entity_t entGrenade;
 		memset( &entGrenade, 0, sizeof( entGrenade ) );
@@ -464,9 +488,9 @@ TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct radiant blue g
 
 		GladderPickupVisualModifier( 0, &entGrenade, "models/w_grenade.mdl" );
 		CHECK( entGrenade.curstate.renderfx == kRenderFxGlowShell );
-		CHECK( entGrenade.curstate.rendercolor.r == 32 );
-		CHECK( entGrenade.curstate.rendercolor.g == 128 );
-		CHECK( entGrenade.curstate.rendercolor.b == 255 );
+		CHECK( entGrenade.curstate.rendercolor.r == GladderPalette::Consumables.r );
+		CHECK( entGrenade.curstate.rendercolor.g == GladderPalette::Consumables.g );
+		CHECK( entGrenade.curstate.rendercolor.b == GladderPalette::Consumables.b );
 
 		cl_entity_t entShotgun;
 		memset( &entShotgun, 0, sizeof( entShotgun ) );
@@ -474,9 +498,9 @@ TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct radiant blue g
 
 		GladderPickupVisualModifier( 0, &entShotgun, "models/w_shotgun.mdl" );
 		CHECK( entShotgun.curstate.renderfx == kRenderFxGlowShell );
-		CHECK( entShotgun.curstate.rendercolor.r == 220 );
-		CHECK( entShotgun.curstate.rendercolor.g == 40 );
-		CHECK( entShotgun.curstate.rendercolor.b == 220 );
+		CHECK( entShotgun.curstate.rendercolor.r == GladderPalette::FixedWeapons.r );
+		CHECK( entShotgun.curstate.rendercolor.g == GladderPalette::FixedWeapons.g );
+		CHECK( entShotgun.curstate.rendercolor.b == GladderPalette::FixedWeapons.b );
 	}
 
 	SECTION( "Snark nest weapon pickup gets arcade visuals in all states while live snark remains excluded (SPEC §7.2, Issue #101)" )
@@ -492,9 +516,9 @@ TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct radiant blue g
 		CHECK( ShouldApplyPickupVisuals( &nestFalling, "models/w_sqknest.mdl" ) );
 		GladderPickupVisualModifier( 0, &nestFalling, "models/w_sqknest.mdl" );
 		CHECK( nestFalling.curstate.renderfx == kRenderFxGlowShell );
-		CHECK( nestFalling.curstate.rendercolor.r == 32 );
-		CHECK( nestFalling.curstate.rendercolor.g == 128 );
-		CHECK( nestFalling.curstate.rendercolor.b == 255 );
+		CHECK( nestFalling.curstate.rendercolor.r == GladderPalette::Consumables.r );
+		CHECK( nestFalling.curstate.rendercolor.g == GladderPalette::Consumables.g );
+		CHECK( nestFalling.curstate.rendercolor.b == GladderPalette::Consumables.b );
 
 		// Landed state (Materialize: MOVETYPE_NONE, SOLID_TRIGGER)
 		cl_entity_t nestLanded;
@@ -506,9 +530,9 @@ TEST_CASE( "GladderVisuals: Consumable ordnance receives distinct radiant blue g
 		CHECK( ShouldApplyPickupVisuals( &nestLanded, "models/w_sqknest.mdl" ) );
 		GladderPickupVisualModifier( 0, &nestLanded, "models/w_sqknest.mdl" );
 		CHECK( nestLanded.curstate.renderfx == kRenderFxGlowShell );
-		CHECK( nestLanded.curstate.rendercolor.r == 32 );
-		CHECK( nestLanded.curstate.rendercolor.g == 128 );
-		CHECK( nestLanded.curstate.rendercolor.b == 255 );
+		CHECK( nestLanded.curstate.rendercolor.r == GladderPalette::Consumables.r );
+		CHECK( nestLanded.curstate.rendercolor.g == GladderPalette::Consumables.g );
+		CHECK( nestLanded.curstate.rendercolor.b == GladderPalette::Consumables.b );
 
 		// Dropped by player with temporary owner edict set
 		cl_entity_t nestDropped;

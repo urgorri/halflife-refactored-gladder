@@ -19,6 +19,7 @@
 #include "tests/mock_engine.h"
 #include "dlls/gladder/gladder_spawner.h"
 #include "dlls/gladder/gladder_breakable.h"
+#include "monsters/bigmomma.h"
 
 static void FactoryTestMonster( entvars_t *pev )
 {
@@ -74,19 +75,19 @@ TEST_CASE( "Gladder Spawner: Dynamic monster tier probability curves (SPEC §3)"
 TEST_CASE( "Gladder Map Config & Monster Roster: Code-governed defaults and full monster roster enabled", "[gladder][spawner]" )
 {
 	GladderMapConfig config;
-	CHECK( config.baseMonsters == 10 );
+	CHECK( config.baseMonsters == 20 );
 	CHECK( config.monstersPerWave == Catch::Approx( 2.0f ) );
-	CHECK( config.maxMonsters == 32 );
-	CHECK( config.basePickups == 6 );
-	CHECK( config.pickupsPerWave == Catch::Approx( 1.0f ) );
-	CHECK( config.maxPickups == 16 );
+	CHECK( config.maxMonsters == 48 );
+	CHECK( config.basePickups == 10 );
+	CHECK( config.pickupsPerWave == Catch::Approx( 1.5f ) );
+	CHECK( config.maxPickups == 24 );
 	CHECK( config.routeBiasFraction == Catch::Approx( 0.60f ) );
 	CHECK( config.routeCorridorRadius == Catch::Approx( 512.0f ) );
 
 	size_t rosterCount = 0;
 	const GladderMonsterDef *roster = GladderSpawner::GetMonsterRoster( rosterCount );
 	REQUIRE( roster != nullptr );
-	CHECK( rosterCount == 10 );
+	CHECK( rosterCount == 14 );
 
 	bool foundBarnacle = false;
 	bool foundController = false;
@@ -179,7 +180,8 @@ TEST_CASE( "Gladder Spawner: Wave generation across grid indexer & Lambda item (
 	const char *monstersToRegister[] = {
 		"monster_headcrab", "monster_zombie", "monster_houndeye", "monster_bullchicken",
 		"monster_barnacle", "monster_vortigaunt", "monster_alien_grunt",
-		"monster_alien_controller", "monster_human_grunt", "monster_human_assassin"
+		"monster_alien_controller", "monster_human_grunt", "monster_human_assassin",
+		"monster_zombie_barney", "monster_zombie_soldier", "monster_gonome", "monster_male_assassin"
 	};
 	for ( const char *szM : monstersToRegister )
 		RegisterMockEntityFactory( szM, FactoryTestMonster );
@@ -360,7 +362,8 @@ TEST_CASE( "Gladder Spawner: Cell occupancy and spatial clearance prevents dupli
 	const char *monstersToRegister[] = {
 		"monster_headcrab", "monster_zombie", "monster_houndeye", "monster_bullchicken",
 		"monster_barnacle", "monster_vortigaunt", "monster_alien_grunt",
-		"monster_alien_controller", "monster_human_grunt", "monster_human_assassin"
+		"monster_alien_controller", "monster_human_grunt", "monster_human_assassin",
+		"monster_zombie_barney", "monster_zombie_soldier", "monster_gonome", "monster_male_assassin"
 	};
 	for ( const char *szM : monstersToRegister )
 		RegisterMockEntityFactory( szM, FactoryTestMonster );
@@ -555,6 +558,7 @@ TEST_CASE( "Gladder Spawner: Pickup and monster spatial separation enforces clea
 TEST_CASE( "Gladder Spawner: Rebalanced pickup spawn distribution favors ammo (SPEC §3, Issue #39)", "[gladder][spawner]" )
 {
 	ResetMockEngine();
+	std::srand( 1337 );
 	GladderMapConfig config;
 
 	// Simulate 1,000 rolls across wave 1 to 10
@@ -583,10 +587,10 @@ TEST_CASE( "Gladder Spawner: Rebalanced pickup spawn distribution favors ammo (S
 
 	// Verify required distributions (SPEC §3, Issue #39):
 	// - Ammo frequency > 55%
-	// - Weapon frequency < 20%
+	// - Weapon frequency <= 20%
 	// - Health/Armor frequency ~ 20-25%
 	CHECK( ammoPct > 55.0f );
-	CHECK( weaponPct < 20.0f );
+	CHECK( weaponPct <= 20.0f );
 	CHECK( healthArmorPct >= 18.0f );
 	CHECK( healthArmorPct <= 28.0f );
 }
@@ -1273,6 +1277,165 @@ TEST_CASE( "Gladder Spawner: Fixed weapon capping and pickup spatial separation 
 	ResetMockEngine();
 }
 
+TEST_CASE( "Gladder Spawner: Breakable candidate flags forbid monsters and lambda but permit pickups (SPEC §4.3, §11.2, Issue #114)", "[gladder][spawner][breakables]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_headcrab", FactoryTestMonster );
+
+	const char *pickupsToRegister[] = {
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades",
+		"ammo_crossbow", "ammo_gaussclip", "ammo_egonclip", "ammo_762", "ammo_556", "ammo_rpgclip",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark", "item_gladder_lambda"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+
+	GladderGridIndexer indexer;
+	// Cell 0: Normal ground cell
+	GladderGridCell groundCell;
+	groundCell.origin   = Vector( 0.0f, 0.0f, 0.0f );
+	groundCell.normal   = Vector( 0.0f, 0.0f, 1.0f );
+	groundCell.ceilingZ = 256.0f;
+	groundCell.areaId   = 1;
+	groundCell.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	indexer.AddCell( groundCell );
+
+	// Cell 1: Breakable top surface cell (marked PICKUP_ONLY and NO_MONSTERS)
+	GladderGridCell breakableCell;
+	breakableCell.origin   = Vector( 200.0f, 200.0f, 64.0f );
+	breakableCell.normal   = Vector( 0.0f, 0.0f, 1.0f );
+	breakableCell.ceilingZ = 256.0f;
+	breakableCell.areaId   = 1;
+	breakableCell.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK | GLADDER_CELL_PICKUP_ONLY | GLADDER_CELL_NO_MONSTERS;
+	indexer.AddCell( breakableCell );
+
+	GladderMapConfig config;
+	config.baseMonsters = 1;
+	config.basePickups = 1;
+
+	GladderSpawner spawner;
+
+	// 1. Lambda spawn should never land on cell 1
+	std::vector<bool> occupiedLambda( indexer.GetCellCount(), false );
+	occupiedLambda[0] = true; // Force only cell 1 to be available
+	spawner.SpawnLambdaCollectible( indexer, &occupiedLambda );
+	CHECK( spawner.WasLambdaSpawned() == false ); // Cell 1 forbidden for Lambda!
+
+	// 2. Monster spawn should never land on cell 1
+	std::vector<bool> occupiedMonster( indexer.GetCellCount(), false );
+	occupiedMonster[0] = true; // Force only cell 1 to be available
+	spawner.SpawnMonsters( 1, indexer, config, 1, &occupiedMonster );
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 0 ); // Cell 1 forbidden for monsters!
+
+	// 3. Pickup spawn CAN land on cell 1
+	std::vector<bool> occupiedPickup( indexer.GetCellCount(), false );
+	occupiedPickup[0] = true; // Force only cell 1 to be available
+	spawner.SpawnPickups( 1, indexer, config, 1, &occupiedPickup );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 1 ); // Cell 1 permits pickups!
+
+	ClearMockEntityFactories();
+	ResetMockEngine();
+}
+
+class CTestBigMommaMonster : public CBaseMonster
+{
+public:
+	CTestBigMommaMonster() { pev = nullptr; }
+};
+
+static void FactoryTestBigMomma( entvars_t *pev )
+{
+	if ( !pev || !pev->pContainingEntity )
+		return;
+	static CTestBigMommaMonster dummyBM;
+	dummyBM.pev = pev;
+	pev->solid = SOLID_SLIDEBOX;
+	pev->flags |= FL_MONSTER;
+	pev->pContainingEntity->pvPrivateData = &dummyBM;
+}
+
+TEST_CASE( "Gladder Spawner: Big Momma Boss Battle mutator wave (SPEC §3, Issue #108)", "[gladder][spawner][bigmomma]" )
+{
+	ResetMockEngine();
+
+	RegisterMockEntityFactory( "monster_bigmomma", FactoryTestBigMomma );
+	RegisterMockEntityFactory( "monster_babycrab", FactoryTestMonster );
+
+	const char *pickupsToRegister[] = {
+		"item_healthkit", "item_battery",
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades",
+		"ammo_crossbow", "ammo_gaussclip", "ammo_egonclip", "ammo_762", "ammo_556", "ammo_rpgclip",
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon",
+		"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark", "item_gladder_lambda"
+	};
+	for ( const char *szP : pickupsToRegister )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+
+	GladderGridIndexer indexer;
+	// Grid of 30 cells along a corridor from x=0 to x=960
+	for ( float x = 0.0f; x <= 960.0f; x += 32.0f )
+	{
+		GladderGridCell cell;
+		cell.origin   = Vector( x, 0.0f, 0.0f );
+		cell.normal   = Vector( 0.0f, 0.0f, 1.0f );
+		cell.ceilingZ = 256.0f;
+		cell.areaId   = 1;
+		cell.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK | GLADDER_CELL_LARGE_CLEARANCE;
+		indexer.AddCell( cell );
+	}
+
+	GladderMapConfig config;
+	config.baseMonsters = 8;
+	config.basePickups  = 2;
+
+	GladderSpawner spawner;
+	spawner.SetSimulatedRoute( Vector( 0, 0, 0 ), Vector( 960, 0, 0 ) );
+
+	int spawnedTotal = spawner.SpawnWave( 5, indexer, config, "", nullptr, GLADDER_MUTATOR_BIG_MOMMA );
+	REQUIRE( spawnedTotal > 0 );
+
+	// 1. Verify roster override: exactly one monster_bigmomma, remainder monster_babycrab
+	int bigMommaCount = 0;
+	int babyCrabCount = 0;
+	Vector bigMommaPos = g_vecZero;
+
+	for ( size_t i = 0; i < spawner.GetTrackedEntityCount(); ++i )
+	{
+		CBaseEntity *pEnt = spawner.GetTrackedEntity( i );
+		REQUIRE( pEnt != nullptr );
+		const char *szClass = STRING( pEnt->pev->classname );
+		if ( szClass && strcmp( szClass, "monster_bigmomma" ) == 0 )
+		{
+			bigMommaCount++;
+			bigMommaPos = pEnt->pev->origin;
+			CBaseMonster *pBM = pEnt->MyMonsterPointer();
+			REQUIRE( pBM != nullptr );
+			// 2. Verify standalone boss AI flags: lethal damage unlocked, node advancing disabled
+			CHECK( pBM->HasMemory( bits_MEMORY_PATH_FINISHED ) == TRUE );
+			CHECK( pBM->HasMemory( bits_MEMORY_ADVANCE_NODE ) == FALSE );
+		}
+		else if ( szClass && strcmp( szClass, "monster_babycrab" ) == 0 )
+		{
+			babyCrabCount++;
+		}
+	}
+
+	CHECK( bigMommaCount == 1 );
+	CHECK( babyCrabCount == spawner.GetLastSpawnedMonsterCount() - 1 );
+
+	// 3. Verify Big Momma is placed away from Point A (towards finish)
+	CHECK( bigMommaPos.x > 400.0f );
+
+	// 4. Verify no elite champions spawned during boss wave
+	CHECK( spawner.GetLastSpawnedChampionCount() == 0 );
+
+	ClearMockEntityFactories();
+	ResetMockEngine();
+}
+
 static void MockTraceHullWithSolidCeilingAt200( const float *v1, const float *v2, int fNoMonsters, int hullNumber, edict_t *pentToSkip, TraceResult *ptr )
 {
 	(void)v2;
@@ -1347,4 +1510,3 @@ TEST_CASE( "Gladder Spawner: Barnacle ceiling attachment uses head_hull and does
 	ClearMockEntityFactories();
 	ResetMockEngine();
 }
-

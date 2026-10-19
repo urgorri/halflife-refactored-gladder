@@ -103,7 +103,8 @@ float GladderMonsterModifiers::GetModernYawSpeed( CBaseMonster *pMonster, float 
 	// Check if this monster is an Elite Champion (tagged with red glow shell)
 	if ( pMonster->pev->renderfx == kRenderFxGlowShell &&
 	     pMonster->pev->rendercolor.x >= 200.0f &&
-	     pMonster->pev->rendercolor.y <= 64.0f )
+	     pMonster->pev->rendercolor.y <= 64.0f &&
+	     pMonster->pev->rendercolor.z <= 64.0f )
 	{
 		speed *= CHAMPION_YAW_MULTIPLIER;
 	}
@@ -214,5 +215,41 @@ int GladderMonsterModifiers::GetScheduleInterruptMask( CBaseMonster *pMonster, S
 	}
 
 	return iDefaultMask;
+}
+
+float GladderMonsterModifiers::GetDifficultyFramerateMultiplier( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 1.50f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 1.25f;
+	return 1.00f;
+}
+
+float GladderMonsterModifiers::GetBullsquidSpitSpread( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 0.000f; // Pinpoint sniper accuracy
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 0.025f; // Intermediate tightened spread
+	return 0.050f;     // Authentic vanilla spread
+}
+
+float GladderMonsterModifiers::GetToxicCloudDuration( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 5.0f;
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 4.0f;
+	return 3.0f;
+}
+
+float GladderMonsterModifiers::GetHeavyMonsterFlinchResistance( int iSkillLevel )
+{
+	if ( iSkillLevel == SKILL_HARD )
+		return 0.30f; // 30% faster recovery
+	if ( iSkillLevel == SKILL_MEDIUM )
+		return 0.15f; // 15% faster recovery
+	return 0.00f;     // Vanilla recovery
 }
 

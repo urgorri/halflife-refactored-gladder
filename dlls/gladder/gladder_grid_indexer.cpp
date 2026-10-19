@@ -379,17 +379,24 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	if ( tr.vecPlaneNormal.z < WALKABLE_NORMAL_Z )
 		return false;
 
-	// Reject if hit entity is a breakable, pushable, monsterclip, or monster/client (SPEC §4.3, Issue #37)
+	// Check if hit entity is gladder_breakable, or an excluded obstacle (SPEC §4.3, Issue #37, Issue #114)
+	bool bHitBreakable = false;
 	if ( tr.pHit )
 	{
 		const char *pszHitClass = STRING( tr.pHit->v.classname );
-		if ( pszHitClass && ( strcmp( pszHitClass, "func_breakable" ) == 0 ||
-		                      strcmp( pszHitClass, "gladder_breakable" ) == 0 ||
-		                      strcmp( pszHitClass, "func_pushable" ) == 0 ||
-		                      strcmp( pszHitClass, "func_monsterclip" ) == 0 ||
-		                      ( tr.pHit->v.flags & ( FL_MONSTER | FL_CLIENT ) ) ) )
+		if ( pszHitClass )
 		{
-			return false;
+			if ( strcmp( pszHitClass, "gladder_breakable" ) == 0 )
+			{
+				bHitBreakable = true;
+			}
+			else if ( strcmp( pszHitClass, "func_breakable" ) == 0 ||
+			          strcmp( pszHitClass, "func_pushable" ) == 0 ||
+			          strcmp( pszHitClass, "func_monsterclip" ) == 0 ||
+			          ( tr.pHit->v.flags & ( FL_MONSTER | FL_CLIENT ) ) )
+			{
+				return false;
+			}
 		}
 	}
 
@@ -435,6 +442,8 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	outCell.normal   = tr.vecPlaneNormal;
 	outCell.areaId   = areaId;
 	outCell.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	if ( bHitBreakable )
+		outCell.flags |= ( GLADDER_CELL_PICKUP_ONLY | GLADDER_CELL_NO_MONSTERS );
 	if ( trCeiling.flFraction < 1.0f && POINT_CONTENTS( trCeiling.vecEndPos ) != CONTENTS_SKY )
 		outCell.flags |= GLADDER_CELL_CEILING_VALID;
 	outCell.ceilingZ = flCeilingZ;
@@ -514,7 +523,7 @@ const GladderGridCell *GladderGridIndexer::FindNearestCell( const Vector &pos, f
 	return pBest;
 }
 
-int GladderGridIndexer::GetRandomCellIndex( int32_t areaId, uint32_t requiredFlags, const std::vector<bool> *pOccupiedCells ) const
+int GladderGridIndexer::GetRandomCellIndex( int32_t areaId, uint32_t requiredFlags, const std::vector<bool> *pOccupiedCells, uint32_t forbiddenFlags ) const
 {
 	if ( m_cells.empty() )
 		return -1;
@@ -530,6 +539,8 @@ int GladderGridIndexer::GetRandomCellIndex( int32_t areaId, uint32_t requiredFla
 		const auto &c = m_cells[i];
 		if ( ( c.flags & requiredFlags ) != requiredFlags )
 			continue;
+		if ( forbiddenFlags != 0 && ( c.flags & forbiddenFlags ) != 0 )
+			continue;
 		if ( areaId >= 0 && c.areaId != areaId )
 			continue;
 		eligible.push_back( i );
@@ -542,9 +553,9 @@ int GladderGridIndexer::GetRandomCellIndex( int32_t areaId, uint32_t requiredFla
 	return static_cast<int>( eligible[idx] );
 }
 
-const GladderGridCell *GladderGridIndexer::GetRandomCell( int32_t areaId, uint32_t requiredFlags ) const
+const GladderGridCell *GladderGridIndexer::GetRandomCell( int32_t areaId, uint32_t requiredFlags, uint32_t forbiddenFlags ) const
 {
-	int idx = GetRandomCellIndex( areaId, requiredFlags, nullptr );
+	int idx = GetRandomCellIndex( areaId, requiredFlags, nullptr, forbiddenFlags );
 	return ( idx >= 0 ) ? &m_cells[static_cast<size_t>( idx )] : nullptr;
 }
 

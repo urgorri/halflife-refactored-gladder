@@ -20,9 +20,11 @@
 enum GladderMutatorType
 {
 	GLADDER_MUTATOR_NONE = 0,
-	GLADDER_MUTATOR_BLACKOUT,    // Pitch darkness, lights out (LIGHT_STYLE 0 -> "a")
-	GLADDER_MUTATOR_LOW_GRAVITY, // sv_gravity -> 200.0f
-	GLADDER_MUTATOR_SWARM        // 100% single species horde
+	GLADDER_MUTATOR_BLACKOUT,    // 1: Pitch darkness, lights out (LIGHT_STYLE 0 -> "a")
+	GLADDER_MUTATOR_LOW_GRAVITY, // 2: sv_gravity -> 200.0f
+	GLADDER_MUTATOR_SWARM,       // 3: 100% single species horde
+	GLADDER_MUTATOR_ELITE_SURGE, // 4: All monsters spawn as Elite / Champion variants
+	GLADDER_MUTATOR_BIG_MOMMA    // 5: Big Momma boss battle wave (SPEC §3, Issue #108)
 };
 
 class GladderModifiers

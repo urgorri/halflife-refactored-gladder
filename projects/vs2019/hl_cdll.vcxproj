@@ -231,6 +231,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_m249.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\dlls\gladder\gladder_palette.h" />
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_overlay.h" />
     <ClInclude Include="..\..\cl_dll\gladder\gladder_visuals.h" />
     <ClInclude Include="..\..\cl_dll\gladder\gladder_crosshair.h" />

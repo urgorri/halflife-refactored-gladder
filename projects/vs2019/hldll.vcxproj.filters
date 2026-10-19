@@ -828,8 +828,26 @@
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_m249.cpp">
       <Filter>Source Files\dlls\gladder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\monster_zombie_barney.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\monster_zombie_soldier.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\monster_gonome.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\monster_male_assassin.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dlls\gladder\squidspit_cloud.cpp">
+      <Filter>Source Files\dlls\gladder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\dlls\gladder\gladder_palette.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_rules.h">
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
@@ -876,6 +894,9 @@
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\gladder_grid_debug.h">
+      <Filter>Header Files\dlls\gladder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dlls\gladder\squidspit_cloud.h">
       <Filter>Header Files\dlls\gladder</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h">

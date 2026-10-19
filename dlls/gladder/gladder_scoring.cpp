@@ -11,20 +11,28 @@
 
 int GladderScoring::GetSpeciesBasePoints( const std::string &szClassname )
 {
+	// Non-scoring entities (projectiles, corpses, decorations)
+	if ( szClassname == "gonomeguts" || szClassname == "monster_gonome_dead" ||
+	     szClassname == "monster_zombie_soldier_dead" || szClassname == "monster_massassin_dead" )
+		return 0;
+
 	// Tier 1: Fodder
 	if ( szClassname == "monster_headcrab" || szClassname == "monster_babycrab" )
 		return 50;
 
 	// Tier 2: Basic threats
-	if ( szClassname == "monster_zombie" || szClassname == "monster_houndeye" || szClassname == "monster_barnacle" )
+	if ( szClassname == "monster_zombie" || szClassname == "monster_zombie_barney" || szClassname == "monster_houndeye" || szClassname == "monster_barnacle" )
 		return 100;
 
+	if ( szClassname == "monster_zombie_soldier" )
+		return 150;
+
 	// Tier 3: Medium threats
-	if ( szClassname == "monster_bullchicken" || szClassname == "monster_alien_slave" || szClassname == "monster_vortigaunt" || szClassname == "monster_bloater" )
+	if ( szClassname == "monster_bullchicken" || szClassname == "monster_alien_slave" || szClassname == "monster_vortigaunt" || szClassname == "monster_bloater" || szClassname == "monster_gonome" )
 		return 250;
 
 	// Tier 4: Heavy threats
-	if ( szClassname == "monster_alien_grunt" || szClassname == "monster_human_grunt" || szClassname == "monster_human_assassin" || szClassname == "monster_alien_controller" )
+	if ( szClassname == "monster_alien_grunt" || szClassname == "monster_human_grunt" || szClassname == "monster_human_assassin" || szClassname == "monster_alien_controller" || szClassname == "monster_male_assassin" )
 		return 500;
 
 	// Tier 5: Apex / Boss monsters

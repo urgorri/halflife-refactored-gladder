@@ -491,6 +491,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\dlls\gladder\gladder_palette.h">
+      <Filter>Header Files\cl_dll\gladder</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_overlay.h">
       <Filter>Header Files\cl_dll\gladder</Filter>
     </ClInclude>

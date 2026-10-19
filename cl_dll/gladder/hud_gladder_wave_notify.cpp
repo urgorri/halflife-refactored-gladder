@@ -64,6 +64,9 @@ void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int
 			case 4:
 				snprintf( m_szSubtitle, sizeof( m_szSubtitle ), "ELITE SURGE MUTATOR ACTIVE" );
 				break;
+			case 5:
+				snprintf( m_szSubtitle, sizeof( m_szSubtitle ), "BIG MOMMA MUTATOR ACTIVE" );
+				break;
 			default:
 				m_szSubtitle[0] = '\0';
 				break;

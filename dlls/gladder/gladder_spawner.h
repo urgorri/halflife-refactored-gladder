@@ -15,6 +15,7 @@
 #include "core/util.h"
 #include "core/cbase.h"
 #include "gladder_grid_indexer.h"
+#include "gladder_modifiers.h"
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -72,7 +73,7 @@ class GladderSpawner
 	void Precache( void );
 
 	// Spawn full procedural wave across indexed spatial grid cells (SPEC §2, §3, §7.3)
-	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies = "", CBasePlayer *pPlayer = nullptr );
+	int SpawnWave( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, const std::string &szSwarmSpecies = "", CBasePlayer *pPlayer = nullptr, GladderMutatorType mutator = GLADDER_MUTATOR_NONE );
 
 	// Comprehensive GoldSrc edict garbage collection (SPEC §2, §11)
 	void PurgeWaveEntities();
@@ -117,7 +118,7 @@ class GladderSpawner
 	static void RecordAmmoSpawned( const char *szPickup );
 
 	// Internal procedural generation routines (with cell occupancy tracking)
-	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "" );
+	void SpawnMonsters( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, const std::string &szSwarmSpecies = "", GladderMutatorType mutator = GLADDER_MUTATOR_NONE );
 	void SpawnPickups( int iWaveNumber, const GladderGridIndexer &indexer, const GladderMapConfig &config, int count, std::vector<bool> *pOccupiedCells = nullptr, CBasePlayer *pPlayer = nullptr );
 	void SpawnLambdaCollectible( const GladderGridIndexer &indexer, std::vector<bool> *pOccupiedCells = nullptr );
 

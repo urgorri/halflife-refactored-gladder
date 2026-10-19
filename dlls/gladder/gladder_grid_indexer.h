@@ -95,8 +95,8 @@ class GladderGridIndexer
 
 	// Spatial queries
 	const GladderGridCell *FindNearestCell( const Vector &pos, float maxDist = 256.0f ) const;
-	int GetRandomCellIndex( int32_t areaId = -1, uint32_t requiredFlags = ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ), const std::vector<bool> *pOccupiedCells = nullptr ) const;
-	const GladderGridCell *GetRandomCell( int32_t areaId = -1, uint32_t requiredFlags = ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) ) const;
+	int GetRandomCellIndex( int32_t areaId = -1, uint32_t requiredFlags = ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ), const std::vector<bool> *pOccupiedCells = nullptr, uint32_t forbiddenFlags = 0 ) const;
+	const GladderGridCell *GetRandomCell( int32_t areaId = -1, uint32_t requiredFlags = ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ), uint32_t forbiddenFlags = 0 ) const;
 
 	// Helper for cache path resolution: "maps/grid/<mapname>.grid"
 	static std::string GetGridFilePath( const char *pszMapName );

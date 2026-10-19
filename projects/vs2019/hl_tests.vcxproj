@@ -196,6 +196,7 @@
     <ClCompile Include="..\..\dlls\gladder\gladder_items.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_grid_debug.cpp" />
+    <ClCompile Include="..\..\dlls\gladder\squidspit_cloud.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_visuals.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_crosshair.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_cl_usermsg.cpp" />
