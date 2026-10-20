@@ -78,15 +78,18 @@ void CHornet ::Spawn( void )
 
 	m_flFieldOfView = 0.9; // +- 25 degrees
 
+	const bool bClientOwner = ( !FNullEnt( pev->owner ) && ( pev->owner->v.flags & FL_CLIENT ) );
+	const float flSpeedScale = ( !bClientOwner && gSkillData.agruntHornetSpeed > 0.0f ) ? ( gSkillData.agruntHornetSpeed / HORNET_RED_SPEED ) : 1.0f;
+
 	if ( RANDOM_LONG( 1, 5 ) <= 2 )
 	{
 		m_iHornetType = HORNET_TYPE_RED;
-		m_flFlySpeed  = ( pev->owner && ( pev->owner->v.flags & FL_MONSTER ) ) ? gSkillData.agruntHornetSpeed : HORNET_RED_SPEED;
+		m_flFlySpeed  = HORNET_RED_SPEED * flSpeedScale;
 	}
 	else
 	{
 		m_iHornetType = HORNET_TYPE_ORANGE;
-		m_flFlySpeed  = HORNET_ORANGE_SPEED;
+		m_flFlySpeed  = HORNET_ORANGE_SPEED * flSpeedScale;
 	}
 
 	SET_MODEL( ENT( pev ), "models/hornet.mdl" );
@@ -307,7 +310,24 @@ void CHornet ::TrackTarget( void )
 		flDelta = 0.25;
 	}
 
-	pev->velocity = ( vecFlightDir + vecDirToEnemy ).Normalize();
+	float flAgility = 0.5f;
+	if ( g_pGameRules )
+	{
+		flAgility = g_pGameRules->FlHornetTrackAgility( this, flAgility );
+	}
+
+	if ( flAgility == 0.5f )
+	{
+		pev->velocity = ( vecFlightDir + vecDirToEnemy ).Normalize();
+	}
+	else
+	{
+		if ( flAgility < 0.0f )
+			flAgility = 0.0f;
+		else if ( flAgility > 1.0f )
+			flAgility = 1.0f;
+		pev->velocity = ( vecFlightDir * ( 1.0f - flAgility ) + vecDirToEnemy * flAgility ).Normalize();
+	}
 
 	if ( pev->owner && ( pev->owner->v.flags & FL_MONSTER ) )
 	{

@@ -249,11 +249,12 @@ bool ShouldApplyChargerGlowShell( const struct cl_entity_s *ent, const char *psz
 	unsigned char g = ent->curstate.rendercolor.g;
 	unsigned char b = ent->curstate.rendercolor.b;
 
-	bool bIsHealth  = ( r == GladderPalette::Health.r && g == GladderPalette::Health.g && b == GladderPalette::Health.b );
-	bool bIsHEV     = ( r == GladderPalette::Shield.r && g == GladderPalette::Shield.g && b == GladderPalette::Shield.b );
-	bool bIsTrigger = ( r == GladderPalette::Triggers.r && g == GladderPalette::Triggers.g && b == GladderPalette::Triggers.b );
+	bool bIsHealth          = ( r == GladderPalette::Health.r && g == GladderPalette::Health.g && b == GladderPalette::Health.b );
+	bool bIsHEV             = ( r == GladderPalette::Shield.r && g == GladderPalette::Shield.g && b == GladderPalette::Shield.b );
+	bool bIsTrigger         = ( r == GladderPalette::Triggers.r && g == GladderPalette::Triggers.g && b == GladderPalette::Triggers.b );
+	bool bIsTriggerInactive = ( r == GladderPalette::TriggersInactive.r && g == GladderPalette::TriggersInactive.g && b == GladderPalette::TriggersInactive.b );
 
-	return ( bIsHealth || bIsHEV || bIsTrigger );
+	return ( bIsHealth || bIsHEV || bIsTrigger || bIsTriggerInactive );
 }
 
 void GladderComputeChargerGlowBounds( const Vector &origin, const Vector &mins, const Vector &maxs, float flDelta, Vector &outMins, Vector &outMaxs )

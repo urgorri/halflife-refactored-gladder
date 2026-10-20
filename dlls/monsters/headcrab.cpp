@@ -485,7 +485,8 @@ BOOL CBabyCrab ::CheckRangeAttack1( float flDot, float flDist )
 			return TRUE;
 
 		// A little less accurate, but jump from closer
-		if ( flDist <= 180 && flDot >= 0.55 )
+		const float flMaxRange = ( gSkillData.headcrabAttackRange > 0.0f ) ? ( 180.0f * ( gSkillData.headcrabAttackRange / 256.0f ) ) : 180.0f;
+		if ( flDist <= flMaxRange && flDot >= 0.55 )
 			return TRUE;
 	}
 

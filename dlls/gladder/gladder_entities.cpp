@@ -8,6 +8,7 @@
 #include "gladder_entities.h"
 #include "gladder_rules.h"
 #include "gladder_audio.h"
+#include "gladder_palette.h"
 #include <cstdio>
 #include <cstdlib>
 
@@ -25,7 +26,7 @@ void CTriggerGladderStart::Spawn( void )
 {
 	InitTrigger();
 	pev->renderfx = kRenderFxGlowShell;
-	pev->rendercolor = Vector( 255, 32, 32 );
+	SetActiveState( true );
 	pev->renderamt = 0;
 	pev->rendermode = kRenderTransTexture;
 	ClearBits( pev->effects, EF_NODRAW );
@@ -36,6 +37,21 @@ void CTriggerGladderStart::Spawn( void )
 	m_hActivatingPlayer = nullptr;
 	m_vecEntryPos = g_vecZero;
 	CreateClipBrush();
+}
+
+void CTriggerGladderStart::SetActiveState( bool bActive )
+{
+	if ( !pev )
+		return;
+
+	if ( bActive )
+	{
+		pev->rendercolor = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+	}
+	else
+	{
+		pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+	}
 }
 
 void CTriggerGladderStart::CreateClipBrush( void )
@@ -188,9 +204,10 @@ void CTriggerGladderStart::CrossThink( void )
 	if ( bCrossed )
 	{
 		// Player completely crossed through the start threshold into the gauntlet arena!
-		// Seal the passage solid for the player and trigger wave start.
+		// Seal the passage solid for the player, transition glow to Gray, and trigger wave start.
 		m_bPlayerCrossed = true;
 		SetSolidForPlayer( true );
+		SetActiveState( false );
 
 		if ( g_pGameRules )
 		{
@@ -236,6 +253,7 @@ void CTriggerGladderStart::ResetTrigger( void )
 	m_hActivatingPlayer = nullptr;
 	m_vecEntryPos = g_vecZero;
 	SetSolidForPlayer( false );
+	SetActiveState( true );
 	SetThink( nullptr );
 }
 
@@ -256,7 +274,7 @@ void CTriggerGladderFinish::Spawn( void )
 {
 	InitTrigger();
 	pev->renderfx = kRenderFxGlowShell;
-	pev->rendercolor = Vector( 255, 32, 32 );
+	SetUnlockedState( false );
 	pev->renderamt = 0;
 	pev->rendermode = kRenderTransTexture;
 	ClearBits( pev->effects, EF_NODRAW );
@@ -264,6 +282,27 @@ void CTriggerGladderFinish::Spawn( void )
 	SetUse( &CTriggerGladderFinish::FinishUse );
 
 	CreateClipBrush();
+}
+
+void CTriggerGladderFinish::SetUnlockedState( bool bUnlocked )
+{
+	if ( !pev )
+		return;
+
+	if ( bUnlocked )
+	{
+		pev->rendercolor = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+	}
+	else
+	{
+		pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+	}
+}
+
+void CTriggerGladderFinish::ResetTrigger( void )
+{
+	SetUnlockedState( false );
+	m_flNextDenySoundTime = 0.0f;
 }
 
 void CTriggerGladderFinish::CreateClipBrush( void )
@@ -301,6 +340,7 @@ void CTriggerGladderFinish::KeyValue( KeyValueData *pkvd )
 
 void CTriggerGladderFinish::FireClearTarget( CBaseEntity *pActivator )
 {
+	SetUnlockedState( true );
 	if ( !FStringNull( m_iszClearTarget ) )
 	{
 		FireTargets( STRING( m_iszClearTarget ), pActivator, this, USE_TOGGLE, 0 );
@@ -316,6 +356,10 @@ void Gladder_FireClearTargets( CBaseEntity *pActivator )
 		if ( pFinish )
 		{
 			pFinish->FireClearTarget( pActivator );
+		}
+		else if ( pEnt->pev )
+		{
+			pEnt->pev->rendercolor = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
 		}
 	}
 }

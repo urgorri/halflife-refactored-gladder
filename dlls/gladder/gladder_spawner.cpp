@@ -8,6 +8,7 @@
 
 #include "gladder_spawner.h"
 #include "gladder_modifiers.h"
+#include "gladder_monster_modifiers.h"
 #include "gladder_pickup_weights.h"
 #include "core/player.h"
 #include "monsters/bigmomma.h"
@@ -188,6 +189,9 @@ void GladderSpawner::Precache( void )
 	// 4. Precache Big Momma boss mutator entities (SPEC §3, Issue #108)
 	UTIL_PrecacheOther( "monster_bigmomma" );
 	UTIL_PrecacheOther( "monster_babycrab" );
+
+	// 5. Precache beam trail sprite for Bullsquid acid spit (SPEC §3, Issue #121)
+	PRECACHE_MODEL( "sprites/smoke.spr" );
 
 	ALERT( at_console, "[Gladder] Precached %u monster types and %u pickups for procedural spawning\n",
 	       static_cast<unsigned int>( s_monsterRosterCount ),
@@ -1265,6 +1269,13 @@ void GladderSpawner::PurgeWaveEntities()
 		// Protect suit item
 		if ( FClassnameIs( pEnt->pev, "item_suit" ) )
 			return;
+
+		// Protect pre-placed dead monster environmental props (SPEC §3, §11.1, Issue #123)
+		if ( GladderMonsterModifiers::IsDeadMonsterProp( pEnt ) )
+		{
+			GladderMonsterModifiers::ConfigureDeadMonsterProp( pEnt );
+			return;
+		}
 
 		// A. Remove orphaned attached effect sprites (SPEC §11, Issue #42)
 		if ( FClassnameIs( pEnt->pev, "env_sprite" ) )

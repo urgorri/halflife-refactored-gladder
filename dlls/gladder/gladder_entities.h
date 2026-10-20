@@ -72,6 +72,7 @@ class CTriggerGladderStart : public CBaseTrigger
 	void EXPORT CrossThink( void );
 
 	void ResetTrigger( void );
+	void SetActiveState( bool bActive );
 	void SetSolidForPlayer( bool bSolid );
 	bool IsPlayerCrossed( void ) const { return m_bPlayerCrossed; }
 	CGladderTriggerClip *GetClip( void ) { return (CGladderTriggerClip *)( (CBaseEntity *)m_hClip ); }
@@ -102,6 +103,8 @@ class CTriggerGladderFinish : public CBaseTrigger
 	void EXPORT FinishTouch( CBaseEntity *pOther );
 	void EXPORT FinishUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	CGladderTriggerClip *GetClip( void ) { return (CGladderTriggerClip *)( (CBaseEntity *)m_hClip ); }
+	void SetUnlockedState( bool bUnlocked );
+	void ResetTrigger( void );
 	void FireClearTarget( CBaseEntity *pActivator );
 	const char *GetClearTarget( void ) const { return STRING( m_iszClearTarget ); }
 

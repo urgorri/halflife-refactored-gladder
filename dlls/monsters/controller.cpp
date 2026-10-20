@@ -27,6 +27,7 @@
 #include "weapons/weapon_base.h"
 #include "weapons/weapon_damage.h"
 #include "ai/squadmonster.h"
+#include "gameplay/gamerules.h"
 
 #include "monsters/controller.h"
 
@@ -243,10 +244,33 @@ void CController ::HandleAnimEvent( MonsterEvent_t *pEvent )
 		WRITE_COORD( 32 ); // decay
 		MESSAGE_END();
 
-		CBaseMonster *pBall = (CBaseMonster *)Create( "controller_head_ball", vecStart, pev->angles, edict() );
+		int iBurstCount = 1;
+		if ( g_pGameRules )
+		{
+			iBurstCount = g_pGameRules->IMonsterProjectileBurstCount( this, "controller_head_ball", 1 );
+			if ( iBurstCount <= 1 )
+			{
+				iBurstCount = g_pGameRules->IMonsterProjectileBurstCount( this, "controller_energy_ball", 1 );
+			}
+		}
+		if ( iBurstCount < 1 )
+			iBurstCount = 1;
 
-		pBall->pev->velocity = Vector( 0, 0, 32 );
-		pBall->m_hEnemy      = m_hEnemy;
+		for ( int i = 0; i < iBurstCount; i++ )
+		{
+			Vector vecSpawnOrigin = vecStart;
+			if ( i > 0 )
+			{
+				vecSpawnOrigin.x += (float)( i * 8 );
+				vecSpawnOrigin.y += (float)( i * 8 );
+			}
+			CBaseMonster *pBall = (CBaseMonster *)Create( "controller_head_ball", vecSpawnOrigin, pev->angles, edict() );
+			if ( pBall )
+			{
+				pBall->pev->velocity = Vector( 0, 0, 32 );
+				pBall->m_hEnemy      = m_hEnemy;
+			}
+		}
 
 		m_iBall[0] = 0;
 		m_iBall[1] = 0;
@@ -560,9 +584,28 @@ void CController ::RunTask( Task_t *pTask )
 				float delta = 0.03490; // +-2 degree
 				vecDir      = vecDir + Vector( RANDOM_FLOAT( -delta, delta ), RANDOM_FLOAT( -delta, delta ), RANDOM_FLOAT( -delta, delta ) ) * gSkillData.controllerSpeedBall;
 
-				vecSrc               = vecSrc + vecDir * ( gpGlobals->time - m_flShootTime );
-				CBaseMonster *pBall  = (CBaseMonster *)Create( "controller_energy_ball", vecSrc, pev->angles, edict() );
-				pBall->pev->velocity = vecDir;
+				vecSrc = vecSrc + vecDir * ( gpGlobals->time - m_flShootTime );
+				int iBurstCount = 1;
+				if ( g_pGameRules )
+				{
+					iBurstCount = g_pGameRules->IMonsterProjectileBurstCount( this, "controller_energy_ball", 1 );
+				}
+				if ( iBurstCount < 1 )
+					iBurstCount = 1;
+
+				for ( int i = 0; i < iBurstCount; i++ )
+				{
+					Vector vecBallDir = vecDir;
+					if ( i > 0 )
+					{
+						vecBallDir = vecDir + Vector( RANDOM_FLOAT( -delta, delta ), RANDOM_FLOAT( -delta, delta ), RANDOM_FLOAT( -delta, delta ) ) * gSkillData.controllerSpeedBall;
+					}
+					CBaseMonster *pBall = (CBaseMonster *)Create( "controller_energy_ball", vecSrc, pev->angles, edict() );
+					if ( pBall )
+					{
+						pBall->pev->velocity = vecBallDir;
+					}
+				}
 			}
 			m_flShootTime += 0.2;
 		}
@@ -726,6 +769,16 @@ void CController ::SetActivity( Activity NewActivity )
 		m_flGroundSpeed = 100;
 		break;
 	}
+
+	if ( g_pGameRules )
+	{
+		float flSpeedScale = g_pGameRules->FlMonsterMoveSpeed( this, m_Activity, 1.0f );
+		m_flGroundSpeed *= flSpeedScale;
+		if ( m_Activity != ACT_SMALL_FLINCH && m_Activity != ACT_BIG_FLINCH )
+		{
+			pev->framerate = flSpeedScale;
+		}
+	}
 }
 
 //=========================================================
@@ -811,9 +864,11 @@ void CController ::Move( float flInterval )
 	// to that entity for the CheckLocalMove and Triangulate functions.
 	pTargetEnt = NULL;
 
+	const float flSpeedScale = g_pGameRules ? g_pGameRules->FlMonsterMoveSpeed( this, m_Activity, 1.0f ) : 1.0f;
+
 	if ( m_flGroundSpeed == 0 )
 	{
-		m_flGroundSpeed = 100;
+		m_flGroundSpeed = 100 * flSpeedScale;
 		// TaskFail( );
 		// return;
 	}
@@ -940,13 +995,13 @@ void CController ::Move( float flInterval )
 			RouteSimplify( m_hTargetEnt );
 		FRefreshRoute();
 
-		if ( m_flGroundSpeed > 100 )
-			m_flGroundSpeed -= 40;
+		if ( m_flGroundSpeed > 100 * flSpeedScale )
+			m_flGroundSpeed -= 40 * flSpeedScale;
 	}
 	else
 	{
-		if ( m_flGroundSpeed < 400 )
-			m_flGroundSpeed += 10;
+		if ( m_flGroundSpeed < 400 * flSpeedScale )
+			m_flGroundSpeed += 10 * flSpeedScale;
 	}
 }
 
@@ -995,7 +1050,21 @@ void CController::MoveExecute( CBaseEntity *pTargetEnt, const Vector &vecDir, fl
 	// float flTotal = m_flGroundSpeed * pev->framerate * flInterval;
 	// UTIL_MoveToOrigin ( ENT(pev), m_Route[ m_iRouteIndex ].vecLocation, flTotal, MOVE_STRAFE );
 
-	m_velocity = m_velocity * 0.8 + m_flGroundSpeed * vecDir * 0.2;
+	float flGroundSpeed = m_flGroundSpeed;
+	if ( flGroundSpeed == 0 )
+	{
+		flGroundSpeed = 100.0f;
+		if ( g_pGameRules )
+		{
+			flGroundSpeed *= g_pGameRules->FlMonsterMoveSpeed( this, m_Activity, 1.0f );
+		}
+	}
+	else if ( flGroundSpeed == 100.0f && g_pGameRules )
+	{
+		flGroundSpeed *= g_pGameRules->FlMonsterMoveSpeed( this, m_Activity, 1.0f );
+	}
+
+	m_velocity = m_velocity * 0.8 + flGroundSpeed * vecDir * 0.2;
 
 	UTIL_MoveToOrigin( ENT( pev ), pev->origin + m_velocity, m_velocity.Length() * flInterval, MOVE_STRAFE );
 }

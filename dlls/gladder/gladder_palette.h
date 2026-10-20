@@ -48,8 +48,9 @@ namespace GladderPalette
 	// Threat: Elite Champion monsters
 	static const GladderColorRGB Threat( 255, 20, 20 );
 
-	// Level Design Triggers: Start & Finish boundaries
+	// Level Design Triggers: Start & Finish boundaries (Active / Unlocked Red vs. Inactive / Locked Gray)
 	static const GladderColorRGB Triggers( 255, 32, 32 );
+	static const GladderColorRGB TriggersInactive( 128, 128, 128 );
 }
 
 #endif // GLADDER_PALETTE_H

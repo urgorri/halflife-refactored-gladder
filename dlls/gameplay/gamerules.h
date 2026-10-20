@@ -191,6 +191,14 @@ class CGameRules
 	virtual float FlMonsterMoveSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed ) { return flDefaultSpeed; }
 	// Allows gamemodes to adjust projectile spread angles
 	virtual float FlMonsterProjectileSpread( CBaseMonster *pMonster, const char *pszProjectile, float flDefaultSpread ) { return flDefaultSpread; }
+	// Allows gamemodes to adjust hornet homing tracking agility weight
+	virtual float FlHornetTrackAgility( CBaseEntity *pHornet, float flDefaultWeight ) { return flDefaultWeight; }
+	// Allows gamemodes to scale or override monster schedule wait / aim reaction durations
+	virtual float FlMonsterWaitTime( CBaseMonster *pMonster, float flDefaultWait ) { return flDefaultWait; }
+	// Allows gamemodes to scale or override monster grenade check cooldown intervals
+	virtual float FlMonsterGrenadeCheckDelay( CBaseMonster *pMonster, float flDefaultDelay ) { return flDefaultDelay; }
+	// Allows gamemodes to adjust the number of projectiles fired in a monster attack volley
+	virtual int IMonsterProjectileBurstCount( CBaseMonster *pMonster, const char *pszProjectile, int iDefaultCount ) { return iDefaultCount; }
 	// Dispatches an event when a monster detonates an area attack (e.g. Houndeye SonicAttack)
 	virtual void OnMonsterAttackDetonation( CBaseMonster *pMonster, const char *pszAttackType, const Vector &vecOrigin ) {}
 	// Dispatches an event when a monster projectile impacts geometry or entities (e.g. Bullsquid spit)

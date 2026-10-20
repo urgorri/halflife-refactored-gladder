@@ -94,8 +94,19 @@ class CGladderRules : public CHalfLifeRules
 	void PlayerKilled( CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override;
 	void MonsterKilled( CBaseMonster *pVictim, entvars_t *pKiller, entvars_t *pInflictor ) override;
 
-	// Modernized monster turning speed hook (Issue #26)
+	// Skill data & monster combat behavior hooks (SPEC §3, Issue #26, #116, #121, #123)
+	void RefreshSkillData( void ) override;
+	void OnEntitySpawned( CBaseEntity *pEntity ) override;
 	float FlMonsterYawSpeed( CBaseMonster *pMonster, float flDefaultYawSpeed ) override;
+	float FlMonsterCastSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed ) override;
+	float FlMonsterMoveSpeed( CBaseMonster *pMonster, Activity activity, float flDefaultSpeed ) override;
+	float FlMonsterProjectileSpread( CBaseMonster *pMonster, const char *pszProjectile, float flDefaultSpread ) override;
+	float FlHornetTrackAgility( CBaseEntity *pHornet, float flDefaultWeight ) override;
+	float FlMonsterWaitTime( CBaseMonster *pMonster, float flDefaultWait ) override;
+	float FlMonsterGrenadeCheckDelay( CBaseMonster *pMonster, float flDefaultDelay ) override;
+	int IMonsterProjectileBurstCount( CBaseMonster *pMonster, const char *pszProjectile, int iDefaultCount ) override;
+	void OnMonsterAttackDetonation( CBaseMonster *pMonster, const char *pszAttackType, const Vector &vecOrigin ) override;
+	void OnMonsterProjectileImpact( CBaseEntity *pProjectile, const TraceResult &tr ) override;
 
 	// Player movement slow debuff management (SPEC §3, Issue #116)
 	void ApplyPlayerSlowDebuff( CBasePlayer *pPlayer, float flDuration = 1.75f, float flMaxSpeed = 175.0f )
@@ -147,7 +158,9 @@ class CGladderRules : public CHalfLifeRules
 	void RechargeWallStations( void );
 	void ResetBreakableEntities( void );
 	void ResetStartTriggers( void );
+	void ResetFinishTriggers( void );
 	void EnsureMonsterClipFlags( void );
+	void EnsureDeadMonsterProps( void );
 
 	// Scoring & match conclusion (SPEC §2, §3, §9.2, Issues #9, #85)
 	void HandleMatchConclusion( bool bSurvived, CBasePlayer *pPlayer = nullptr );

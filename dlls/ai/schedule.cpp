@@ -874,7 +874,12 @@ void CBaseMonster ::StartTask( Task_t *pTask )
 	case TASK_WAIT:
 	case TASK_WAIT_FACE_ENEMY:
 	{ // set a future time that tells us when the wait is over.
-		m_flWaitFinished = gpGlobals->time + pTask->flData;
+		float flWait = pTask->flData;
+		if ( g_pGameRules )
+		{
+			flWait = g_pGameRules->FlMonsterWaitTime( this, flWait );
+		}
+		m_flWaitFinished = gpGlobals->time + flWait;
 		break;
 	}
 	case TASK_WAIT_RANDOM:
