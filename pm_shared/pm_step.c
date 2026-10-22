@@ -23,14 +23,17 @@ void PM_SwapTextures( int i, int j )
 	char chTemp;
 	char szTemp[CBTEXTURENAMEMAX];
 
-	strcpy( szTemp, grgszTextureName[i] );
-	chTemp = grgchTextureType[i];
+	strncpy( szTemp, grgszTextureName[i], sizeof( szTemp ) - 1 );
+	szTemp[sizeof( szTemp ) - 1] = '\0';
+	chTemp                       = grgchTextureType[i];
 
-	strcpy( grgszTextureName[i], grgszTextureName[j] );
-	grgchTextureType[i] = grgchTextureType[j];
+	strncpy( grgszTextureName[i], grgszTextureName[j], sizeof( grgszTextureName[i] ) - 1 );
+	grgszTextureName[i][sizeof( grgszTextureName[i] ) - 1] = '\0';
+	grgchTextureType[i]                                    = grgchTextureType[j];
 
-	strcpy( grgszTextureName[j], szTemp );
-	grgchTextureType[j] = chTemp;
+	strncpy( grgszTextureName[j], szTemp, sizeof( grgszTextureName[j] ) - 1 );
+	grgszTextureName[j][sizeof( grgszTextureName[j] ) - 1] = '\0';
+	grgchTextureType[j]                                    = chTemp;
 }
 
 void PM_SortTextures( void )
@@ -112,7 +115,9 @@ void PM_InitTextureTypes()
 		// null-terminate name and save in sentences array
 		j         = min( j, CBTEXTURENAMEMAX - 1 + i );
 		buffer[j] = 0;
-		strcpy( &( grgszTextureName[gcTextures++][0] ), &( buffer[i] ) );
+		strncpy( &( grgszTextureName[gcTextures][0] ), &( buffer[i] ), CBTEXTURENAMEMAX - 1 );
+		grgszTextureName[gcTextures][CBTEXTURENAMEMAX - 1] = '\0';
+		gcTextures++;
 	}
 
 	// Must use engine to free since we are in a .dll
@@ -289,7 +294,7 @@ void PM_CatagorizeTextureType( void )
 		pTextureName++;
 	// '}}'
 
-	strcpy( pmove->sztexturename, pTextureName );
+	strncpy( pmove->sztexturename, pTextureName, CBTEXTURENAMEMAX - 1 );
 	pmove->sztexturename[CBTEXTURENAMEMAX - 1] = 0;
 
 	// get texture type

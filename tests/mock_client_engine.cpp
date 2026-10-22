@@ -422,6 +422,7 @@ void ResetMockSpriteList( void )
 
 static struct client_sprite_s *stub_SPR_GetList( char *psz, int *piCount )
 {
+	(void)psz;
 	if ( s_forceNullMockSprites )
 	{
 		if ( piCount )

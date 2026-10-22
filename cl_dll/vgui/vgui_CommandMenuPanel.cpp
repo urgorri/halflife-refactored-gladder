@@ -396,7 +396,8 @@ int TeamFortressViewport::CreateCommandMenu( char *menuFile, int direction, int 
 				CHudTextMessage::LocaliseTextString( token, cText, sizeof( cText ) );
 
 				// save off the last button text we've come across (for error reporting)
-				strcpy( szLastButtonText, cText );
+				strncpy( szLastButtonText, cText, sizeof( szLastButtonText ) - 1 );
+				szLastButtonText[sizeof( szLastButtonText ) - 1] = '\0';
 
 				// Get the button command
 				pfile = gEngfuncs.COM_ParseFile( pfile, token );
@@ -415,7 +416,8 @@ int TeamFortressViewport::CreateCommandMenu( char *menuFile, int direction, int 
 
 					if ( token[0] == '{' )
 					{
-						strcpy( cCommand, token );
+						strncpy( cCommand, token, sizeof( cCommand ) - 1 );
+						cCommand[sizeof( cCommand ) - 1] = '\0';
 					}
 					else
 					{
@@ -532,7 +534,7 @@ CCommandMenu *TeamFortressViewport::CreateDisguiseSubmenu( CommandButton *pButto
 		CommandButton *pDisguiseButton = new CommandButton( CHudTextMessage::BufferedLocaliseTextString( sLocalisedClasses[i] ), 0, BUTTON_SIZE_Y, CMENU_SIZE_X, BUTTON_SIZE_Y );
 
 		char sz[256];
-		sprintf( sz, "%s %d", commandText, i );
+		snprintf( sz, sizeof( sz ), "%s %d", commandText, i );
 		pDisguiseButton->addActionSignal( new CMenuHandler_StringCommand( sz ) );
 
 		pMenu->AddButton( pDisguiseButton );
@@ -562,7 +564,7 @@ CommandButton *TeamFortressViewport::CreateCustomButton( char *pButtonText, char
 		for ( int i = 0; i < 4; i++ )
 		{
 			char sz[256];
-			sprintf( sz, "jointeam %d", i + 1 );
+			snprintf( sz, sizeof( sz ), "jointeam %d", i + 1 );
 			m_pTeamButtons[i] = new TeamButton( i + 1, "teamname", 0, BUTTON_SIZE_Y, CMENU_SIZE_X, BUTTON_SIZE_Y );
 			m_pTeamButtons[i]->addActionSignal( new CMenuHandler_StringCommandWatch( sz ) );
 			pMenu->AddButton( m_pTeamButtons[i] );
@@ -598,7 +600,7 @@ CommandButton *TeamFortressViewport::CreateCustomButton( char *pButtonText, char
 			CHudTextMessage::LocaliseTextString( sLocalisedClasses[i], sz, 256 );
 			ClassButton *pClassButton = new ClassButton( i, sz, 0, BUTTON_SIZE_Y, CMENU_SIZE_X, BUTTON_SIZE_Y, false );
 
-			sprintf( sz, "%s", sTFClassSelection[i] );
+			snprintf( sz, sizeof( sz ), "%s", sTFClassSelection[i] );
 			pClassButton->addActionSignal( new CMenuHandler_StringCommandClassSelect( sz ) );
 			pMenu->AddButton( pClassButton );
 		}
@@ -688,7 +690,7 @@ CommandButton *TeamFortressViewport::CreateCustomButton( char *pButtonText, char
 			m_pDisguiseButtons[i]->setParentMenu( pDisguiseMenu );
 
 			char sz[256];
-			sprintf( sz, "disguise %d", i );
+			snprintf( sz, sizeof( sz ), "disguise %d", i );
 			CreateDisguiseSubmenu( m_pDisguiseButtons[i], pDisguiseMenu, sz, iYOffset, CMENU_SIZE_X - 1 );
 		}
 	}

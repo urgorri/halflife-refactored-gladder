@@ -138,7 +138,8 @@ void CHudStatusIcons::EnableIcon( char *pszIconName, unsigned char red, unsigned
 	m_IconList[i].r   = red;
 	m_IconList[i].g   = green;
 	m_IconList[i].b   = blue;
-	strcpy( m_IconList[i].szSpriteName, pszIconName );
+	strncpy( m_IconList[i].szSpriteName, pszIconName, sizeof( m_IconList[i].szSpriteName ) - 1 );
+	m_IconList[i].szSpriteName[sizeof( m_IconList[i].szSpriteName ) - 1] = '\0';
 
 	// Play countdown timer audio when grenade icon is displayed (in 0.8 seconds)
 	if ( strstr( m_IconList[i].szSpriteName, "grenade" ) )

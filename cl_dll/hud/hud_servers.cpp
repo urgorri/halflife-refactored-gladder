@@ -187,13 +187,14 @@ void CHudServers::ServerResponse( struct net_response_s *response )
 		{
 			szresponse = (char *)response->response;
 			len        = strlen( szresponse ) + 100 + 1;
-			sprintf( sz, "%i", (int)( 1000.0 * response->ping ) );
+			snprintf( sz, sizeof( sz ), "%i", (int)( 1000.0 * response->ping ) );
 
 			browser                 = new server_t;
 			browser->remote_address = response->remote_address;
 			browser->info           = new char[len];
 			browser->ping           = (int)( 1000.0 * response->ping );
-			strcpy( browser->info, szresponse );
+			strncpy( browser->info, szresponse, len - 1 );
+			browser->info[len - 1] = '\0';
 
 			NET_API->SetValueForKey( browser->info, "address", gEngfuncs.pNetAPI->AdrToString( &response->remote_address ), len );
 			NET_API->SetValueForKey( browser->info, "ping", sz, len );
@@ -222,7 +223,7 @@ void CHudServers::PingResponse( struct net_response_s *response )
 	switch ( response->type )
 	{
 	case NETAPI_REQUEST_PING:
-		sprintf( sz, "%.2f", 1000.0 * response->ping );
+		snprintf( sz, sizeof( sz ), "%.2f", 1000.0 * response->ping );
 
 		gEngfuncs.Con_Printf( "ping == %s\n", sz );
 		break;
@@ -637,7 +638,8 @@ void CHudServers::SortServers( const char *fieldname )
 	if ( !m_pServers )
 		return;
 
-	strcpy( g_fieldname, fieldname );
+	strncpy( g_fieldname, fieldname, sizeof( g_fieldname ) - 1 );
+	g_fieldname[sizeof( g_fieldname ) - 1] = '\0';
 
 	int i;
 	int c = 0;
@@ -764,14 +766,17 @@ int CHudServers::LoadMasterAddresses( int maxservers, int *count, netadr_t *padr
 	int nDefaultPort;
 
 	// Assume default master and master file
-	strcpy( szMaster, VALVE_MASTER_ADDRESS ); // IP:PORT string
-	strcpy( szMasterFile, MASTER_PARSE_FILE );
+	strncpy( szMaster, VALVE_MASTER_ADDRESS, sizeof( szMaster ) - 1 ); // IP:PORT string
+	szMaster[sizeof( szMaster ) - 1] = '\0';
+	strncpy( szMasterFile, MASTER_PARSE_FILE, sizeof( szMasterFile ) - 1 );
+	szMasterFile[sizeof( szMasterFile ) - 1] = '\0';
 
 	// See if there is a command line override
 	i = gEngfuncs.CheckParm( "-comm", &pstart );
 	if ( i && pstart )
 	{
-		strcpy( szMasterFile, pstart );
+		strncpy( szMasterFile, pstart, sizeof( szMasterFile ) - 1 );
+		szMasterFile[sizeof( szMasterFile ) - 1] = '\0';
 	}
 
 	// Read them in from proper file
@@ -820,7 +825,7 @@ int CHudServers::LoadMasterAddresses( int maxservers, int *count, netadr_t *padr
 			if ( !stricmp( m_szToken, "}" ) )
 				break;
 
-			sprintf( base, "%s", m_szToken );
+			snprintf( base, sizeof( base ), "%s", m_szToken );
 
 			pstart = gEngfuncs.COM_ParseFile( pstart, m_szToken );
 
@@ -839,7 +844,7 @@ int CHudServers::LoadMasterAddresses( int maxservers, int *count, netadr_t *padr
 			if ( !nPort )
 				nPort = nDefaultPort;
 
-			sprintf( szAdr, "%s:%i", base, nPort );
+			snprintf( szAdr, sizeof( szAdr ), "%s:%i", base, nPort );
 
 			// Can we resolve it any better
 			if ( !NET_API->StringToAdr( szAdr, &adr ) )
@@ -855,7 +860,7 @@ int CHudServers::LoadMasterAddresses( int maxservers, int *count, netadr_t *padr
 finish_master:
 	if ( !nCount )
 	{
-		sprintf( szMaster, VALVE_MASTER_ADDRESS ); // IP:PORT string
+		snprintf( szMaster, sizeof( szMaster ), "%s", VALVE_MASTER_ADDRESS ); // IP:PORT string
 
 		// Convert to netadr_t
 		if ( NET_API->StringToAdr( szMaster, &adr ) )

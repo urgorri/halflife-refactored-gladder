@@ -123,7 +123,7 @@ static byte *LoadFileByResolution( const char *filePrefix, int xRes, const char 
 
 		// try load
 		char fname[256];
-		sprintf( fname, "%s%d%s", filePrefix, g_ResArray[resNum], filePostfix );
+		snprintf( fname, sizeof( fname ), "%s%d%s", filePrefix, g_ResArray[resNum], filePostfix );
 		pFile = gEngfuncs.COM_LoadFile( fname, 5, NULL );
 
 		if ( pFile )
@@ -265,7 +265,8 @@ CSchemeManager::CSchemeManager( int xRes, int yRes )
 				}
 				if ( !pScheme->fontName[0] )
 				{
-					strcpy( pScheme->fontName, "Arial" );
+					strncpy( pScheme->fontName, "Arial", sizeof( pScheme->fontName ) - 1 );
+					pScheme->fontName[sizeof( pScheme->fontName ) - 1] = '\0';
 				}
 			}
 
@@ -347,8 +348,10 @@ buildDefaultFont:
 	if ( currentScheme < 0 )
 	{
 		currentScheme = 0;
-		strcpy( tmpSchemes[0].schemeName, "Default Scheme" );
-		strcpy( tmpSchemes[0].fontName, "Arial" );
+		strncpy( tmpSchemes[0].schemeName, "Default Scheme", sizeof( tmpSchemes[0].schemeName ) - 1 );
+		tmpSchemes[0].schemeName[sizeof( tmpSchemes[0].schemeName ) - 1] = '\0';
+		strncpy( tmpSchemes[0].fontName, "Arial", sizeof( tmpSchemes[0].fontName ) - 1 );
+		tmpSchemes[0].fontName[sizeof( tmpSchemes[0].fontName ) - 1] = '\0';
 		tmpSchemes[0].fontSize   = 0;
 		tmpSchemes[0].fgColor[0] = tmpSchemes[0].fgColor[1] = tmpSchemes[0].fgColor[2] = tmpSchemes[0].fgColor[3] = 255;
 		tmpSchemes[0].armedFgColor[0] = tmpSchemes[0].armedFgColor[1] = tmpSchemes[0].armedFgColor[2] = tmpSchemes[0].armedFgColor[3] = 255;
@@ -400,7 +403,7 @@ buildDefaultFont:
 				else if ( m_xRes >= 800 )
 					fontRes = 800;
 
-				sprintf( fontFilename, "gfx\\vgui\\fonts\\%d_%s.tga", fontRes, m_pSchemeList[i].schemeName );
+				snprintf( fontFilename, sizeof( fontFilename ), "gfx\\vgui\\fonts\\%d_%s.tga", fontRes, m_pSchemeList[i].schemeName );
 				pFontData = gEngfuncs.COM_LoadFile( fontFilename, 5, &fontFileLength );
 				if ( !pFontData )
 					gEngfuncs.Con_Printf( "Missing bitmap font: %s\n", fontFilename );

@@ -65,6 +65,7 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/test_player_customization.o \
 	$(TESTS_OBJ_DIR)/test_ai_navigation.o \
 	$(TESTS_OBJ_DIR)/test_bodygroup_bounds.o \
+	$(TESTS_OBJ_DIR)/test_bounded_strings.o \
 	$(TESTS_OBJ_DIR)/test_buttons.o \
 	$(TESTS_OBJ_DIR)/test_breakable_lifecycle.o \
 	$(TESTS_OBJ_DIR)/test_entity_iteration.o \

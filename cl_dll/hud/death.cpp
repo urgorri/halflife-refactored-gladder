@@ -187,8 +187,9 @@ int CHudDeathNotice ::MsgFunc_DeathMsg( const char *pszName, int iSize, void *pb
 	int victim = READ_BYTE();
 
 	char killedwith[32];
-	strcpy( killedwith, "d_" );
-	strncat( killedwith, READ_STRING(), 32 );
+	strncpy( killedwith, "d_", sizeof( killedwith ) - 1 );
+	killedwith[sizeof( killedwith ) - 1] = '\0';
+	strncat( killedwith, READ_STRING(), sizeof( killedwith ) - strlen( killedwith ) - 1 );
 
 	if ( gViewPort )
 		gViewPort->DeathMsg( killer, victim );
@@ -246,7 +247,8 @@ int CHudDeathNotice ::MsgFunc_DeathMsg( const char *pszName, int iSize, void *pb
 		rgDeathNoticeList[i].iNonPlayerKill = TRUE;
 
 		// Store the object's name in the Victim slot (skip the d_ bit)
-		strcpy( rgDeathNoticeList[i].szVictim, killedwith + 2 );
+		strncpy( rgDeathNoticeList[i].szVictim, killedwith + 2, sizeof( rgDeathNoticeList[i].szVictim ) - 1 );
+		rgDeathNoticeList[i].szVictim[sizeof( rgDeathNoticeList[i].szVictim ) - 1] = '\0';
 	}
 	else
 	{
@@ -307,9 +309,15 @@ int CHudDeathNotice ::MsgFunc_DeathMsg( const char *pszName, int iSize, void *pb
 
 			// replace the code names with the 'real' names
 			if ( !strcmp( killedwith + 2, "egon" ) )
-				strcpy( killedwith, "d_gluon gun" );
+			{
+				strncpy( killedwith, "d_gluon gun", sizeof( killedwith ) - 1 );
+				killedwith[sizeof( killedwith ) - 1] = '\0';
+			}
 			if ( !strcmp( killedwith + 2, "gauss" ) )
-				strcpy( killedwith, "d_tau cannon" );
+			{
+				strncpy( killedwith, "d_tau cannon", sizeof( killedwith ) - 1 );
+				killedwith[sizeof( killedwith ) - 1] = '\0';
+			}
 
 			ConsolePrint( killedwith + 2 ); // skip over the "d_" part
 		}

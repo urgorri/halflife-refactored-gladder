@@ -963,7 +963,7 @@ class MapButton : public CommandButton
 	MapButton( const char *pMapName, const char *text, int x, int y, int wide, int tall )
 	    : CommandButton( text, x, y, wide, tall )
 	{
-		sprintf( m_szMapName, "maps/%s.bsp", pMapName );
+		snprintf( m_szMapName, sizeof( m_szMapName ), "maps/%s.bsp", pMapName );
 	}
 
 	virtual int IsNotValid()

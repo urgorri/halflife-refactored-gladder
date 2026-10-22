@@ -186,10 +186,10 @@ char *GetVGUITGAName( const char *pszName )
 		i = 320;
 	else
 		i = 640;
-	sprintf( sz, pszName, i );
+	snprintf( sz, sizeof( sz ), pszName, i );
 
 	gamedir = gEngfuncs.pfnGetGameDirectory();
-	sprintf( gd, "%s/gfx/vgui/%s.tga", gamedir, sz );
+	snprintf( gd, sizeof( gd ), "%s/gfx/vgui/%s.tga", gamedir, sz );
 
 	return gd;
 }
@@ -407,12 +407,12 @@ void TeamFortressViewport::Initialize( void )
 	g_iPlayerClass = 0;
 	g_iTeamNumber  = 0;
 
-	strcpy( m_sMapName, "" );
-	strcpy( m_szServerName, "" );
+	m_sMapName[0]    = '\0';
+	m_szServerName[0] = '\0';
 	for ( int i = 0; i < 5; i++ )
 	{
 		m_iValidClasses[i] = 0;
-		strcpy( m_sTeamNames[i], "" );
+		m_sTeamNames[i][0] = '\0';
 	}
 
 	App::getInstance()->setCursorOveride( App::getInstance()->getScheme()->getCursor( Scheme::scu_none ) );
@@ -541,11 +541,11 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 			gHUD.m_TextMessage.MsgFunc_TextMsg( NULL, strlen( tempString ) + 1, tempString );
 		}
 
-		sprintf( bottomText, "#Spec_Mode%d", g_iUser1 );
-		sprintf( helpString2, "#Spec_Mode%d", g_iUser1 );
+		snprintf( bottomText, sizeof( bottomText ), "#Spec_Mode%d", g_iUser1 );
+		snprintf( helpString2, sizeof( helpString2 ), "#Spec_Mode%d", g_iUser1 );
 
 		if ( gEngfuncs.IsSpectateOnly() )
-			strcat( helpString2, " - HLTV" );
+			strncat( helpString2, " - HLTV", sizeof( helpString2 ) - strlen( helpString2 ) - 1 );
 
 		// check if we're locked onto a target, show the player's name
 		if ( ( g_iUser2 > 0 ) && ( g_iUser2 <= gEngfuncs.GetMaxClients() ) && ( g_iUser1 != OBS_ROAMING ) )
@@ -593,8 +593,9 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 		if ( gHUD.m_Spectator.m_autoDirector->value )
 		{
 			char tempString[128];
-			sprintf( tempString, "#Spec_Auto %s", helpString2 );
-			strcpy( helpString2, tempString );
+			snprintf( tempString, sizeof( tempString ), "#Spec_Auto %s", helpString2 );
+			strncpy( helpString2, tempString, sizeof( helpString2 ) - 1 );
+			helpString2[sizeof( helpString2 ) - 1] = '\0';
 		}
 
 		m_pSpectatorPanel->m_BottomMainLabel->setText( "%s", pBottomText );

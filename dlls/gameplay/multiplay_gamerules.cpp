@@ -90,7 +90,7 @@ CHalfLifeMultiplay ::CHalfLifeMultiplay()
 			char szCommand[256];
 
 			ALERT( at_console, "Executing listen server config file\n" );
-			sprintf( szCommand, "exec %s\n", lservercfgfile );
+			snprintf( szCommand, sizeof( szCommand ), "exec %s\n", lservercfgfile );
 			SERVER_COMMAND( szCommand );
 		}
 	}
@@ -551,7 +551,8 @@ int ReloadMapCycleFile( char *filename, mapcycle_t *cycle )
 
 				item = new mapcycle_item_s;
 
-				strcpy( item->mapname, szMap );
+				strncpy( item->mapname, szMap, sizeof( item->mapname ) - 1 );
+				item->mapname[sizeof( item->mapname ) - 1] = '\0';
 
 				item->minplayers = 0;
 				item->maxplayers = 0;
@@ -580,7 +581,8 @@ int ReloadMapCycleFile( char *filename, mapcycle_t *cycle )
 					g_engfuncs.pfnInfo_RemoveKey( szBuffer, "minplayers" );
 					g_engfuncs.pfnInfo_RemoveKey( szBuffer, "maxplayers" );
 
-					strcpy( item->rulebuffer, szBuffer );
+					strncpy( item->rulebuffer, szBuffer, sizeof( item->rulebuffer ) - 1 );
+					item->rulebuffer[sizeof( item->rulebuffer ) - 1] = '\0';
 				}
 
 				item->next   = cycle->items;
@@ -691,13 +693,13 @@ void ExtractCommandString( char *s, char *szCommand )
 		}
 		*o = 0;
 
-		strcat( szCommand, pkey );
+		strncat( szCommand, pkey, 1500 - strlen( szCommand ) - 1 );
 		if ( strlen( value ) > 0 )
 		{
-			strcat( szCommand, " " );
-			strcat( szCommand, value );
+			strncat( szCommand, " ", 1500 - strlen( szCommand ) - 1 );
+			strncat( szCommand, value, 1500 - strlen( szCommand ) - 1 );
 		}
-		strcat( szCommand, "\n" );
+		strncat( szCommand, "\n", 1500 - strlen( szCommand ) - 1 );
 
 		if ( !*s )
 			return;
@@ -722,7 +724,8 @@ void CHalfLifeMultiplay ::ChangeLevel( void )
 	char szCommands[1500];
 	char szRules[1500];
 	int minplayers = 0, maxplayers = 0;
-	strcpy( szFirstMapInList, "hldm1" ); // the absolute default level is hldm1
+	strncpy( szFirstMapInList, "hldm1", sizeof( szFirstMapInList ) - 1 ); // the absolute default level is hldm1
+	szFirstMapInList[sizeof( szFirstMapInList ) - 1] = '\0';
 
 	int curplayers;
 	BOOL do_cycle = TRUE;
@@ -739,7 +742,8 @@ void CHalfLifeMultiplay ::ChangeLevel( void )
 	// Has the map cycle filename changed?
 	if ( stricmp( mapcfile, szPreviousMapCycleFile ) )
 	{
-		strcpy( szPreviousMapCycleFile, mapcfile );
+		strncpy( szPreviousMapCycleFile, mapcfile, sizeof( szPreviousMapCycleFile ) - 1 );
+		szPreviousMapCycleFile[sizeof( szPreviousMapCycleFile ) - 1] = '\0';
 
 		DestroyMapCycle( &mapcycle );
 
@@ -757,8 +761,10 @@ void CHalfLifeMultiplay ::ChangeLevel( void )
 		mapcycle_item_s *item;
 
 		// Assume current map
-		strcpy( szNextMap, STRING( gpGlobals->mapname ) );
-		strcpy( szFirstMapInList, STRING( gpGlobals->mapname ) );
+		strncpy( szNextMap, STRING( gpGlobals->mapname ), sizeof( szNextMap ) - 1 );
+		szNextMap[sizeof( szNextMap ) - 1] = '\0';
+		strncpy( szFirstMapInList, STRING( gpGlobals->mapname ), sizeof( szFirstMapInList ) - 1 );
+		szFirstMapInList[sizeof( szFirstMapInList ) - 1] = '\0';
 
 		// Traverse list
 		for ( item = mapcycle.next_item; item->next != mapcycle.next_item; item = item->next )
@@ -809,15 +815,18 @@ void CHalfLifeMultiplay ::ChangeLevel( void )
 		mapcycle.next_item = item->next;
 
 		// Perform logic on current item
-		strcpy( szNextMap, item->mapname );
+		strncpy( szNextMap, item->mapname, sizeof( szNextMap ) - 1 );
+		szNextMap[sizeof( szNextMap ) - 1] = '\0';
 
 		ExtractCommandString( item->rulebuffer, szCommands );
-		strcpy( szRules, item->rulebuffer );
+		strncpy( szRules, item->rulebuffer, sizeof( szRules ) - 1 );
+		szRules[sizeof( szRules ) - 1] = '\0';
 	}
 
 	if ( !IS_MAP_VALID( szNextMap ) )
 	{
-		strcpy( szNextMap, szFirstMapInList );
+		strncpy( szNextMap, szFirstMapInList, sizeof( szNextMap ) - 1 );
+		szNextMap[sizeof( szNextMap ) - 1] = '\0';
 	}
 
 	g_fGameOver = TRUE;

@@ -173,8 +173,7 @@ void CBasePlayer::CheckSuitUpdate()
 				// play sentence number
 
 				char sentence[CBSENTENCENAME_MAX + 1];
-				strcpy( sentence, "!" );
-				strcat( sentence, gszallsentencenames[isentence] );
+				snprintf( sentence, sizeof( sentence ), "!%s", gszallsentencenames[isentence] );
 				EMIT_SOUND_SUIT( ENT( pev ), sentence );
 			}
 			else

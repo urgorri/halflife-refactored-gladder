@@ -240,8 +240,9 @@ void BotProfileManager::Init( const char *filename, unsigned int *checksum )
 
 				// construct the model filename
 				m_skinModelnames[m_nextSkin] = CloneString( token );
-				m_skinFilenames[m_nextSkin]  = new char[strlen( token ) * 2 + strlen( "models/player//.mdl" ) + 1];
-				sprintf( m_skinFilenames[m_nextSkin], "models/player/%s/%s.mdl", token, token );
+				size_t skinLen               = strlen( token ) * 2 + strlen( "models/player//.mdl" ) + 1;
+				m_skinFilenames[m_nextSkin]  = new char[skinLen];
+				snprintf( m_skinFilenames[m_nextSkin], skinLen, "models/player/%s/%s.mdl", token, token );
 				++m_nextSkin;
 			}
 

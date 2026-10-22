@@ -526,12 +526,13 @@ void CBot::Print( char *format, ... ) const
 	char buffer[1024];
 
 	// prefix the message with the bot's name
-	sprintf( buffer, "%s: ", STRING( pev->netname ) );
+	snprintf( buffer, sizeof( buffer ), "%s: ", STRING( pev->netname ) );
 	( *g_engfuncs.pfnServerPrint )( buffer );
 
 	va_start( varg, format );
-	vsprintf( buffer, format, varg );
+	vsnprintf( buffer, sizeof( buffer ), format, varg );
 	va_end( varg );
+	buffer[sizeof( buffer ) - 1] = '\0';
 
 	( *g_engfuncs.pfnServerPrint )( buffer );
 }
@@ -557,12 +558,13 @@ void CBot::PrintIfWatched( char *format, ... ) const
 			name = "(NULL pev)";
 		else
 			name = STRING( pev->netname );
-		sprintf( buffer, "%s: ", ( name ) ? name : "(NULL netname)" );
+		snprintf( buffer, sizeof( buffer ), "%s: ", ( name ) ? name : "(NULL netname)" );
 		( *g_engfuncs.pfnServerPrint )( buffer );
 
 		va_start( varg, format );
-		vsprintf( buffer, format, varg );
+		vsnprintf( buffer, sizeof( buffer ), format, varg );
 		va_end( varg );
+		buffer[sizeof( buffer ) - 1] = '\0';
 
 		( *g_engfuncs.pfnServerPrint )( buffer );
 	}

@@ -151,7 +151,8 @@ class CLabelHeader : public Label
 	{
 		// strip any non-alnum characters from the end
 		char buf[512];
-		strcpy( buf, text );
+		strncpy( buf, text, sizeof( buf ) - 1 );
+		buf[sizeof( buf ) - 1] = '\0';
 
 		int len = strlen( buf );
 		while ( len && isspace( buf[--len] ) )

@@ -112,6 +112,7 @@ class CTestHookRules : public CGameRules
 			return m_customMaxAmmo;
 		return CGameRules::GetMaxAmmo( pszAmmoName, iDefaultMaxCarry );
 	}
+
 	std::vector<CBaseEntity *> m_spawnedEntities;
 	void OnEntitySpawned( CBaseEntity *pEntity ) override
 	{
@@ -1222,6 +1223,7 @@ TEST_CASE( "GameplayHooks: FFixMP5UnderwaterDebounce lifecycle and attack delay 
 	delete pVanillaRules;
 	g_pGameRules = nullptr;
 }
+
 TEST_CASE( "GameplayHooks: CGameRules::GetMaxAmmo extensible capacity hook (#201)", "[gameplay][gamerules][ammo]" )
 {
 	InitMockEngine();

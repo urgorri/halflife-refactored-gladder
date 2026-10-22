@@ -27,7 +27,7 @@ void PlayCDTrack( int iTrack )
 	else
 	{
 		char string[64];
-		sprintf( string, "cd play %3d\n", iTrack );
+		snprintf( string, sizeof( string ), "cd play %3d\n", iTrack );
 		CLIENT_COMMAND( pClient, string );
 	}
 }

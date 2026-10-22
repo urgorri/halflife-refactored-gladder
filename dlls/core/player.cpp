@@ -254,10 +254,9 @@ void CBasePlayer::SetAnimation( PLAYER_ANIM playerAnim )
 
 	case ACT_RANGE_ATTACK1:
 		if ( FBitSet( pev->flags, FL_DUCKING ) ) // crouching
-			strcpy( szAnim, "crouch_shoot_" );
+			snprintf( szAnim, sizeof( szAnim ), "crouch_shoot_%s", m_szAnimExtention );
 		else
-			strcpy( szAnim, "ref_shoot_" );
-		strcat( szAnim, m_szAnimExtention );
+			snprintf( szAnim, sizeof( szAnim ), "ref_shoot_%s", m_szAnimExtention );
 		animDesired = LookupSequence( szAnim );
 		if ( animDesired == -1 )
 			animDesired = 0;
@@ -282,10 +281,9 @@ void CBasePlayer::SetAnimation( PLAYER_ANIM playerAnim )
 		if ( m_Activity != ACT_RANGE_ATTACK1 || m_fSequenceFinished )
 		{
 			if ( FBitSet( pev->flags, FL_DUCKING ) ) // crouching
-				strcpy( szAnim, "crouch_aim_" );
+				snprintf( szAnim, sizeof( szAnim ), "crouch_aim_%s", m_szAnimExtention );
 			else
-				strcpy( szAnim, "ref_aim_" );
-			strcat( szAnim, m_szAnimExtention );
+				snprintf( szAnim, sizeof( szAnim ), "ref_aim_%s", m_szAnimExtention );
 			animDesired = LookupSequence( szAnim );
 			if ( animDesired == -1 )
 				animDesired = 0;
@@ -664,8 +662,10 @@ void CBasePlayer::UpdateStatusBar()
 	char sbuf1[SBAR_STRING_SIZE];
 
 	memset( newSBarState, 0, sizeof( newSBarState ) );
-	strcpy( sbuf0, m_SbarString0 );
-	strcpy( sbuf1, m_SbarString1 );
+	strncpy( sbuf0, m_SbarString0, sizeof( sbuf0 ) - 1 );
+	sbuf0[sizeof( sbuf0 ) - 1] = '\0';
+	strncpy( sbuf1, m_SbarString1, sizeof( sbuf1 ) - 1 );
+	sbuf1[sizeof( sbuf1 ) - 1] = '\0';
 
 	// Find an ID Target
 	TraceResult tr;
@@ -683,7 +683,8 @@ void CBasePlayer::UpdateStatusBar()
 			if ( pEntity->Classify() == CLASS_PLAYER )
 			{
 				newSBarState[SBAR_ID_TARGETNAME] = ENTINDEX( pEntity->edict() );
-				strcpy( sbuf1, "1 %p1\n2 Health: %i2%%\n3 Armor: %i3%%" );
+				strncpy( sbuf1, "1 %p1\n2 Health: %i2%%\n3 Armor: %i3%%", sizeof( sbuf1 ) - 1 );
+				sbuf1[sizeof( sbuf1 ) - 1] = '\0';
 
 				// allies and medics get to see the targets health
 				if ( g_pGameRules->PlayerRelationship( this, pEntity ) == GR_TEAMMATE )
@@ -713,7 +714,8 @@ void CBasePlayer::UpdateStatusBar()
 		WRITE_STRING( sbuf0 );
 		MESSAGE_END();
 
-		strcpy( m_SbarString0, sbuf0 );
+		strncpy( m_SbarString0, sbuf0, sizeof( m_SbarString0 ) - 1 );
+		m_SbarString0[sizeof( m_SbarString0 ) - 1] = '\0';
 
 		// make sure everything's resent
 		bForceResend = TRUE;
@@ -726,7 +728,8 @@ void CBasePlayer::UpdateStatusBar()
 		WRITE_STRING( sbuf1 );
 		MESSAGE_END();
 
-		strcpy( m_SbarString1, sbuf1 );
+		strncpy( m_SbarString1, sbuf1, sizeof( m_SbarString1 ) - 1 );
+		m_SbarString1[sizeof( m_SbarString1 ) - 1] = '\0';
 
 		// make sure everything's resent
 		bForceResend = TRUE;
