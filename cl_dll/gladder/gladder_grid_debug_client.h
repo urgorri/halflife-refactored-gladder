@@ -40,6 +40,9 @@
 #ifndef GLADDER_CELL_FLAG_LARGE_CLEARANCE
 #define GLADDER_CELL_FLAG_LARGE_CLEARANCE 0x20
 #endif
+#ifndef GLADDER_CELL_FLAG_FLOATING_BASE
+#define GLADDER_CELL_FLAG_FLOATING_BASE  0x40
+#endif
 
 // Client-side cached cell structure (C++11 compliant, explicit constructors)
 struct GladderClientDebugCell

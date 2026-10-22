@@ -27,6 +27,7 @@ enum GladderGridCellFlags : uint32_t
 	GLADDER_CELL_NO_MONSTERS   = ( 1u << 3 ), // Excluded from monster spawns (e.g. staging safe zone)
 	GLADDER_CELL_PICKUP_ONLY     = ( 1u << 4 ), // Dedicated for item/ammo/pickup spawns
 	GLADDER_CELL_LARGE_CLEARANCE = ( 1u << 5 ), // Large hull (64x64) clearance confirmed
+	GLADDER_CELL_FLOATING_BASE   = ( 1u << 6 ), // Cell rests on the area brush base plane (z_min); no walkable surface found inside the brush
 };
 
 // Runtime in-memory grid cell
@@ -44,7 +45,7 @@ struct GladderGridCell
 struct GladderGridHeader
 {
 	char magic[8];        // "GLADGRID"
-	uint32_t version;     // Format version (version 2: auto-incremented area IDs)
+	uint32_t version;     // Format version (version 3: brush-anchored floating base cells)
 	uint32_t cellCount;   // Number of serialized cells
 	uint32_t areaCount;   // Number of indexed areas
 	uint32_t flags;       // Reserved flags
@@ -82,7 +83,7 @@ class GladderGridIndexer
 
 	// Grid generation via raycasting & area scan
 	bool BuildGrid( const char *pszMapName );
-	void IndexArea( const Vector &vecMins, const Vector &vecMaxs, int32_t areaId = 0 );
+	void IndexArea( const Vector &vecMins, const Vector &vecMaxs, int32_t areaId = 0, bool bAllowFloatingBase = false );
 
 	// Storage & accessors
 	void Clear();
@@ -105,7 +106,10 @@ class GladderGridIndexer
 	void AddCell( const GladderGridCell &cell );
 
 	// Raycast single cell candidate (public for unit testability)
-	bool TraceCellCandidate( float x, float y, float zTop, float zBottom, int32_t areaId, GladderGridCell &outCell );
+	// bAllowFloatingBase: when true (area brushes), a column with no walkable surface inside the
+	// brush Z range produces a cell anchored to the brush base plane (z_min) flagged
+	// GLADDER_CELL_FLOATING_BASE; when false (world-bounds fallback) such a column is rejected.
+	bool TraceCellCandidate( float x, float y, float zTop, float zBottom, int32_t areaId, GladderGridCell &outCell, bool bAllowFloatingBase = false );
 
   private:
 	std::vector<GladderGridCell> m_cells;

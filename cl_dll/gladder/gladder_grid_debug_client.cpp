@@ -219,6 +219,11 @@ void GladderDrawSpatialGridOverlay( void )
 			// Clearance rejected / blocked: Red / Orange
 			r = 1.0f; g = 0.2f; b = 0.1f; a = 0.35f;
 		}
+		else if ( cell.flags & GLADDER_CELL_FLAG_FLOATING_BASE )
+		{
+			// Rests on the area brush base plane (no walkable surface inside the brush): Violet
+			r = 0.7f; g = 0.2f; b = 1.0f; a = 0.35f;
+		}
 		else if ( cell.flags & GLADDER_CELL_FLAG_LARGE_CLEARANCE )
 		{
 			// Large hull clearance confirmed: Cyan
@@ -461,6 +466,11 @@ int CHudGladderGridDebug::Draw( float flTime )
 			pszStatus = "SPAWN_OK (LARGE)";
 			textR = 0.1f; textG = 0.9f; textB = 1.0f;
 		}
+		else if ( pUnderCell->flags & GLADDER_CELL_FLAG_FLOATING_BASE )
+		{
+			pszStatus = "FLOATING_BASE";
+			textR = 0.7f; textG = 0.2f; textB = 1.0f;
+		}
 
 		// Compose human-readable flags list
 		char szFlagsDesc[64] = { 0 };
@@ -487,6 +497,10 @@ int CHudGladderGridDebug::Draw( float flTime )
 		if ( pUnderCell->flags & GLADDER_CELL_FLAG_PICKUP_ONLY )
 		{
 			strcat( szFlagsDesc, "|PICKUP_ONLY" );
+		}
+		if ( pUnderCell->flags & GLADDER_CELL_FLAG_FLOATING_BASE )
+		{
+			strcat( szFlagsDesc, "|FLOATING_BASE" );
 		}
 
 		snprintf( szBuf, sizeof( szBuf ), "Cell (%.0f, %.0f, %.0f) | Area: %d | Status: %s | Flags: 0x%02X [%s]",
