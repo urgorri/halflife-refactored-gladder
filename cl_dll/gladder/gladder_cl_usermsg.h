@@ -48,9 +48,15 @@ struct GladderComboMsg
 
 struct GladderNotifyMsg
 {
-	int iType        = 0; // 0 = STARTED, 1 = COMPLETED
-	int iWaveNumber  = 1;
-	int iMutatorType = 0;
+	int iType         = 0; // 0 = STARTED, 1 = COMPLETED
+	int iWaveNumber   = 1;
+	int iMutatorType  = 0;
+	int iHostileQuota = 0; // Total hostiles to eliminate this wave (0 when not applicable)
+};
+
+struct GladderClearMsg
+{
+	int iWaveNumber = 1; // Wave whose hostiles were just eliminated
 };
 
 struct GladderSpeciesFrag
@@ -96,6 +102,7 @@ bool Gladder_ParseWaveMsg( const void *pbuf, int iSize, GladderWaveMsg &outMsg )
 bool Gladder_ParseTelemetryMsg( const void *pbuf, int iSize, GladderTelemetryMsg &outMsg );
 bool Gladder_ParseComboMsg( const void *pbuf, int iSize, GladderComboMsg &outMsg );
 bool Gladder_ParseNotifyMsg( const void *pbuf, int iSize, GladderNotifyMsg &outMsg );
+bool Gladder_ParseClearMsg( const void *pbuf, int iSize, GladderClearMsg &outMsg );
 bool Gladder_ParseSummaryMsg( const void *pbuf, int iSize, GladderSummaryMsg &outMsg );
 bool Gladder_ParseLambdaMsg( const void *pbuf, int iSize, GladderLambdaMsg &outMsg );
 

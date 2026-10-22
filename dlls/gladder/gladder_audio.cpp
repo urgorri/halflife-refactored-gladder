@@ -14,7 +14,8 @@ static const char *s_defaultCuePaths[GLADDER_CUE_COUNT] = {
 	"ambience/siren.wav",      // GLADDER_CUE_MUTATOR_WARNING
 	"items/suitchargeno1.wav", // GLADDER_CUE_COLLECTIBLE
 	"buttons/button10.wav",    // GLADDER_CUE_MATCH_END
-	"buttons/button11.wav"     // GLADDER_CUE_DENY
+	"buttons/button11.wav",    // GLADDER_CUE_DENY
+	"items/suitchargeok1.wav"  // GLADDER_CUE_ALL_HOSTILES_ELIMINATED
 };
 
 static std::string s_activeCuePaths[GLADDER_CUE_COUNT];

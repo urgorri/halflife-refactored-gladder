@@ -32,7 +32,7 @@ float GetSkillCvar( char *pName )
 	if ( flValue <= 0 )
 	{
 		char szBuffer[64];
-		sprintf( szBuffer, "%s%d", pName, gSkillData.iSkillLevel );
+		snprintf( szBuffer, sizeof( szBuffer ), "%s%d", pName, gSkillData.iSkillLevel );
 		ALERT( at_console, "\n\n** GetSkillCVar Got a zero for %s **\n\n", szBuffer );
 	}
 

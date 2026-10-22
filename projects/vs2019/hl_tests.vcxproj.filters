@@ -190,6 +190,9 @@
     <ClCompile Include="..\..\tests\test_bodygroup_bounds.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\tests\test_bounded_strings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\tests\test_buttons.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

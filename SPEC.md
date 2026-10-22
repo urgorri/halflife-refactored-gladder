@@ -328,6 +328,7 @@ To accommodate distinct enemy mechanics and level geometry, specific monster typ
 * **Color Coding**: Cells are colored by state so the indexing is readable at a glance:
   * Valid and spawn-eligible (clearance OK): green.
   * Valid ceiling-attached candidates (barnacle surfaces): cyan.
+  * Valid cells that rest on an `trigger_gladder_area` brush base plane because no walkable surface was found inside the brush (`GLADDER_CELL_FLOATING_BASE`, brush-anchored floating bases): violet. Cells resting on the brush base plane are always drawn in this colour, even when they also carry the large-hull clearance flag.
   * Cells rejected or flagged (insufficient clearance, blocked by breakable/pushable/monsterclip): red or orange.
   * Cells currently occupied by a spawned entity: yellow.
   * Cell borders or tint by `trigger_gladder_area` (area ID) so area membership is distinguishable; the cell under the player and its `areaId` and flags are shown in a small on-screen text readout.
@@ -484,6 +485,20 @@ To ensure that weapon autoselection priority (`iWeight` in `ItemInfo` / `GetNext
     * This prevents players from obtaining an infinite-ammo 1-hit kill melee weapon on Wave 1 (where basic zombies, headcrabs, and houndeyes have 10-50 HP), preserving early-wave survival tension and reserving high-tier melee weapons as meaningful tactical rewards in mid waves.
   * **Tier 3 Apex Retention**:
     * `weapon_sniper` and `weapon_m249` remain in **Tier 3** (`relativeWeight = 0.5f`) as late-game power drops.
+  * **Procedural Ordnance Tier Curve (`GetOrdnanceTierWeight`)**:
+    * **Tier 1** (`weapon_handgrenade`, `relativeWeight = 0.8f`): `max( 10.0, 25.0 - ( w - 1 ) * 2.0 )`.
+    * **Tier 2** (`weapon_tripmine`, `weapon_satchel`, `relativeWeight = 0.6f`): eligible from **Wave 1**, `max( 6.0, 14.0 - ( w - 1 ) * 1.5 )`.
+    * **Tier 3** (`weapon_snark`, `relativeWeight = 0.5f`): unlocks at **Wave 3**, `min( 15.0, 5.0 + ( w - 3 ) * 2.5 )`.
+    * `w` is the current wave number (clamped to a minimum of `1`). Unlocking Tier 2 at Wave 1 makes **three** distinct ordnance classes eligible in the first wave, where the previous curve offered only `weapon_handgrenade` and left SPEC §3's "at least three distinct ordnance or weapon classes" unsatisfiable early on.
+    * The ordnance macro allocation stays inside the `11.5`-`18.5` band; the `+7.0` freed fixed-weapon budget only rotates into ordnance while the run's observed ordnance share is below the floor, and otherwise rotates into ammunition.
+
+* **Run-Diversity Constants (`gladder_pickup_weights.cpp`)** — authoritative numbers (SPEC §3 "Supply Variety & Survival Realism Audit", Issue #129):
+  * `MAX_CLASS_SHARE = 0.25f`: no single supply class may hold more than 25% of a run's spawned supplies.
+  * `ANTI_DOMINATION_MULT = 0.10f`: weight scale applied to a class once its run share exceeds `MAX_CLASS_SHARE`.
+  * `COVERAGE_BOOST = 2.50f`: weight scale applied to a class that has not yet appeared in the run.
+  * `COVERAGE_MIN_TOTAL = 4`: the coverage boost only starts once this many supplies have already spawned in the run.
+  * `MIN_ORDNANCE_CATEGORY = 0.08f`: observed ordnance share below which the freed fixed-weapon budget may rotate into ordnance instead of ammunition.
+  * Both transforms are applied to every per-item weight before normalisation, so they influence both the intra-category pick and the macro category roll; per item the anti-domination branch is evaluated before the coverage branch. The guarantee is asserted by `tests/gladder/test_pickup_weights.cpp`.
 
 ### 7.14 Extended Arsenal HUD Slot Alignment & Sprite Script Integrity
 * **Conflict-Free HUD Slot & Position Layout**:

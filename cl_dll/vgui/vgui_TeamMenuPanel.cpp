@@ -128,7 +128,7 @@ CTeamMenuPanel::CTeamMenuPanel( int iTrans, int iRemoveMe, int x, int y, int wid
 		}
 
 		// Create the Signals
-		sprintf( sz, "jointeam %d", i );
+		snprintf( sz, sizeof( sz ), "jointeam %d", i );
 		m_pButtons[i]->addActionSignal( new CMenuHandler_StringCommandWatch( sz, true ) );
 		m_pButtons[i]->addInputSignal( new CHandler_MenuButtonOver( this, i ) );
 
@@ -186,7 +186,7 @@ void CTeamMenuPanel::Update( void )
 
 				// bound key replacement
 				char sz[32];
-				sprintf( sz, "%d", i );
+				snprintf( sz, sizeof( sz ), "%d", i );
 				m_pButtons[i]->setBoundKey( sz[0] );
 
 				m_pButtons[i]->setVisible( true );
@@ -198,7 +198,8 @@ void CTeamMenuPanel::Update( void )
 					SetActiveInfo( i );
 
 				char szPlayerList[( MAX_PLAYER_NAME_LENGTH + 3 ) * 31]; // name + ", "
-				strcpy( szPlayerList, "\n" );
+				strncpy( szPlayerList, "\n", sizeof( szPlayerList ) - 1 );
+				szPlayerList[sizeof( szPlayerList ) - 1] = '\0';
 				// Update the Team Info
 				// Now count the number of teammembers of this class
 				int iTotal = 0;
@@ -223,9 +224,9 @@ void CTeamMenuPanel::Update( void )
 					// Set the text of the info Panel
 					char szText[( ( MAX_PLAYER_NAME_LENGTH + 3 ) * 31 ) + 256];
 					if ( iTotal == 1 )
-						sprintf( szText, "%s: %d Player (%d points)", gViewPort->GetTeamName( i ), iTotal, g_TeamInfo[i].frags );
+						snprintf( szText, sizeof( szText ), "%s: %d Player (%d points)", gViewPort->GetTeamName( i ), iTotal, g_TeamInfo[i].frags );
 					else
-						sprintf( szText, "%s: %d Players (%d points)", gViewPort->GetTeamName( i ), iTotal, g_TeamInfo[i].frags );
+						snprintf( szText, sizeof( szText ), "%s: %d Players (%d points)", gViewPort->GetTeamName( i ), iTotal, g_TeamInfo[i].frags );
 					strncat( szText, szPlayerList, sizeof( szText ) - strlen( szText ) );
 					szText[sizeof( szText ) - 1] = '\0';
 
@@ -283,21 +284,24 @@ void CTeamMenuPanel::Update( void )
 			char *ch;
 
 			// Update the level name
-			strcpy( sz, level );
+			strncpy( sz, level, sizeof( sz ) - 1 );
+			sz[sizeof( sz ) - 1] = '\0';
 			ch = strchr( sz, '/' );
 			if ( !ch )
 				ch = strchr( sz, '\\' );
-			strcpy( szTitle, ch + 1 );
+			strncpy( szTitle, ch + 1, sizeof( szTitle ) - 1 );
+			szTitle[sizeof( szTitle ) - 1] = '\0';
 			ch  = strchr( szTitle, '.' );
 			*ch = '\0';
 			m_pMapTitle->setText( "%s", szTitle );
 			*ch = '.';
 
 			// Update the map briefing
-			strcpy( sz, level );
+			strncpy( sz, level, sizeof( sz ) - 1 );
+			sz[sizeof( sz ) - 1] = '\0';
 			ch  = strchr( sz, '.' );
 			*ch = '\0';
-			strcat( sz, ".txt" );
+			strncat( sz, ".txt", sizeof( sz ) - strlen( sz ) - 1 );
 			char *pfile = (char *)gEngfuncs.COM_LoadFile( sz, 5, NULL );
 			if ( pfile )
 			{

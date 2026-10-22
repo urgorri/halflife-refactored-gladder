@@ -198,7 +198,7 @@ IMPLEMENT_WORLD_ITEM(
 		    if ( pct > 0 )
 			    pct--;
 
-		    sprintf( szcharge, "!HEV_%1dP", pct );
+		    snprintf( szcharge, sizeof( szcharge ), "!HEV_%1dP", pct );
 		    pPlayer->SetSuitUpdate( szcharge, FALSE, SUIT_NEXT_IN_30SEC );
 		    return TRUE;
 	    }

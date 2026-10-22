@@ -216,10 +216,10 @@ TEST_CASE( "Gladder Early-Wave Pacing: Telemetry audit & quantitative evaluation
 	{
 		std::srand( 12345 );
 		GladderMapConfig tunedConfig;
-		// Tuned parameters: baseMonsters 20, monstersPerWave 2.0, basePickups 10, 60% corridor bias (Issue #111)
+		// Tuned parameters: baseMonsters 20, monstersPerWave 2.0, basePickups 15 (+50%, Issue #129), 60% corridor bias (Issue #111)
 		CHECK( tunedConfig.baseMonsters == 20 );
 		CHECK( tunedConfig.monstersPerWave == Catch::Approx( 2.0f ) );
-		CHECK( tunedConfig.basePickups == 10 );
+		CHECK( tunedConfig.basePickups == 15 );
 		CHECK( tunedConfig.routeBiasFraction == Catch::Approx( 0.60f ) );
 
 		std::vector<PacingTelemetry> tunedRuns;

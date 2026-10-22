@@ -76,7 +76,7 @@ void CBotManager::RestartRound( void )
 #ifdef CHECK_PERFORMANCE
 	// dump previous round's performance
 	char filename[80];
-	sprintf( filename, "perfdata%02X.txt", perfFileIndex++ );
+	snprintf( filename, sizeof( filename ), "perfdata%02X.txt", perfFileIndex++ );
 	FILE *fp = fopen( filename, "w" );
 
 	if ( fp )
@@ -200,7 +200,7 @@ void CBotManager::StartFrame( void )
 const char *CBotManager::GetNavMapFilename( void ) const
 {
 	static char filename[256];
-	sprintf( filename, "maps\\%s.nav", STRING( gpGlobals->mapname ) );
+	snprintf( filename, sizeof( filename ), "maps\\%s.nav", STRING( gpGlobals->mapname ) );
 	return filename;
 }
 

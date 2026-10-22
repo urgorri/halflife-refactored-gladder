@@ -24,11 +24,13 @@ class CHudGladderWaveNotify : public CHudBase
 	    : m_iType( 0 ),
 	      m_iWaveNumber( 1 ),
 	      m_iMutatorType( 0 ),
+	      m_iHostileQuota( 0 ),
 	      m_flStartTime( -100.0f )
 	{
-		m_szTitle[0]    = '\0';
-		m_szSubtitle[0] = '\0';
-		m_iFlags        = HUD_ACTIVE;
+		m_szTitle[0]       = '\0';
+		m_szSubtitle[0]    = '\0';
+		m_szHostileLine[0] = '\0';
+		m_iFlags           = HUD_ACTIVE;
 	}
 
 	int Init( void ) override;
@@ -39,16 +41,19 @@ class CHudGladderWaveNotify : public CHudBase
 		m_iType         = 0;
 		m_iWaveNumber   = 1;
 		m_iMutatorType  = 0;
+		m_iHostileQuota = 0;
 		m_flStartTime   = -100.0f;
-		m_szTitle[0]    = '\0';
-		m_szSubtitle[0] = '\0';
+		m_szTitle[0]       = '\0';
+		m_szSubtitle[0]    = '\0';
+		m_szHostileLine[0] = '\0';
 	}
 
-	// User message dispatcher
+	// User message dispatchers
 	int MsgFunc_GladderWaveNotify( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_GladderWaveClear( const char *pszName, int iSize, void *pbuf );
 
 	// Trigger simulation (for tests)
-	void TriggerNotification( int iType, int iWaveNumber, int iMutatorType, float flTime = 0.0f );
+	void TriggerNotification( int iType, int iWaveNumber, int iMutatorType, float flTime = 0.0f, int iHostileQuota = 0 );
 
 	// Queries
 	int GetType( void ) const { return m_iType; }
@@ -56,6 +61,7 @@ class CHudGladderWaveNotify : public CHudBase
 	int GetMutatorType( void ) const { return m_iMutatorType; }
 	const char *GetTitle( void ) const { return m_szTitle; }
 	const char *GetSubtitle( void ) const { return m_szSubtitle; }
+	const char *GetHostileLine( void ) const { return m_szHostileLine; }
 	bool IsDisplaying( float flTime ) const
 	{
 		return ( ( flTime - m_flStartTime ) >= 0.0f && ( flTime - m_flStartTime ) < DISPLAY_TOTAL_TIME );
@@ -65,9 +71,11 @@ class CHudGladderWaveNotify : public CHudBase
 	int m_iType;
 	int m_iWaveNumber;
 	int m_iMutatorType;
+	int m_iHostileQuota;
 	float m_flStartTime;
 	char m_szTitle[128];
 	char m_szSubtitle[128];
+	char m_szHostileLine[64];
 };
 
 extern CHudGladderWaveNotify g_HudGladderWaveNotify;

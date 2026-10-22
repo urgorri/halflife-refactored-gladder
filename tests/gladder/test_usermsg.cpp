@@ -103,12 +103,13 @@ TEST_CASE( "Gladder UserMsg: GladCombo Serialization Symmetry (#14)", "[gladder]
 	CHECK( Gladder_ParseComboMsg( buf.data(), 1, msg ) == false );
 }
 
-TEST_CASE( "Gladder UserMsg: GladNotify Serialization Symmetry (#14, #25)", "[gladder][hud][usermsg]" )
+TEST_CASE( "Gladder UserMsg: GladNotify Serialization Symmetry (#14, #25, #127)", "[gladder][hud][usermsg]" )
 {
 	std::vector<uint8_t> buf;
 	buf.push_back( 0 ); // Started
 	buf.push_back( 5 ); // Wave 5
 	buf.push_back( 2 ); // Low gravity
+	WriteInt16( buf, 24 ); // Hostile quota
 
 	REQUIRE( buf.size() == GLADDER_MSG_NOTIFY_SIZE );
 
@@ -117,14 +118,40 @@ TEST_CASE( "Gladder UserMsg: GladNotify Serialization Symmetry (#14, #25)", "[gl
 	CHECK( msg.iType == 0 );
 	CHECK( msg.iWaveNumber == 5 );
 	CHECK( msg.iMutatorType == 2 );
+	CHECK( msg.iHostileQuota == 24 );
 
-	// Complete notification
+	// Complete notification carries no quota
 	buf[0] = 1;
 	buf[2] = 0;
+	buf[3] = 0; // Quota low byte
+	buf[4] = 0; // Quota high byte
+	REQUIRE( buf.size() == GLADDER_MSG_NOTIFY_SIZE );
 	REQUIRE( Gladder_ParseNotifyMsg( buf.data(), static_cast<int>( buf.size() ), msg ) == true );
 	CHECK( msg.iType == 1 );
 	CHECK( msg.iWaveNumber == 5 );
 	CHECK( msg.iMutatorType == 0 );
+	CHECK( msg.iHostileQuota == 0 );
+
+	// Legacy 3-byte buffer is rejected (quota field absent)
+	CHECK( Gladder_ParseNotifyMsg( buf.data(), 3, msg ) == false );
+	// Empty buffer is rejected
+	CHECK( Gladder_ParseNotifyMsg( buf.data(), 0, msg ) == false );
+}
+
+TEST_CASE( "Gladder UserMsg: GladClear Serialization Symmetry (#128)", "[gladder][hud][usermsg]" )
+{
+	std::vector<uint8_t> buf;
+	buf.push_back( 7 ); // Wave 7 hostiles eliminated
+
+	REQUIRE( buf.size() == GLADDER_MSG_CLEAR_SIZE );
+
+	GladderClearMsg msg;
+	REQUIRE( Gladder_ParseClearMsg( buf.data(), static_cast<int>( buf.size() ), msg ) == true );
+	CHECK( msg.iWaveNumber == 7 );
+
+	// Empty buffer is rejected
+	CHECK( Gladder_ParseClearMsg( buf.data(), 0, msg ) == false );
+	CHECK( Gladder_ParseClearMsg( nullptr, 1, msg ) == false );
 }
 
 TEST_CASE( "Gladder UserMsg: GladSumm Serialization Symmetry (#14, #16)", "[gladder][hud][usermsg]" )

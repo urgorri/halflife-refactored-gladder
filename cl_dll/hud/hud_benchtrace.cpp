@@ -198,7 +198,8 @@ void Trace_StartTrace( int *results, int *finished, const char *server )
 {
 #ifdef _WIN32
 	tp.p_nresults = results;
-	strcpy( tp.server, server );
+	strncpy( tp.server, server, sizeof( tp.server ) - 1 );
+	tp.server[sizeof( tp.server ) - 1] = '\0';
 
 	*results = -1;
 

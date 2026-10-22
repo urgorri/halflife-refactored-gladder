@@ -51,8 +51,10 @@ inline char *CloneString( const char *str )
 		cloneStr[0]    = '\0';
 		return cloneStr;
 	}
-	char *cloneStr = new char[strlen( str ) + 1];
-	strcpy( cloneStr, str );
+	size_t len     = strlen( str ) + 1;
+	char *cloneStr = new char[len];
+	strncpy( cloneStr, str, len - 1 );
+	cloneStr[len - 1] = '\0';
 	return cloneStr;
 }
 

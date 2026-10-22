@@ -146,13 +146,25 @@ TEST_CASE( "Gladder Grid Indexer: Corrupted or invalid cache rejection", "[gladd
 
 	CHECK( indexer.LoadFromFile( badFile ) == false );
 
+	// 2c. Outdated format version (v2 cache must be rejected after the v3 brush-anchored bump, Issue #126)
+	f = fopen( badFile, "wb" );
+	REQUIRE( f != nullptr );
+	std::memset( &oldHdr, 0, sizeof( oldHdr ) );
+	std::memcpy( oldHdr.magic, "GLADGRID", 8 );
+	oldHdr.version   = 2;
+	oldHdr.cellCount = 0;
+	fwrite( &oldHdr, sizeof( oldHdr ), 1, f );
+	fclose( f );
+
+	CHECK( indexer.LoadFromFile( badFile ) == false );
+
 	// 3. Truncated file (claims 10 cells, contains 0)
 	f = fopen( badFile, "wb" );
 	REQUIRE( f != nullptr );
 	GladderGridHeader hdr;
 	std::memset( &hdr, 0, sizeof( hdr ) );
 	std::memcpy( hdr.magic, "GLADGRID", 8 );
-	hdr.version   = 2;
+	hdr.version   = 3;
 	hdr.cellCount = 10;
 	fwrite( &hdr, sizeof( hdr ), 1, f );
 	fclose( f );
@@ -517,6 +529,138 @@ TEST_CASE( "Gladder Grid Indexer: TraceCellCandidate raycasting verification", "
 	g_engfuncs.pfnTraceHull = originalTraceHull;
 }
 
+TEST_CASE( "Gladder Grid Indexer: Brush-anchored floating base & multi-level indexing (SPEC §4.3, Issue #126)", "[gladder][grid]" )
+{
+	ResetMockEngine();
+
+	// Hook custom engine trace functions
+	auto originalTraceLine = g_engfuncs.pfnTraceLine;
+	auto originalTraceHull = g_engfuncs.pfnTraceHull;
+	g_engfuncs.pfnTraceLine = CustomTraceLine;
+	g_engfuncs.pfnTraceHull = CustomTraceHull;
+
+	std::memset( &s_mockLateralTrace, 0, sizeof( s_mockLateralTrace ) );
+	s_mockLateralTrace.flFraction = 1.0f;
+
+	std::memset( &s_mockHullTrace, 0, sizeof( s_mockHullTrace ) );
+	s_mockHullTrace.flFraction = 1.0f;
+	s_mockHullTrace.fStartSolid = 0;
+	s_mockHullTrace.fAllSolid = 0;
+
+	GladderGridIndexer indexer;
+	GladderGridCell outCell;
+
+	SECTION( "No walkable surface inside the brush produces a floating base cell when allowed" )
+	{
+		// Downward trace finds no surface inside the brush Z range [0, 200]
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction = 1.0f; // No hit at all
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction = 0.3f;
+		s_mockCeilingTrace.vecEndPos  = Vector( 100.0f, 200.0f, 200.0f );
+
+		REQUIRE( indexer.TraceCellCandidate( 100.0f, 200.0f, 200.0f, 0.0f, 7, outCell, true ) == true );
+		CHECK( outCell.origin.x == Catch::Approx( 100.0f ) );
+		CHECK( outCell.origin.y == Catch::Approx( 200.0f ) );
+		CHECK( outCell.origin.z == Catch::Approx( 1.0f ) ); // z_min + 1.0f offset
+		CHECK( outCell.normal.z == Catch::Approx( 1.0f ) );
+		CHECK( outCell.areaId == 7 );
+		CHECK( ( outCell.flags & GLADDER_CELL_VALID ) != 0 );
+		CHECK( ( outCell.flags & GLADDER_CELL_CLEARANCE_OK ) != 0 );
+		CHECK( ( outCell.flags & GLADDER_CELL_FLOATING_BASE ) != 0 );
+		CHECK( ( outCell.flags & GLADDER_CELL_PICKUP_ONLY ) == 0 );
+		CHECK( ( outCell.flags & GLADDER_CELL_NO_MONSTERS ) == 0 );
+	}
+
+	SECTION( "Brush shorter than the ceiling keeps a real surface and never floats" )
+	{
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction     = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos      = Vector( 100.0f, 200.0f, 50.0f ); // Surface inside [0, 128]
+
+		// Ceiling found above the brush top (128)
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction = 0.3f;
+		s_mockCeilingTrace.vecEndPos  = Vector( 100.0f, 200.0f, 200.0f );
+
+		REQUIRE( indexer.TraceCellCandidate( 100.0f, 200.0f, 128.0f, 0.0f, 3, outCell, true ) == true );
+		CHECK( outCell.origin.z == Catch::Approx( 51.0f ) );
+		CHECK( outCell.ceilingZ > 128.0f );
+		CHECK( ( outCell.flags & GLADDER_CELL_CEILING_VALID ) != 0 );
+		CHECK( ( outCell.flags & GLADDER_CELL_FLOATING_BASE ) == 0 );
+	}
+
+	SECTION( "Two vertically stacked brushes produce one independent cell each (no duplication)" )
+	{
+		// Lower brush, Z range [0, 64]
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction     = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos      = Vector( 16.0f, 16.0f, 32.0f );
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction = 0.3f;
+		s_mockCeilingTrace.vecEndPos  = Vector( 16.0f, 16.0f, 200.0f );
+
+		indexer.IndexArea( Vector( 0.0f, 0.0f, 0.0f ), Vector( 32.0f, 32.0f, 64.0f ), 1, true );
+
+		// Upper brush, disjoint Z range [128, 192], identical X/Y bounds
+		s_mockDownwardTrace.vecEndPos = Vector( 16.0f, 16.0f, 160.0f );
+		s_mockCeilingTrace.vecEndPos  = Vector( 16.0f, 16.0f, 320.0f );
+
+		indexer.IndexArea( Vector( 0.0f, 0.0f, 128.0f ), Vector( 32.0f, 32.0f, 192.0f ), 2, true );
+
+		// Exactly one cell per brush: the downward ray is bounded by each brush's own Z range
+		REQUIRE( indexer.GetCellCount() == 2 );
+		CHECK( indexer.GetCell( 0 ).origin.z == Catch::Approx( 33.0f ) );
+		CHECK( indexer.GetCell( 0 ).areaId == 1 );
+		CHECK( indexer.GetCell( 1 ).origin.z == Catch::Approx( 161.0f ) );
+		CHECK( indexer.GetCell( 1 ).areaId == 2 );
+	}
+
+	SECTION( "gladder_breakable crate top inside the brush raises the cell and marks it pickup-only" )
+	{
+		edict_t edCrate;
+		std::memset( &edCrate, 0, sizeof( edCrate ) );
+		edCrate.v.classname = MAKE_STRING( "gladder_breakable" );
+		edCrate.v.solid     = SOLID_NOT; // Only the ray hit matters; must not block lateral probes
+
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction     = 0.5f;
+		s_mockDownwardTrace.vecPlaneNormal = Vector( 0.0f, 0.0f, 1.0f );
+		s_mockDownwardTrace.vecEndPos      = Vector( 100.0f, 200.0f, 80.0f ); // Crate top inside [0, 200]
+		s_mockDownwardTrace.pHit           = &edCrate;
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction = 0.3f;
+		s_mockCeilingTrace.vecEndPos  = Vector( 100.0f, 200.0f, 200.0f );
+
+		REQUIRE( indexer.TraceCellCandidate( 100.0f, 200.0f, 200.0f, 0.0f, 5, outCell, true ) == true );
+		CHECK( outCell.origin.z == Catch::Approx( 81.0f ) );
+		CHECK( ( outCell.flags & GLADDER_CELL_PICKUP_ONLY ) != 0 );
+		CHECK( ( outCell.flags & GLADDER_CELL_NO_MONSTERS ) != 0 );
+		CHECK( ( outCell.flags & GLADDER_CELL_FLOATING_BASE ) == 0 );
+	}
+
+	SECTION( "World-bounds fallback (floating base disallowed) rejects a column with no surface" )
+	{
+		std::memset( &s_mockDownwardTrace, 0, sizeof( s_mockDownwardTrace ) );
+		s_mockDownwardTrace.flFraction = 1.0f; // No hit inside [0, 200]
+
+		std::memset( &s_mockCeilingTrace, 0, sizeof( s_mockCeilingTrace ) );
+		s_mockCeilingTrace.flFraction = 0.3f;
+		s_mockCeilingTrace.vecEndPos  = Vector( 100.0f, 200.0f, 200.0f );
+
+		CHECK( indexer.TraceCellCandidate( 100.0f, 200.0f, 200.0f, 0.0f, 0, outCell, false ) == false );
+	}
+
+	// Restore original engine callbacks
+	g_engfuncs.pfnTraceLine = originalTraceLine;
+	g_engfuncs.pfnTraceHull = originalTraceHull;
+}
+
 TEST_CASE( "Gladder Grid Indexer: trigger_gladder_area volumetric bounds & netname", "[gladder][grid]" )
 {
 	ResetMockEngine();
@@ -695,6 +839,14 @@ CBaseEntity *UTIL_FindEntityByClassname( CBaseEntity *pStartEntity, const char *
 		edict_t *pEdict = INDEXENT( i );
 		if ( !pEdict || pEdict->free )
 			continue;
+
+		// The mock engine leaves gpGlobals->pStringBase null so MAKE_STRING()/STRING()
+		// round-trip raw string pointers. That makes STRING( 0 ) null as well, so an edict
+		// with no classname assigned (the memset mock client edicts) would make
+		// FClassnameIs() strcmp() a null pointer. Skip the unset case instead.
+		if ( pEdict->v.classname == 0 )
+			continue;
+
 		if ( FClassnameIs( &pEdict->v, szName ) )
 		{
 			return CBaseEntity::Instance( pEdict );

@@ -220,7 +220,7 @@ CClassMenuDescriptionPanel::CClassMenuDescriptionPanel( int iClass, int x, int y
 	}
 
 	char sz[256];
-	sprintf( sz, "#Title_%s", sTFClassSelection[iClass] );
+	snprintf( sz, sizeof( sz ), "#Title_%s", sTFClassSelection[iClass] );
 	char *localName   = CHudTextMessage::BufferedLocaliseTextString( sz );
 	Label *pNameLabel = new Label( "", textOffs, YRES( 8 ) ); // CLASSMENU_WINDOW_NAME_Y
 	pNameLabel->setFont( pSchemes->getFont( hTitleScheme ) );
@@ -238,11 +238,11 @@ CClassMenuDescriptionPanel::CClassMenuDescriptionPanel( int iClass, int x, int y
 		{
 			if ( team == 1 )
 			{
-				sprintf( sz, "%sred", sTFClassSelection[iClass] );
+				snprintf( sz, sizeof( sz ), "%sred", sTFClassSelection[iClass] );
 			}
 			else
 			{
-				sprintf( sz, "%sblue", sTFClassSelection[iClass] );
+				snprintf( sz, sizeof( sz ), "%sblue", sTFClassSelection[iClass] );
 			}
 
 			m_pClassImages[team] = new CImageLabel( sz, 0, 0, XRES( 150 ), YRES( 80 ) ); // CLASSMENU_WINDOW_TEXT_X, CLASSMENU_WINDOW_TEXT_Y
@@ -267,7 +267,7 @@ CClassMenuDescriptionPanel::CClassMenuDescriptionPanel( int iClass, int x, int y
 	m_pPlayers->setContentAlignment( vgui::Label::a_west );
 	m_pPlayers->setFont( pSchemes->getFont( hClassWindowText ) );
 
-	sprintf( sz, "classes/short_%s.txt", sTFClassSelection[iClass] );
+	snprintf( sz, sizeof( sz ), "classes/short_%s.txt", sTFClassSelection[iClass] );
 	char *cText = "Class Description not available.";
 	char *pfile = (char *)gEngfuncs.COM_LoadFile( sz, 5, NULL );
 	if ( pfile )
@@ -309,7 +309,7 @@ CClassMenuDescriptionPanel::CClassMenuDescriptionPanel( int iClass, int x, int y
 void CClassMenuDescriptionPanel::UpdatePlayerCount( int iTotal, const char *szPlayersOnTeamString, int r, int g, int b )
 {
 	char sz[256];
-	sprintf( sz, szPlayersOnTeamString, iTotal );
+	snprintf( sz, sizeof( sz ), szPlayersOnTeamString, iTotal );
 	m_pPlayers->setText( "%s", sz );
 	m_pPlayers->setFgColor( r, g, b, 0 );
 }
@@ -350,15 +350,15 @@ void CClassMenuSelectionPanel::InitializeButtons( Panel *pParent )
 
 		ActionSignal *pASignal = new CMenuHandler_StringCommandClassSelect( sTFClassSelection[i], true );
 
-		sprintf( sz, "%s", CHudTextMessage::BufferedLocaliseTextString( sLocalisedClasses[i] ) );
+		snprintf( sz, sizeof( sz ), "%s", CHudTextMessage::BufferedLocaliseTextString( sLocalisedClasses[i] ) );
 		m_pButtons[i] = new ClassButton( i, sz, CLASSMENU_TOPLEFT_BUTTON_X, iYPos, CLASSMENU_BUTTON_SIZE_X, CLASSMENU_BUTTON_SIZE_Y, true );
 		if ( i >= 1 && i <= 9 )
 		{
-			sprintf( sz, "%d", i );
+			snprintf( sz, sizeof( sz ), "%d", i );
 		}
 		else
 		{
-			sprintf( sz, "0" );
+			snprintf( sz, sizeof( sz ), "0" );
 		}
 		m_pButtons[i]->setBoundKey( sz[0] );
 		m_pButtons[i]->setContentAlignment( vgui::Label::a_west );

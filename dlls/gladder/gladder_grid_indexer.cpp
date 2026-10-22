@@ -153,8 +153,8 @@ bool GladderGridIndexer::LoadFromFile( const char *pszFilePath )
 		return false;
 	}
 
-	// Verify magic and format version (v2: auto-incremented area IDs, Issue #102)
-	if ( memcmp( header.magic, "GLADGRID", 8 ) != 0 || header.version != 2 )
+	// Verify magic and format version (v3: brush-anchored floating base cells, Issue #126)
+	if ( memcmp( header.magic, "GLADGRID", 8 ) != 0 || header.version != 3 )
 	{
 		ALERT( at_console, "[Gladder] Corrupt or incompatible grid cache header in '%s'\n", pszFilePath );
 		fclose( pFile );
@@ -216,7 +216,7 @@ bool GladderGridIndexer::SaveToFile( const char *pszFilePath ) const
 	GladderGridHeader header;
 	memset( &header, 0, sizeof( header ) );
 	memcpy( header.magic, "GLADGRID", 8 );
-	header.version   = 2;
+	header.version   = 3;
 	header.cellCount = static_cast<uint32_t>( m_cells.size() );
 
 	int32_t maxAreaId = 0;
@@ -292,7 +292,8 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 			       ( pszAreaName && *pszAreaName ) ? pszAreaName : "unnamed", areaId,
 			       mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z );
 
-			IndexArea( mins, maxs, areaId );
+			// Area brushes anchor cells to their own base plane (SPEC §4.3)
+			IndexArea( mins, maxs, areaId, /*bAllowFloatingBase*/ true );
 		}
 	}
 
@@ -314,7 +315,8 @@ bool GladderGridIndexer::BuildGrid( const char *pszMapName )
 
 		ALERT( at_console, "[Gladder] No trigger_gladder_area found, indexing world bounds: mins(%.1f, %.1f, %.1f) maxs(%.1f, %.1f, %.1f)\n",
 		       mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z );
-		IndexArea( mins, maxs, 0 );
+		// World-bounds fallback requires an actual walkable floor; never fabricates floating cells
+		IndexArea( mins, maxs, 0, /*bAllowFloatingBase*/ false );
 	}
 
 	m_bLoaded = !m_cells.empty();
@@ -352,55 +354,73 @@ bool GladderIsPositionSolidOrBrush( const Vector &vecPos )
 	return false;
 }
 
-bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float zBottom, int32_t areaId, GladderGridCell &outCell )
+bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float zBottom, int32_t areaId, GladderGridCell &outCell, bool bAllowFloatingBase )
 {
-	// 1. Descend from zTop if initial coordinate penetrates solid ceiling architecture or solid brush
+	// 1. Descend from zTop if the initial coordinate penetrates solid ceiling architecture or solid brush.
+	// The descent is bounded by the brush Z range only: it never goes below the base plane (SPEC §4.3).
 	Vector vecStart = Vector( x, y, zTop - 1.0f );
-	while ( vecStart.z > zBottom + 36.0f && GladderIsPositionSolidOrBrush( vecStart ) )
+	while ( vecStart.z > zBottom && GladderIsPositionSolidOrBrush( vecStart ) )
 	{
 		vecStart.z -= 16.0f;
 	}
 
-	if ( vecStart.z <= zBottom + 36.0f || GladderIsPositionSolidOrBrush( vecStart ) )
+	if ( GladderIsPositionSolidOrBrush( vecStart ) )
 		return false; // Entire vertical column is solid architecture (pillar/wall)
 
-	Vector vecEnd = Vector( x, y, zBottom - 32.0f );
+	// Downward raycast bounded by the brush base plane: never searches below z_min (SPEC §4.3)
+	Vector vecEnd = Vector( x, y, zBottom );
 
-	// Downward raycast to find walkable solid surface
 	// Using FALSE (dont_ignore_monsters) so brush entities (func_breakable, etc.) are detected
 	TraceResult tr;
 	TRACE_LINE( vecStart, vecEnd, FALSE, NULL, &tr );
 
-	// Must hit a solid surface within bounds
-	if ( tr.flFraction >= 1.0f || tr.fStartSolid || tr.fAllSolid )
-		return false;
-
-	// Surface normal slope check (GoldSrc walkable slope: normal.z >= 0.7)
-	if ( tr.vecPlaneNormal.z < WALKABLE_NORMAL_Z )
-		return false;
-
-	// Check if hit entity is gladder_breakable, or an excluded obstacle (SPEC §4.3, Issue #37, Issue #114)
+	bool bFoundSurface = ( tr.flFraction < 1.0f && !tr.fStartSolid && !tr.fAllSolid );
 	bool bHitBreakable = false;
-	if ( tr.pHit )
+	bool bFloatingBase = false;
+	Vector vecSurface;
+	Vector vecSurfaceNormal;
+
+	if ( bFoundSurface )
 	{
-		const char *pszHitClass = STRING( tr.pHit->v.classname );
-		if ( pszHitClass )
+		// Surface normal slope check (GoldSrc walkable slope: normal.z >= 0.7)
+		if ( tr.vecPlaneNormal.z < WALKABLE_NORMAL_Z )
+			return false;
+
+		// Check if hit entity is gladder_breakable, or an excluded obstacle (SPEC §4.3, Issue #37, Issue #114)
+		if ( tr.pHit )
 		{
-			if ( strcmp( pszHitClass, "gladder_breakable" ) == 0 )
+			const char *pszHitClass = STRING( tr.pHit->v.classname );
+			if ( pszHitClass )
 			{
-				bHitBreakable = true;
-			}
-			else if ( strcmp( pszHitClass, "func_breakable" ) == 0 ||
-			          strcmp( pszHitClass, "func_pushable" ) == 0 ||
-			          strcmp( pszHitClass, "func_monsterclip" ) == 0 ||
-			          ( tr.pHit->v.flags & ( FL_MONSTER | FL_CLIENT ) ) )
-			{
-				return false;
+				if ( strcmp( pszHitClass, "gladder_breakable" ) == 0 )
+				{
+					bHitBreakable = true;
+				}
+				else if ( strcmp( pszHitClass, "func_breakable" ) == 0 ||
+				          strcmp( pszHitClass, "func_pushable" ) == 0 ||
+				          strcmp( pszHitClass, "func_monsterclip" ) == 0 ||
+				          ( tr.pHit->v.flags & ( FL_MONSTER | FL_CLIENT ) ) )
+				{
+					return false;
+				}
 			}
 		}
-	}
 
-	Vector vecSurface = tr.vecEndPos;
+		vecSurface       = tr.vecEndPos;
+		vecSurfaceNormal = tr.vecPlaneNormal;
+	}
+	else
+	{
+		// Nothing walkable inside the brush Z range. Area brushes anchor the cell to the brush
+		// base plane (z_min) and flag it as floating; the world-bounds fallback rejects the
+		// column instead of fabricating a plane of cells resting on nothing (SPEC §4.3).
+		if ( !bAllowFloatingBase )
+			return false;
+
+		bFloatingBase    = true;
+		vecSurface       = Vector( x, y, zBottom );
+		vecSurfaceNormal = Vector( 0.0f, 0.0f, 1.0f );
+	}
 
 	// Check if surface point is erroneously inside solid brush
 	if ( GladderIsPositionSolidOrBrush( vecSurface + Vector( 0.0f, 0.0f, 4.0f ) ) )
@@ -439,11 +459,13 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 
 	// Populate valid candidate cell
 	outCell.origin   = vecSurface + Vector( 0.0f, 0.0f, 1.0f );
-	outCell.normal   = tr.vecPlaneNormal;
+	outCell.normal   = vecSurfaceNormal;
 	outCell.areaId   = areaId;
 	outCell.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
 	if ( bHitBreakable )
 		outCell.flags |= ( GLADDER_CELL_PICKUP_ONLY | GLADDER_CELL_NO_MONSTERS );
+	if ( bFloatingBase )
+		outCell.flags |= GLADDER_CELL_FLOATING_BASE;
 	if ( trCeiling.flFraction < 1.0f && POINT_CONTENTS( trCeiling.vecEndPos ) != CONTENTS_SKY )
 		outCell.flags |= GLADDER_CELL_CEILING_VALID;
 	outCell.ceilingZ = flCeilingZ;
@@ -465,7 +487,7 @@ bool GladderGridIndexer::TraceCellCandidate( float x, float y, float zTop, float
 	return true;
 }
 
-void GladderGridIndexer::IndexArea( const Vector &vecMins, const Vector &vecMaxs, int32_t areaId )
+void GladderGridIndexer::IndexArea( const Vector &vecMins, const Vector &vecMaxs, int32_t areaId, bool bAllowFloatingBase )
 {
 	float flStep = GRID_STEP;
 
@@ -479,7 +501,7 @@ void GladderGridIndexer::IndexArea( const Vector &vecMins, const Vector &vecMaxs
 		for ( float y = vecMins.y + ( flStep * 0.5f ); y <= vecMaxs.y - ( flStep * 0.5f ); y += flStep )
 		{
 			GladderGridCell cell;
-			if ( TraceCellCandidate( x, y, vecMaxs.z, vecMins.z, areaId, cell ) )
+			if ( TraceCellCandidate( x, y, vecMaxs.z, vecMins.z, areaId, cell, bAllowFloatingBase ) )
 			{
 				m_cells.push_back( cell );
 			}

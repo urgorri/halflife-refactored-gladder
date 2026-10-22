@@ -180,7 +180,7 @@ char *GetBspFilename( const char *navFilename )
 {
 	static char bspFilename[256];
 
-	sprintf( bspFilename, "maps\\%s.bsp", STRING( gpGlobals->mapname ) );
+	snprintf( bspFilename, sizeof( bspFilename ), "maps\\%s.bsp", STRING( gpGlobals->mapname ) );
 
 	int len = strlen( bspFilename );
 	if ( len < 3 )
@@ -804,12 +804,15 @@ bool SaveNavigationMap( const char *filename )
 void LoadLocationFile( const char *filename )
 {
 	char locFilename[256];
-	strcpy( locFilename, filename );
+	strncpy( locFilename, filename, sizeof( locFilename ) - 1 );
+	locFilename[sizeof( locFilename ) - 1] = '\0';
 
 	char *dot = strchr( locFilename, '.' );
 	if ( dot )
 	{
-		strcpy( dot, ".loc" );
+		size_t remaining = sizeof( locFilename ) - (size_t)( dot - locFilename );
+		strncpy( dot, ".loc", remaining - 1 );
+		dot[remaining - 1] = '\0';
 
 		int locDataLength;
 		char *locDataFile = (char *)LOAD_FILE_FOR_ME( const_cast< char * >( locFilename ), &locDataLength );
@@ -945,7 +948,7 @@ NavErrorType LoadNavigationMap( void )
 
 	// nav filename is derived from map filename
 	char filename[256];
-	sprintf( filename, "maps\\%s.nav", STRING( gpGlobals->mapname ) );
+	snprintf( filename, sizeof( filename ), "maps\\%s.nav", STRING( gpGlobals->mapname ) );
 
 	// free previous navigation map data
 	DestroyNavigationMap();

@@ -282,7 +282,10 @@ CMenuPanel *TeamFortressViewport::CreateTextWindow( int iTextToShow )
 	if ( iTextToShow == SHOW_MOTD )
 	{
 		if ( !m_szServerName || !m_szServerName[0] )
-			strcpy( cTitle, "Half-Life" );
+		{
+			strncpy( cTitle, "Half-Life", sizeof( cTitle ) - 1 );
+			cTitle[sizeof( cTitle ) - 1] = '\0';
+		}
 		else
 			strncpy( cTitle, m_szServerName, sizeof( cTitle ) );
 		cTitle[sizeof( cTitle ) - 1] = 0;
@@ -293,9 +296,7 @@ CMenuPanel *TeamFortressViewport::CreateTextWindow( int iTextToShow )
 		// Get the current mapname, and open it's map briefing text
 		if ( m_sMapName && m_sMapName[0] )
 		{
-			strcpy( sz, "maps/" );
-			strcat( sz, m_sMapName );
-			strcat( sz, ".txt" );
+			snprintf( sz, sizeof( sz ), "maps/%s.txt", m_sMapName );
 		}
 		else
 		{
@@ -303,13 +304,15 @@ CMenuPanel *TeamFortressViewport::CreateTextWindow( int iTextToShow )
 			if ( !level )
 				return NULL;
 
-			strcpy( sz, level );
+			strncpy( sz, level, sizeof( sz ) - 1 );
+			sz[sizeof( sz ) - 1] = '\0';
 			char *ch = strchr( sz, '.' );
 			*ch      = '\0';
-			strcat( sz, ".txt" );
+			strncat( sz, ".txt", sizeof( sz ) - strlen( sz ) - 1 );
 
 			// pull out the map name
-			strcpy( m_sMapName, level );
+			strncpy( m_sMapName, level, sizeof( m_sMapName ) - 1 );
+			m_sMapName[sizeof( m_sMapName ) - 1] = '\0';
 			ch = strchr( m_sMapName, '.' );
 			if ( ch )
 			{
@@ -385,11 +388,11 @@ CMenuPanel *TeamFortressViewport::CreateTextWindow( int iTextToShow )
 
 		if ( g_iPlayerClass == PC_CIVILIAN )
 		{
-			sprintf( sz, "classes/long_civilian.txt" );
+			snprintf( sz, sizeof( sz ), "classes/long_civilian.txt" );
 		}
 		else
 		{
-			sprintf( sz, "classes/long_%s.txt", sTFClassSelection[g_iPlayerClass] );
+			snprintf( sz, sizeof( sz ), "classes/long_%s.txt", sTFClassSelection[g_iPlayerClass] );
 		}
 		char *pfile = (char *)gEngfuncs.COM_LoadFile( sz, 5, NULL );
 		if ( pfile )

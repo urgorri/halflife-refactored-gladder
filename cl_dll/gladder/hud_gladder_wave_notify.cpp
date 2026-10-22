@@ -20,6 +20,11 @@ static int MsgFunc_GladNotify_Dispatcher( const char *pszName, int iSize, void *
 {
 	return g_HudGladderWaveNotify.MsgFunc_GladderWaveNotify( pszName, iSize, pbuf );
 }
+
+static int MsgFunc_GladClear_Dispatcher( const char *pszName, int iSize, void *pbuf )
+{
+	return g_HudGladderWaveNotify.MsgFunc_GladderWaveClear( pszName, iSize, pbuf );
+}
 #endif
 
 CHudGladderWaveNotify g_HudGladderWaveNotify;
@@ -28,6 +33,7 @@ int CHudGladderWaveNotify::Init( void )
 {
 #ifdef CLIENT_DLL
 	gEngfuncs.pfnHookUserMsg( "GladNotify", MsgFunc_GladNotify_Dispatcher );
+	gEngfuncs.pfnHookUserMsg( "GladClear", MsgFunc_GladClear_Dispatcher );
 #endif
 	m_iFlags |= HUD_ACTIVE;
 	return 1;
@@ -39,12 +45,15 @@ int CHudGladderWaveNotify::VidInit( void )
 	return 1;
 }
 
-void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int iMutatorType, float flTime )
+void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int iMutatorType, float flTime, int iHostileQuota )
 {
-	m_iType        = iType;
-	m_iWaveNumber  = iWaveNumber;
-	m_iMutatorType = iMutatorType;
-	m_flStartTime  = flTime;
+	m_iType         = iType;
+	m_iWaveNumber   = iWaveNumber;
+	m_iMutatorType  = iMutatorType;
+	m_iHostileQuota = iHostileQuota;
+	m_flStartTime   = flTime;
+
+	m_szHostileLine[0] = '\0';
 
 	if ( m_iType == 0 ) // WAVE STARTED
 	{
@@ -71,11 +80,25 @@ void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int
 				m_szSubtitle[0] = '\0';
 				break;
 		}
+
+		// Hostile quota to eliminate this wave (SPEC §12.1); hidden when not applicable
+		if ( m_iHostileQuota > 0 )
+		{
+			if ( m_iHostileQuota == 1 )
+				snprintf( m_szHostileLine, sizeof( m_szHostileLine ), "ELIMINATE 1 HOSTILE" );
+			else
+				snprintf( m_szHostileLine, sizeof( m_szHostileLine ), "ELIMINATE %d HOSTILES", m_iHostileQuota );
+		}
 	}
-	else // WAVE COMPLETED
+	else if ( m_iType == 1 ) // WAVE COMPLETED
 	{
 		snprintf( m_szTitle, sizeof( m_szTitle ), "WAVE %d COMPLETED", m_iWaveNumber );
 		m_szSubtitle[0] = '\0';
+	}
+	else // ALL HOSTILES ELIMINATED (SPEC §12.2.1, Issue #128)
+	{
+		snprintf( m_szTitle, sizeof( m_szTitle ), "ALL HOSTILES ELIMINATED" );
+		snprintf( m_szSubtitle, sizeof( m_szSubtitle ), "PROCEED TO EXTRACTION" );
 	}
 }
 
@@ -88,7 +111,24 @@ int CHudGladderWaveNotify::MsgFunc_GladderWaveNotify( const char *pszName, int i
 #ifdef CLIENT_DLL
 		curTime = gHUD.m_flTime;
 #endif
-		TriggerNotification( nmsg.iType, nmsg.iWaveNumber, nmsg.iMutatorType, curTime );
+		TriggerNotification( nmsg.iType, nmsg.iWaveNumber, nmsg.iMutatorType, curTime, nmsg.iHostileQuota );
+	}
+
+	m_iFlags |= HUD_ACTIVE;
+	return 1;
+}
+
+int CHudGladderWaveNotify::MsgFunc_GladderWaveClear( const char *pszName, int iSize, void *pbuf )
+{
+	GladderClearMsg cmsg;
+	if ( Gladder_ParseClearMsg( pbuf, iSize, cmsg ) )
+	{
+		float curTime = 0.0f;
+#ifdef CLIENT_DLL
+		curTime = gHUD.m_flTime;
+#endif
+		// Type 2 = "ALL HOSTILES ELIMINATED"; carries no mutator and no hostile quota
+		TriggerNotification( 2, cmsg.iWaveNumber, 0, curTime );
 	}
 
 	m_iFlags |= HUD_ACTIVE;
@@ -119,10 +159,10 @@ int CHudGladderWaveNotify::Draw( float flTime )
 	int cx = ScreenWidth / 2;
 	int cy = ScreenHeight / 3;
 
-	// Title: classic HL green (0, 0.9, 0.2) or bright amber for completion
-	float tr = ( m_iType == 1 ) ? 1.0f : 0.0f;
-	float tg = ( m_iType == 1 ) ? 0.85f : 0.9f;
-	float tb = ( m_iType == 1 ) ? 0.1f : 0.2f;
+	// Title: classic HL green (0, 0.9, 0.2) or bright amber for completion / hostiles-cleared
+	float tr = ( m_iType >= 1 ) ? 1.0f : 0.0f;
+	float tg = ( m_iType >= 1 ) ? 0.85f : 0.9f;
+	float tb = ( m_iType >= 1 ) ? 0.1f : 0.2f;
 
 	gEngfuncs.pfnDrawSetTextColor( tr * flAlpha, tg * flAlpha, tb * flAlpha );
 
@@ -130,13 +170,28 @@ int CHudGladderWaveNotify::Draw( float flTime )
 	int drawX = cx - ( titleWidth / 2 );
 	DrawConsoleString( drawX, cy, m_szTitle );
 
-	// Subtitle for active mutator: warning amber/red
+	// Hostile quota line, drawn in the title's colour family (SPEC §12.1)
+	if ( m_szHostileLine[0] != '\0' )
+	{
+		int hostileWidth = static_cast<int>( strlen( m_szHostileLine ) ) * 9;
+		int hostileX = cx - ( hostileWidth / 2 );
+		DrawConsoleString( hostileX, cy + 18, m_szHostileLine );
+	}
+
+	// Subtitle: mutator alerts use warning amber/red, the post-clear guidance uses the title colour
 	if ( m_szSubtitle[0] != '\0' )
 	{
-		gEngfuncs.pfnDrawSetTextColor( 1.0f * flAlpha, 0.35f * flAlpha, 0.1f * flAlpha );
+		if ( m_iType == 2 )
+		{
+			gEngfuncs.pfnDrawSetTextColor( tr * flAlpha, tg * flAlpha, tb * flAlpha );
+		}
+		else
+		{
+			gEngfuncs.pfnDrawSetTextColor( 1.0f * flAlpha, 0.35f * flAlpha, 0.1f * flAlpha );
+		}
 		int subWidth = static_cast<int>( strlen( m_szSubtitle ) ) * 9;
 		int subX = cx - ( subWidth / 2 );
-		DrawConsoleString( subX, cy + 18, m_szSubtitle );
+		DrawConsoleString( subX, cy + 36, m_szSubtitle );
 	}
 #endif
 	return 1;

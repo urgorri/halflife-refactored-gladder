@@ -83,7 +83,8 @@ float EV_HLDM_PlayTextureSound( int idx, pmtrace_t *ptr, float *vecSrc, float *v
 
 		if ( pTextureName )
 		{
-			strcpy( texname, pTextureName );
+			strncpy( texname, pTextureName, sizeof( texname ) - 1 );
+			texname[sizeof( texname ) - 1] = '\0';
 			pTextureName = texname;
 
 			// strip leading '-0' or '+0~' or '{' or '!'
@@ -98,7 +99,7 @@ float EV_HLDM_PlayTextureSound( int idx, pmtrace_t *ptr, float *vecSrc, float *v
 			}
 
 			// '}}'
-			strcpy( szbuffer, pTextureName );
+			strncpy( szbuffer, pTextureName, CBTEXTURENAMEMAX - 1 );
 			szbuffer[CBTEXTURENAMEMAX - 1] = 0;
 
 			// get texture type
@@ -211,16 +212,16 @@ char *EV_HLDM_DamageDecal( physent_t *pe )
 	if ( pe->classnumber == 1 )
 	{
 		idx = gEngfuncs.pfnRandomLong( 0, 2 );
-		sprintf( decalname, "{break%i", idx + 1 );
+		snprintf( decalname, sizeof( decalname ), "{break%i", idx + 1 );
 	}
 	else if ( pe->rendermode != kRenderNormal )
 	{
-		sprintf( decalname, "{bproof1" );
+		snprintf( decalname, sizeof( decalname ), "{bproof1" );
 	}
 	else
 	{
 		idx = gEngfuncs.pfnRandomLong( 0, 4 );
-		sprintf( decalname, "{shot%i", idx + 1 );
+		snprintf( decalname, sizeof( decalname ), "{shot%i", idx + 1 );
 	}
 	return decalname;
 }
@@ -440,25 +441,31 @@ void EV_TrainPitchAdjust( event_args_t *args )
 	switch ( noise )
 	{
 	case 1:
-		strcpy( sz, "plats/ttrain1.wav" );
+		strncpy( sz, "plats/ttrain1.wav", sizeof( sz ) - 1 );
+		sz[sizeof( sz ) - 1] = '\0';
 		break;
 	case 2:
-		strcpy( sz, "plats/ttrain2.wav" );
+		strncpy( sz, "plats/ttrain2.wav", sizeof( sz ) - 1 );
+		sz[sizeof( sz ) - 1] = '\0';
 		break;
 	case 3:
-		strcpy( sz, "plats/ttrain3.wav" );
+		strncpy( sz, "plats/ttrain3.wav", sizeof( sz ) - 1 );
+		sz[sizeof( sz ) - 1] = '\0';
 		break;
 	case 4:
-		strcpy( sz, "plats/ttrain4.wav" );
+		strncpy( sz, "plats/ttrain4.wav", sizeof( sz ) - 1 );
+		sz[sizeof( sz ) - 1] = '\0';
 		break;
 	case 5:
-		strcpy( sz, "plats/ttrain6.wav" );
+		strncpy( sz, "plats/ttrain6.wav", sizeof( sz ) - 1 );
+		sz[sizeof( sz ) - 1] = '\0';
 		break;
 	case 6:
-		strcpy( sz, "plats/ttrain7.wav" );
+		strncpy( sz, "plats/ttrain7.wav", sizeof( sz ) - 1 );
+		sz[sizeof( sz ) - 1] = '\0';
 		break;
 	default:
-		strcpy( sz, "" );
+		sz[0] = '\0';
 		return;
 	}
 
