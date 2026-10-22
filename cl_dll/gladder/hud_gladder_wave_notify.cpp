@@ -39,12 +39,15 @@ int CHudGladderWaveNotify::VidInit( void )
 	return 1;
 }
 
-void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int iMutatorType, float flTime )
+void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int iMutatorType, float flTime, int iHostileQuota )
 {
-	m_iType        = iType;
-	m_iWaveNumber  = iWaveNumber;
-	m_iMutatorType = iMutatorType;
-	m_flStartTime  = flTime;
+	m_iType         = iType;
+	m_iWaveNumber   = iWaveNumber;
+	m_iMutatorType  = iMutatorType;
+	m_iHostileQuota = iHostileQuota;
+	m_flStartTime   = flTime;
+
+	m_szHostileLine[0] = '\0';
 
 	if ( m_iType == 0 ) // WAVE STARTED
 	{
@@ -71,6 +74,15 @@ void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int
 				m_szSubtitle[0] = '\0';
 				break;
 		}
+
+		// Hostile quota to eliminate this wave (SPEC §12.1); hidden when not applicable
+		if ( m_iHostileQuota > 0 )
+		{
+			if ( m_iHostileQuota == 1 )
+				snprintf( m_szHostileLine, sizeof( m_szHostileLine ), "ELIMINATE 1 HOSTILE" );
+			else
+				snprintf( m_szHostileLine, sizeof( m_szHostileLine ), "ELIMINATE %d HOSTILES", m_iHostileQuota );
+		}
 	}
 	else // WAVE COMPLETED
 	{
@@ -88,7 +100,7 @@ int CHudGladderWaveNotify::MsgFunc_GladderWaveNotify( const char *pszName, int i
 #ifdef CLIENT_DLL
 		curTime = gHUD.m_flTime;
 #endif
-		TriggerNotification( nmsg.iType, nmsg.iWaveNumber, nmsg.iMutatorType, curTime );
+		TriggerNotification( nmsg.iType, nmsg.iWaveNumber, nmsg.iMutatorType, curTime, nmsg.iHostileQuota );
 	}
 
 	m_iFlags |= HUD_ACTIVE;
@@ -130,13 +142,21 @@ int CHudGladderWaveNotify::Draw( float flTime )
 	int drawX = cx - ( titleWidth / 2 );
 	DrawConsoleString( drawX, cy, m_szTitle );
 
+	// Hostile quota line, drawn in the title's colour family (SPEC §12.1)
+	if ( m_szHostileLine[0] != '\0' )
+	{
+		int hostileWidth = static_cast<int>( strlen( m_szHostileLine ) ) * 9;
+		int hostileX = cx - ( hostileWidth / 2 );
+		DrawConsoleString( hostileX, cy + 18, m_szHostileLine );
+	}
+
 	// Subtitle for active mutator: warning amber/red
 	if ( m_szSubtitle[0] != '\0' )
 	{
 		gEngfuncs.pfnDrawSetTextColor( 1.0f * flAlpha, 0.35f * flAlpha, 0.1f * flAlpha );
 		int subWidth = static_cast<int>( strlen( m_szSubtitle ) ) * 9;
 		int subX = cx - ( subWidth / 2 );
-		DrawConsoleString( subX, cy + 18, m_szSubtitle );
+		DrawConsoleString( subX, cy + 36, m_szSubtitle );
 	}
 #endif
 	return 1;

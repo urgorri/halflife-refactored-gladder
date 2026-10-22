@@ -48,9 +48,10 @@ struct GladderComboMsg
 
 struct GladderNotifyMsg
 {
-	int iType        = 0; // 0 = STARTED, 1 = COMPLETED
-	int iWaveNumber  = 1;
-	int iMutatorType = 0;
+	int iType         = 0; // 0 = STARTED, 1 = COMPLETED
+	int iWaveNumber   = 1;
+	int iMutatorType  = 0;
+	int iHostileQuota = 0; // Total hostiles to eliminate this wave (0 when not applicable)
 };
 
 struct GladderSpeciesFrag

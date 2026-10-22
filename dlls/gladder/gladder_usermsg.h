@@ -58,11 +58,12 @@ extern int gmsgGladderGridDebug;
 //   WRITE_BYTE  iDecayFraction255(1 byte: 0..255 normalized decay fraction)
 #define GLADDER_MSG_COMBO_SIZE 2
 
-// GladderWaveNotify wire format (3 bytes total):
+// GladderWaveNotify wire format (5 bytes total):
 //   WRITE_BYTE  iType            (1 byte: 0 = STARTED, 1 = COMPLETED)
 //   WRITE_BYTE  iWaveNumber      (1 byte: 1..255)
 //   WRITE_BYTE  iMutatorType     (1 byte: GladderMutatorType)
-#define GLADDER_MSG_NOTIFY_SIZE 3
+//   WRITE_SHORT iHostileQuota    (2 bytes: total hostiles to eliminate this wave; 0 when not applicable)
+#define GLADDER_MSG_NOTIFY_SIZE 5
 
 // GladderLambda wire format (6 bytes total, SPEC §7.3, Issue #92):
 //   WRITE_LONG  iScoreBonus       (4 bytes)

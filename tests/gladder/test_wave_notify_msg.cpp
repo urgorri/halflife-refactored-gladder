@@ -67,3 +67,32 @@ TEST_CASE( "GladderWaveNotify: Display Timing and Visibility Window (#25)", "[gl
 	CHECK( notify.IsDisplaying( 104.0f ) == false );
 	CHECK( notify.IsDisplaying( 105.0f ) == false );
 }
+
+TEST_CASE( "GladderWaveNotify: Hostile quota line (SPEC §12.1, #127)", "[gladder][hud][notify]" )
+{
+	CHudGladderWaveNotify notify;
+
+	// Plurals: 24 hostiles
+	notify.TriggerNotification( 0, 3, 0, 100.0f, 24 );
+	CHECK( std::string( notify.GetTitle() ) == "WAVE 3 STARTED" );
+	CHECK( std::string( notify.GetHostileLine() ) == "ELIMINATE 24 HOSTILES" );
+	CHECK( std::string( notify.GetSubtitle() ) == "" );
+
+	// Singular: exactly 1 hostile
+	notify.TriggerNotification( 0, 4, 0, 110.0f, 1 );
+	CHECK( std::string( notify.GetHostileLine() ) == "ELIMINATE 1 HOSTILE" );
+
+	// Mutator wave keeps both the hostile line and the mutator subtitle
+	notify.TriggerNotification( 0, 5, 2, 120.0f, 24 );
+	CHECK( std::string( notify.GetHostileLine() ) == "ELIMINATE 24 HOSTILES" );
+	CHECK( std::string( notify.GetSubtitle() ) == "LOW GRAVITY MUTATOR ACTIVE" );
+
+	// Completion notification hides the hostile line
+	notify.TriggerNotification( 1, 3, 0, 130.0f, 0 );
+	CHECK( std::string( notify.GetHostileLine() ) == "" );
+	CHECK( std::string( notify.GetTitle() ) == "WAVE 3 COMPLETED" );
+
+	// Quota 0 on a start notification also hides the line
+	notify.TriggerNotification( 0, 6, 0, 140.0f, 0 );
+	CHECK( std::string( notify.GetHostileLine() ) == "" );
+}
