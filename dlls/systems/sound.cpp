@@ -86,7 +86,9 @@ void TEXTURETYPE_Init()
 		// null-terminate name and save in sentences array
 		j         = min( j, CBTEXTURENAMEMAX - 1 + i );
 		buffer[j] = 0;
-		strcpy( &( grgszTextureName[gcTextures++][0] ), &( buffer[i] ) );
+		strncpy( &( grgszTextureName[gcTextures][0] ), &( buffer[i] ), CBTEXTURENAMEMAX - 1 );
+		grgszTextureName[gcTextures][CBTEXTURENAMEMAX - 1] = '\0';
+		gcTextures++;
 	}
 
 	g_engfuncs.pfnFreeFile( pMemFile );
@@ -168,7 +170,7 @@ float TEXTURETYPE_PlaySound( TraceResult *ptr, Vector vecSrc, Vector vecEnd, int
 			if ( *pTextureName == '{' || *pTextureName == '!' || *pTextureName == '~' || *pTextureName == ' ' )
 				pTextureName++;
 			// '}}'
-			strcpy( szbuffer, pTextureName );
+			strncpy( szbuffer, pTextureName, CBTEXTURENAMEMAX - 1 );
 			szbuffer[CBTEXTURENAMEMAX - 1] = 0;
 
 			// ALERT ( at_console, "texture hit: %s\n", szbuffer);

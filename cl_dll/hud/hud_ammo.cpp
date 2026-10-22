@@ -140,7 +140,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	pWeapon->hZoomedAutoaim = 0;
 	memset( &pWeapon->rcZoomedAutoaim, 0, sizeof( wrect_t ) );
 
-	sprintf( sz, "sprites/%s.txt", pWeapon->szName );
+	snprintf( sz, sizeof( sz ), "sprites/%s.txt", pWeapon->szName );
 	client_sprite_t *pList = SPR_GetList( sz, &i );
 
 	if ( !pList )
@@ -158,7 +158,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "crosshair", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hCrosshair  = SPR_Load( sz );
 		pWeapon->rcCrosshair = p->rc;
 	}
@@ -174,7 +174,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "autoaim", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hAutoaim  = SPR_Load( sz );
 		pWeapon->rcAutoaim = p->rc;
 	}
@@ -184,7 +184,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "zoom", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hZoomedCrosshair  = SPR_Load( sz );
 		pWeapon->rcZoomedCrosshair = p->rc;
 	}
@@ -197,7 +197,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "zoom_autoaim", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hZoomedAutoaim  = SPR_Load( sz );
 		pWeapon->rcZoomedAutoaim = p->rc;
 	}
@@ -210,7 +210,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "weapon", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hInactive  = SPR_Load( sz );
 		pWeapon->rcInactive = p->rc;
 
@@ -222,7 +222,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "weapon_s", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hActive  = SPR_Load( sz );
 		pWeapon->rcActive = p->rc;
 	}
@@ -232,7 +232,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "ammo", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hAmmo  = SPR_Load( sz );
 		pWeapon->rcAmmo = p->rc;
 
@@ -244,7 +244,7 @@ void WeaponsResource ::LoadWeaponSprites( WEAPON *pWeapon )
 	p = GetSpriteList( pList, "ammo2", iRes, i );
 	if ( p )
 	{
-		sprintf( sz, "sprites/%s.spr", p->szSprite );
+		snprintf( sz, sizeof( sz ), "sprites/%s.spr", p->szSprite );
 		pWeapon->hAmmo2  = SPR_Load( sz );
 		pWeapon->rcAmmo2 = p->rc;
 
@@ -375,7 +375,7 @@ int CHudAmmo::VidInit( void )
 	for ( int i = 0; i < MAX_WEAPON_SLOTS; i++ )
 	{
 		char szBucket[16];
-		sprintf( szBucket, "bucket%d", i + 1 );
+		snprintf( szBucket, sizeof( szBucket ), "bucket%d", i + 1 );
 		m_HUD_buckets[i] = gHUD.GetSpriteIndex( szBucket );
 		if ( i < 5 && m_HUD_buckets[i] < 0 && m_HUD_bucket0 >= 0 )
 		{

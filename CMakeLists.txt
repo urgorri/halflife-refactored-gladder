@@ -332,12 +332,12 @@ if(BUILD_TESTS)
         tests/test_player_customization.cpp
         tests/test_ai_navigation.cpp
         tests/test_bodygroup_bounds.cpp
+        tests/test_bounded_strings.cpp
         tests/test_buttons.cpp
         tests/test_breakable_lifecycle.cpp
         tests/test_entity_iteration.cpp
         tests/test_orphaned_effects.cpp
         tests/test_monster_drop_hook.cpp
-        tests/test_weapons_resource.cpp
         tests/test_chargers.cpp
         dlls/core/animation.cpp
         dlls/systems/buttons.cpp
@@ -411,6 +411,7 @@ if(BUILD_TESTS)
         tests/gladder/test_wave_notify_msg.cpp
         tests/gladder/test_hud.cpp
         tests/gladder/test_summary_screen.cpp
+        tests/test_weapons_resource.cpp
         tests/test_weapons_pickup.cpp
         tests/test_ai_soundent.cpp
         dlls/ai/soundent.cpp

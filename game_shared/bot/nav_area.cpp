@@ -1158,9 +1158,15 @@ void EditNavAreas( NavEditCmdType cmd )
 				{
 					const char *name = TheBotPhrases->IDToName( area->GetPlace() );
 					if ( name )
-						strcpy( locName, name );
+					{
+						strncpy( locName, name, sizeof( locName ) - 1 );
+						locName[sizeof( locName ) - 1] = '\0';
+					}
 					else
-						strcpy( locName, "ERROR" );
+					{
+						strncpy( locName, "ERROR", sizeof( locName ) - 1 );
+						locName[sizeof( locName ) - 1] = '\0';
+					}
 				}
 				else
 				{
@@ -1173,10 +1179,10 @@ void EditNavAreas( NavEditCmdType cmd )
 				}
 				else
 				{
-					sprintf( attrib, "%s%s%s%s", ( area->GetAttributes() & NAV_CROUCH ) ? "CROUCH " : "", ( area->GetAttributes() & NAV_JUMP ) ? "JUMP " : "", ( area->GetAttributes() & NAV_PRECISE ) ? "PRECISE " : "", ( area->GetAttributes() & NAV_NO_JUMP ) ? "NO_JUMP " : "" );
+					snprintf( attrib, sizeof( attrib ), "%s%s%s%s", ( area->GetAttributes() & NAV_CROUCH ) ? "CROUCH " : "", ( area->GetAttributes() & NAV_JUMP ) ? "JUMP " : "", ( area->GetAttributes() & NAV_PRECISE ) ? "PRECISE " : "", ( area->GetAttributes() & NAV_NO_JUMP ) ? "NO_JUMP " : "" );
 				}
 
-				sprintf( buffer, "Area #%d %s %s\n", area->GetID(), locName, attrib );
+				snprintf( buffer, sizeof( buffer ), "Area #%d %s %s\n", area->GetID(), locName, attrib );
 
 				UTIL_SayTextAll( buffer, player );
 
@@ -1371,7 +1377,7 @@ void EditNavAreas( NavEditCmdType cmd )
 						connected += markedArea->GetAdjacentCount( WEST );
 
 						char buffer[80];
-						sprintf( buffer, "Marked Area is connected to %d other Areas\n", connected );
+						snprintf( buffer, sizeof( buffer ), "Marked Area is connected to %d other Areas\n", connected );
 						UTIL_SayTextAll( buffer, player );
 					}
 					break;
@@ -1419,7 +1425,7 @@ void EditNavAreas( NavEditCmdType cmd )
 							}
 
 							char buffer[80];
-							sprintf( buffer, "Marked Area is connected to %d other Areas - there are %d total unnamed areas\n", connected, totalUnnamedAreas );
+							snprintf( buffer, sizeof( buffer ), "Marked Area is connected to %d other Areas - there are %d total unnamed areas\n", connected, totalUnnamedAreas );
 							UTIL_SayTextAll( buffer, player );
 						}
 					}

@@ -77,10 +77,8 @@ int USENTENCEG_PickSequential( int isentenceg, char *szfound, int ipick, int fre
 	if ( ipick >= count )
 		ipick = count - 1;
 
-	strcpy( szfound, "!" );
-	strcat( szfound, szgroupname );
-	sprintf( sznum, "%d", ipick );
-	strcat( szfound, sznum );
+	snprintf( sznum, sizeof( sznum ), "%d", ipick );
+	snprintf( szfound, 64, "!%s%s", szgroupname, sznum );
 
 	if ( ipick >= count )
 	{
@@ -137,10 +135,8 @@ int USENTENCEG_Pick( int isentenceg, char *szfound )
 			USENTENCEG_InitLRU( plru, count );
 		else
 		{
-			strcpy( szfound, "!" );
-			strcat( szfound, szgroupname );
-			sprintf( sznum, "%d", ipick );
-			strcat( szfound, sznum );
+			snprintf( sznum, sizeof( sznum ), "%d", ipick );
+			snprintf( szfound, 64, "!%s%s", szgroupname, sznum );
 			return ipick;
 		}
 	}
@@ -263,10 +259,8 @@ void SENTENCEG_Stop( edict_t *entity, int isentenceg, int ipick )
 	if ( isentenceg < 0 || isentenceg >= CSENTENCEG_MAX || ipick < 0 )
 		return;
 
-	strcpy( buffer, "!" );
-	strcat( buffer, rgsentenceg[isentenceg].szgroupname );
-	sprintf( sznum, "%d", ipick );
-	strcat( buffer, sznum );
+	snprintf( sznum, sizeof( sznum ), "%d", ipick );
+	snprintf( buffer, sizeof( buffer ), "!%s%s", rgsentenceg[isentenceg].szgroupname, sznum );
 
 	STOP_SOUND( entity, CHAN_VOICE, buffer );
 }
@@ -333,7 +327,9 @@ void SENTENCEG_Init()
 		if ( strlen( pString) >= CBSENTENCENAME_MAX )
 			ALERT( at_warning, "Sentence %s longer than %d letters\n", pString, CBSENTENCENAME_MAX - 1 );
 
-		strcpy( gszallsentencenames[gcallsentences++], pString );
+		strncpy( gszallsentencenames[gcallsentences], pString, CBSENTENCENAME_MAX - 1 );
+		gszallsentencenames[gcallsentences][CBSENTENCENAME_MAX - 1] = '\0';
+		gcallsentences++;
 
 		j--;
 		if ( j <= i )
@@ -364,10 +360,12 @@ void SENTENCEG_Init()
 				break;
 			}
 
-			strcpy( rgsentenceg[isentencegs].szgroupname, &( buffer[i] ) );
+			strncpy( rgsentenceg[isentencegs].szgroupname, &( buffer[i] ), sizeof( rgsentenceg[isentencegs].szgroupname ) - 1 );
+			rgsentenceg[isentencegs].szgroupname[sizeof( rgsentenceg[isentencegs].szgroupname ) - 1] = '\0';
 			rgsentenceg[isentencegs].count = 1;
 
-			strcpy( szgroup, &( buffer[i] ) );
+			strncpy( szgroup, &( buffer[i] ), sizeof( szgroup ) - 1 );
+			szgroup[sizeof( szgroup ) - 1] = '\0';
 
 			continue;
 		}
@@ -408,9 +406,8 @@ int SENTENCEG_Lookup( const char *sample, char *sentencenum )
 		{
 			if ( sentencenum )
 			{
-				strcpy( sentencenum, "!" );
-				sprintf( sznum, "%d", i );
-				strcat( sentencenum, sznum );
+				snprintf( sznum, sizeof( sznum ), "%d", i );
+				snprintf( sentencenum, CBSENTENCENAME_MAX, "!%s", sznum );
 			}
 			return i;
 		}

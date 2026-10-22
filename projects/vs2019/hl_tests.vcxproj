@@ -160,6 +160,7 @@
     <ClCompile Include="..\..\tests\test_player_customization.cpp" />
     <ClCompile Include="..\..\tests\test_ai_navigation.cpp" />
     <ClCompile Include="..\..\tests\test_bodygroup_bounds.cpp" />
+    <ClCompile Include="..\..\tests\test_bounded_strings.cpp" />
     <ClCompile Include="..\..\tests\test_buttons.cpp" />
     <ClCompile Include="..\..\tests\test_breakable_lifecycle.cpp" />
     <ClCompile Include="..\..\tests\test_entity_iteration.cpp" />

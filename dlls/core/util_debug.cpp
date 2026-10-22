@@ -29,9 +29,9 @@ void DBG_AssertFunction(
 		return;
 	char szOut[512];
 	if ( szMessage != NULL )
-		sprintf( szOut, "ASSERT FAILED:\n %s \n(%s@%d)\n%s", szExpr, szFile, szLine, szMessage );
+		snprintf( szOut, sizeof( szOut ), "ASSERT FAILED:\n %s \n(%s@%d)\n%s", szExpr, szFile, szLine, szMessage );
 	else
-		sprintf( szOut, "ASSERT FAILED:\n %s \n(%s@%d)", szExpr, szFile, szLine );
+		snprintf( szOut, sizeof( szOut ), "ASSERT FAILED:\n %s \n(%s@%d)", szExpr, szFile, szLine );
 	ALERT( at_console, szOut );
 }
 #endif // DEBUG
@@ -45,8 +45,9 @@ void UTIL_LogPrintf( char *fmt, ... )
 	static char string[1024];
 
 	va_start( argptr, fmt );
-	vsprintf( string, fmt, argptr );
+	vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
+	string[sizeof( string ) - 1] = '\0';
 
 	// Print to server console
 	ALERT( at_logged, "%s", string );

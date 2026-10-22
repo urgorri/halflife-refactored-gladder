@@ -243,7 +243,8 @@ void BufferWriter::WriteString( const char *str )
 		len        = 1;
 	}
 
-	strcpy( (char *)m_buffer, str );
+	strncpy( (char *)m_buffer, str, len );
+	( (char *)m_buffer )[len - 1] = '\0';
 	m_remaining -= len;
 	m_buffer += len;
 }

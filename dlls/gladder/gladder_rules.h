@@ -179,7 +179,8 @@ class CGladderRules : public CHalfLifeRules
 	void BroadcastWaveUpdate( CBasePlayer *pPlayer = nullptr );
 	void BroadcastTelemetryUpdate( CBasePlayer *pPlayer = nullptr );
 	void BroadcastComboUpdate( CBasePlayer *pPlayer = nullptr );
-	void BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iWaveNumber, int iMutatorType );
+	void BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iWaveNumber, int iMutatorType, int iHostileQuota = 0 );
+	void BroadcastWaveClear( CBasePlayer *pPlayer, int iWaveNumber );
 	void BroadcastSummaryUpdate( CBasePlayer *pPlayer, const GladderScoreBreakdown &score, const GladderKillStats &kills );
 
 	// Accessors

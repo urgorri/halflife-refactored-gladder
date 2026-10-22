@@ -393,22 +393,20 @@ int CGraph ::FLoadGraph( char *szMapName )
 	// make sure the directories have been made
 	char szDirName[MAX_PATH];
 	GET_GAME_DIR( szDirName );
-	strcat( szDirName, "/maps" );
+	strncat( szDirName, "/maps", sizeof( szDirName ) - strlen( szDirName ) - 1 );
 #ifdef _WIN32
 	CreateDirectory( szDirName, NULL );
 #else
 	mkdir( szDirName, 0755 );
 #endif
-	strcat( szDirName, "/graphs" );
+	strncat( szDirName, "/graphs", sizeof( szDirName ) - strlen( szDirName ) - 1 );
 #ifdef _WIN32
 	CreateDirectory( szDirName, NULL );
 #else
 	mkdir( szDirName, 0755 );
 #endif
 
-	strcpy( szFilename, "maps/graphs/" );
-	strcat( szFilename, szMapName );
-	strcat( szFilename, ".nod" );
+	snprintf( szFilename, sizeof( szFilename ), "maps/graphs/%s.nod", szMapName );
 
 	pMemFile = aMemFile = LOAD_FILE_FOR_ME( szFilename, &length );
 
@@ -583,22 +581,22 @@ int CGraph ::FSaveGraph( char *szMapName )
 
 	// make sure directories have been made
 	GET_GAME_DIR( szFilename );
-	strcat( szFilename, "/maps" );
+	strncat( szFilename, "/maps", sizeof( szFilename ) - strlen( szFilename ) - 1 );
 #ifdef _WIN32
 	CreateDirectory( szFilename, NULL );
 #else
 	mkdir( szFilename, 0755 );
 #endif
-	strcat( szFilename, "/graphs" );
+	strncat( szFilename, "/graphs", sizeof( szFilename ) - strlen( szFilename ) - 1 );
 #ifdef _WIN32
 	CreateDirectory( szFilename, NULL );
 #else
 	mkdir( szFilename, 0755 );
 #endif
 
-	strcat( szFilename, "/" );
-	strcat( szFilename, szMapName );
-	strcat( szFilename, ".nod" );
+	strncat( szFilename, "/", sizeof( szFilename ) - strlen( szFilename ) - 1 );
+	strncat( szFilename, szMapName, sizeof( szFilename ) - strlen( szFilename ) - 1 );
+	strncat( szFilename, ".nod", sizeof( szFilename ) - strlen( szFilename ) - 1 );
 
 	file = fopen( szFilename, "wb" );
 
@@ -708,13 +706,9 @@ int CGraph ::CheckNODFile( char *szMapName )
 	char szBspFilename[MAX_PATH];
 	char szGraphFilename[MAX_PATH];
 
-	strcpy( szBspFilename, "maps/" );
-	strcat( szBspFilename, szMapName );
-	strcat( szBspFilename, ".bsp" );
+	snprintf( szBspFilename, sizeof( szBspFilename ), "maps/%s.bsp", szMapName );
 
-	strcpy( szGraphFilename, "maps/graphs/" );
-	strcat( szGraphFilename, szMapName );
-	strcat( szGraphFilename, ".nod" );
+	snprintf( szGraphFilename, sizeof( szGraphFilename ), "maps/graphs/%s.nod", szMapName );
 
 	retValue = TRUE;
 

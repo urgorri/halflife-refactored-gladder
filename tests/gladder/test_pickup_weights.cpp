@@ -7,10 +7,16 @@
 
 #include "external/catch2/catch_amalgamated.hpp"
 #include "dlls/gladder/gladder_pickup_weights.h"
+#include "core/extdll.h"
+#include "core/util.h"
+#include "core/cbase.h"
+#include "core/player.h"
+#include "dlls/gladder/gladder_spawner.h"
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
+#include <cstring>
 #include <cmath>
 
 namespace
@@ -58,6 +64,173 @@ const GladderWeightedPickup *RollItem( const std::vector<GladderWeightedPickup> 
 			return &it;
 	}
 	return &items.back();
+}
+
+float SumCategoryWeight( const std::vector<GladderWeightedPickup> &items, int iCategory )
+{
+	float sum = 0.0f;
+	for ( const auto &item : items )
+	{
+		if ( item.iCategory == iCategory )
+			sum += item.flWeight;
+	}
+	return sum;
+}
+
+int CountCategoryEntries( const std::vector<GladderWeightedPickup> &items, int iCategory )
+{
+	int count = 0;
+	for ( const auto &item : items )
+	{
+		if ( item.iCategory == iCategory )
+			count++;
+	}
+	return count;
+}
+
+// ---------------------------------------------------------------------------
+// Seeded supply-diversity harness (SPEC §3 "Supply Variety & Survival Realism Audit", Issue #129)
+//
+// Replays the production supply pipeline: the real ComputePickupWeights() output, the same
+// weighted-roll arithmetic used by GladderSpawner::RollPickupItem(), the same per-run class and
+// pity bookkeeping, and the production supply volume curve read from GladderMapConfig defaults.
+// ---------------------------------------------------------------------------
+
+int SimulatePickupCount( int iWaveNumber, const GladderMapConfig &config )
+{
+	int count = static_cast<int>( config.basePickups + ( iWaveNumber - 1 ) * config.pickupsPerWave );
+	return (std::min)( count, config.maxPickups );
+}
+
+struct RunSimulation
+{
+	std::unordered_map<std::string, int> classCounts;
+	int categoryCounts[GLADDER_CAT_COUNT];
+	int iTotalPickups;
+
+	RunSimulation()
+	{
+		for ( int i = 0; i < GLADDER_CAT_COUNT; ++i )
+			categoryCounts[i] = 0;
+		iTotalPickups = 0;
+	}
+
+	int GetClassCount( const char *szClassname ) const
+	{
+		std::unordered_map<std::string, int>::const_iterator it = classCounts.find( std::string( szClassname ) );
+		return ( it != classCounts.end() ) ? it->second : 0;
+	}
+
+	float GetClassShare( const char *szClassname ) const
+	{
+		if ( iTotalPickups <= 0 )
+			return 0.0f;
+		return static_cast<float>( GetClassCount( szClassname ) ) / static_cast<float>( iTotalPickups );
+	}
+
+	float GetCategoryShare( int iCategory ) const
+	{
+		if ( iTotalPickups <= 0 )
+			return 0.0f;
+		return static_cast<float>( categoryCounts[iCategory] ) / static_cast<float>( iTotalPickups );
+	}
+};
+
+const char *const s_ordnanceClassnames[] = {
+	"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark"
+};
+
+bool IsOrdnanceClass( const std::string &szClassname )
+{
+	for ( const char *szOrdnance : s_ordnanceClassnames )
+	{
+		if ( szClassname == szOrdnance )
+			return true;
+	}
+	return false;
+}
+
+// Replays a full gauntlet run, mirroring GladderSpawner::RollPickupItem() bookkeeping wave by wave.
+RunSimulation SimulateGauntletRun( uint32_t seed, int iWaves, const std::vector<std::string> &initialLoadout,
+                                   const std::unordered_map<std::string, float> &ammoReserves )
+{
+	SimpleRng rng( seed );
+	RunSimulation run;
+
+	const GladderMapConfig config;
+
+	GladderPickupWeightInput input;
+	input.ownedWeapons = initialLoadout;
+	input.ammoReserveFractions = ammoReserves;
+
+	const auto &ammoMappings = GetGladderAmmoMappings();
+	for ( const auto &mapping : ammoMappings )
+		input.wavesSinceLastAmmoSpawn[mapping.szClassname] = 0;
+
+	for ( int wave = 1; wave <= iWaves; ++wave )
+	{
+		input.iWaveNumber = wave;
+		if ( wave > 1 )
+		{
+			for ( auto &kv : input.wavesSinceLastAmmoSpawn )
+				kv.second++;
+		}
+
+		const int pickupCount = SimulatePickupCount( wave, config );
+		const int maxFixedWeaponsThisWave = ( pickupCount >= 14 ) ? 2 : 1;
+		int fixedWeaponsSpawnedThisWave = 0;
+
+		for ( int pickup = 0; pickup < pickupCount; ++pickup )
+		{
+			input.allowFixedWeapons = ( fixedWeaponsSpawnedThisWave < maxFixedWeaponsThisWave );
+
+			const std::vector<GladderWeightedPickup> weightedItems = ComputePickupWeights( input );
+			const GladderWeightedPickup *chosen = RollItem( weightedItems, rng );
+			if ( !chosen )
+				continue;
+
+			run.classCounts[chosen->szClassname]++;
+			run.categoryCounts[chosen->iCategory]++;
+			run.iTotalPickups++;
+
+			input.runClassCounts[chosen->szClassname]++;
+			input.iRunTotalSpawns++;
+
+			if ( chosen->iCategory == GLADDER_CAT_AMMO )
+			{
+				input.wavesSinceLastAmmoSpawn[chosen->szClassname] = 0;
+				if ( std::strcmp( chosen->szClassname, "ammo_gaussclip" ) == 0 ||
+				     std::strcmp( chosen->szClassname, "ammo_egonclip" ) == 0 )
+				{
+					input.wavesSinceLastAmmoSpawn["ammo_gaussclip"] = 0;
+					input.wavesSinceLastAmmoSpawn["ammo_egonclip"] = 0;
+				}
+			}
+			else if ( chosen->iCategory == GLADDER_CAT_WEAPON )
+			{
+				fixedWeaponsSpawnedThisWave++;
+				input.ownedWeapons.push_back( chosen->szClassname );
+			}
+		}
+	}
+
+	return run;
+}
+
+const std::vector<std::string> &GetFreshLoadout()
+{
+	static const std::vector<std::string> s_freshLoadout( 1, "weapon_crowbar" );
+	return s_freshLoadout;
+}
+
+const std::vector<std::string> &GetFullLoadout()
+{
+	static const std::vector<std::string> s_fullLoadout = {
+		"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun",
+		"weapon_mp5", "weapon_357", "weapon_eagle", "weapon_crossbow",
+		"weapon_sniper", "weapon_m249", "weapon_rpg", "weapon_gauss", "weapon_egon"
+	};
+	return s_fullLoadout;
 }
 
 } // namespace
@@ -554,5 +727,222 @@ TEST_CASE( "GladderPickupWeights: 10,000-run Monte Carlo simulation (SPEC §3 am
 		INFO( "Uranium appearance rate from wave 3+: " << ( uraniumCoverage * 100.0f ) << "%" );
 		// SPEC §3 Guarantee: Uranium ammo appears in >= 90% of runs when Gauss/Egon is owned
 		CHECK( uraniumCoverage >= 0.90f );
+	}
+}
+
+//
+// Supply variety guarantees & survival realism audit (SPEC §3, Issue #129)
+//
+// Mirrors MAX_CLASS_SHARE from dlls/gladder/gladder_pickup_weights.cpp: no single supply class is
+// allowed to hold more than a quarter of a run's supply drops.
+static const float kMaxClassShare = 0.25f;
+
+TEST_CASE( "GladderPickupWeights: No single supply class dominates a gauntlet run (SPEC §3, Issue #129)", "[gladder][spawner][weights][diversity]" )
+{
+	const uint32_t seeds[] = { 1u, 7u, 4242u, 99991u, 271828u, 1234567890u };
+	const int waveCounts[] = { 10, 15 };
+	const std::unordered_map<std::string, float> noReserves;
+
+	for ( size_t s = 0; s < sizeof( seeds ) / sizeof( seeds[0] ); ++s )
+	{
+		for ( size_t w = 0; w < sizeof( waveCounts ) / sizeof( waveCounts[0] ); ++w )
+		{
+			INFO( "seed=" << seeds[s] << " waves=" << waveCounts[w] );
+			RunSimulation run = SimulateGauntletRun( seeds[s], waveCounts[w], GetFreshLoadout(), noReserves );
+			REQUIRE( run.iTotalPickups > 0 );
+
+			int distinctClasses = 0;
+			for ( const auto &entry : run.classCounts )
+			{
+				if ( entry.second <= 0 )
+					continue;
+				distinctClasses++;
+				CHECK( run.GetClassShare( entry.first.c_str() ) <= kMaxClassShare );
+			}
+
+			// The run must never collapse onto a single supply class
+			CHECK( distinctClasses >= 3 );
+		}
+	}
+}
+
+TEST_CASE( "GladderPickupWeights: Ammo, health and armor coverage plus ordnance/weapon variety (SPEC §3, Issue #129)", "[gladder][spawner][weights][diversity]" )
+{
+	// Documented minimum shares for a seeded 10-wave run (SPEC §3 supply variety audit)
+	const float MIN_AMMO_SHARE   = 0.50f;
+	const float MIN_HEALTH_SHARE = 0.05f;
+	const float MIN_ARMOR_SHARE  = 0.05f;
+	const std::unordered_map<std::string, float> noReserves;
+
+	for ( uint32_t seed = 1u; seed <= 12u; ++seed )
+	{
+		INFO( "seed=" << seed );
+		RunSimulation run = SimulateGauntletRun( seed, 10, GetFreshLoadout(), noReserves );
+		REQUIRE( run.iTotalPickups > 0 );
+
+		CHECK( run.GetCategoryShare( GLADDER_CAT_AMMO ) >= MIN_AMMO_SHARE );
+		CHECK( run.GetClassShare( "item_healthkit" ) >= MIN_HEALTH_SHARE );
+		CHECK( run.GetClassShare( "item_battery" ) >= MIN_ARMOR_SHARE );
+
+		// At least three distinct ordnance or fixed-weapon classes must be offered per run
+		int distinctOrdnance = 0;
+		int distinctWeapons = 0;
+		for ( const auto &entry : run.classCounts )
+		{
+			if ( entry.second <= 0 )
+				continue;
+			if ( IsOrdnanceClass( entry.first ) )
+				distinctOrdnance++;
+			else if ( entry.first.compare( 0, 7, "weapon_" ) == 0 )
+				distinctWeapons++;
+		}
+		CHECK( distinctOrdnance >= 1 );
+		CHECK( distinctOrdnance + distinctWeapons >= 3 );
+	}
+}
+
+TEST_CASE( "GladderPickupWeights: Owned ammo coverage with a full loadout (SPEC §3, Issue #129)", "[gladder][spawner][weights][diversity]" )
+{
+	const char *const s_ownedAmmo[] = {
+		"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357",
+		"ammo_ARgrenades", "ammo_crossbow", "ammo_gaussclip", "ammo_egonclip",
+		"ammo_762", "ammo_556", "ammo_rpgclip"
+	};
+	const size_t numOwnedAmmo = sizeof( s_ownedAmmo ) / sizeof( s_ownedAmmo[0] );
+	constexpr int NUM_RUNS = 40;
+
+	std::unordered_map<std::string, int> runsWithClass;
+	for ( size_t i = 0; i < numOwnedAmmo; ++i )
+		runsWithClass[s_ownedAmmo[i]] = 0;
+
+	int runsWithCompleteCoverage = 0;
+	const std::unordered_map<std::string, float> saturatedReserves;
+
+	for ( int r = 0; r < NUM_RUNS; ++r )
+	{
+		// Fully loaded player: only the diversity guarantees can force an unseen ammo class in
+		RunSimulation run = SimulateGauntletRun( 1000u + static_cast<uint32_t>( r ), 10, GetFullLoadout(), saturatedReserves );
+
+		bool bAllCovered = true;
+		for ( size_t i = 0; i < numOwnedAmmo; ++i )
+		{
+			if ( run.GetClassCount( s_ownedAmmo[i] ) > 0 )
+				runsWithClass[s_ownedAmmo[i]]++;
+			else
+				bAllCovered = false;
+		}
+		if ( bAllCovered )
+			runsWithCompleteCoverage++;
+	}
+
+	for ( size_t i = 0; i < numOwnedAmmo; ++i )
+	{
+		float appearanceRate = static_cast<float>( runsWithClass[s_ownedAmmo[i]] ) / static_cast<float>( NUM_RUNS );
+		INFO( "Owned ammo coverage for " << s_ownedAmmo[i] << ": " << ( appearanceRate * 100.0f ) << "%" );
+		CHECK( appearanceRate >= 0.95f );
+	}
+
+	float completeCoverageRate = static_cast<float>( runsWithCompleteCoverage ) / static_cast<float>( NUM_RUNS );
+	INFO( "Runs where every owned ammo class appeared: " << ( completeCoverageRate * 100.0f ) << "%" );
+	CHECK( completeCoverageRate >= 0.80f );
+}
+
+TEST_CASE( "GladderPickupWeights: Attrition response shifts share without breaking the ordnance band (SPEC §3, Issue #129)", "[gladder][spawner][weights][diversity]" )
+{
+	// Saturated baseline: every reserve is full (the harness defaults to 1.0).
+	const std::unordered_map<std::string, float> saturatedReserves;
+
+	// Attrition: the player has burned through shotgun (buckshot) and MP5 (9mm) ammunition.
+	std::unordered_map<std::string, float> attritionReserves;
+	attritionReserves["ammo_buckshot"] = 0.05f;
+	attritionReserves["buckshot"]      = 0.05f;
+	attritionReserves["ammo_9mmclip"]  = 0.05f;
+	attritionReserves["ammo_9mmAR"]    = 0.05f;
+	attritionReserves["9mm"]           = 0.05f;
+
+	constexpr int NUM_RUNS = 20;
+	float flSaturatedBuckshot = 0.0f;
+	float flAttritionBuckshot = 0.0f;
+	float flAttritionHealth   = 0.0f;
+	float flAttritionOrdnance = 0.0f;
+
+	for ( int r = 0; r < NUM_RUNS; ++r )
+	{
+		uint32_t seed = 500u + static_cast<uint32_t>( r );
+		RunSimulation saturated = SimulateGauntletRun( seed, 10, GetFullLoadout(), saturatedReserves );
+		RunSimulation attrition = SimulateGauntletRun( seed, 10, GetFullLoadout(), attritionReserves );
+
+		flSaturatedBuckshot += saturated.GetClassShare( "ammo_buckshot" );
+		flAttritionBuckshot += attrition.GetClassShare( "ammo_buckshot" );
+		flAttritionHealth   += attrition.GetCategoryShare( GLADDER_CAT_HEALTH_ARMOR );
+		flAttritionOrdnance += attrition.GetCategoryShare( GLADDER_CAT_ORDNANCE );
+	}
+
+	flSaturatedBuckshot /= static_cast<float>( NUM_RUNS );
+	flAttritionBuckshot /= static_cast<float>( NUM_RUNS );
+	flAttritionHealth   /= static_cast<float>( NUM_RUNS );
+	flAttritionOrdnance /= static_cast<float>( NUM_RUNS );
+
+	INFO( "buckshot share saturated=" << ( flSaturatedBuckshot * 100.0f ) << "% attrition=" << ( flAttritionBuckshot * 100.0f ) << "%" );
+	INFO( "attrition health share=" << ( flAttritionHealth * 100.0f ) << "%" );
+	INFO( "attrition ordnance share=" << ( flAttritionOrdnance * 100.0f ) << "%" );
+
+	// Depleted ammo classes must gain share compared to the saturated baseline
+	CHECK( flAttritionBuckshot > flSaturatedBuckshot * 1.20f );
+
+	// Health/armor must keep covering the player without starving the other categories
+	CHECK( flAttritionHealth >= 0.15f );
+	CHECK( flAttritionHealth <= 0.30f );
+
+	// Ordnance keeps appearing in modest amounts: above the documented 8% floor and well below the
+	// 25% domination cap. The instantaneous macro weight stays inside 11.5%-18.5% (see the
+	// freed-budget rotation case below, which asserts the weight band directly).
+	CHECK( flAttritionOrdnance >= 0.08f );
+	CHECK( flAttritionOrdnance <= 0.25f );
+}
+
+TEST_CASE( "GladderPickupWeights: Freed weapon budget rotates instead of collapsing onto one entry (SPEC §3, Issue #129)", "[gladder][spawner][weights][diversity]" )
+{
+	SECTION( "No ordnance spawned yet: freed weapon budget feeds ordnance across multiple entries" )
+	{
+		GladderPickupWeightInput input;
+		input.iWaveNumber = 5;
+		input.ownedWeapons = GetFullLoadout();
+
+		auto weights = ComputePickupWeights( input );
+
+		CHECK( SumCategoryWeight( weights, GLADDER_CAT_WEAPON ) == 0.0f );
+		// 11.5 base ordnance + 7.0 rotated freed budget
+		CHECK( SumCategoryWeight( weights, GLADDER_CAT_ORDNANCE ) == Catch::Approx( 18.5f ) );
+		// The freed budget is spread over several ordnance entries, never a single one
+		CHECK( CountCategoryEntries( weights, GLADDER_CAT_ORDNANCE ) >= 3 );
+
+		float totalWeight = 0.0f;
+		for ( const auto &item : weights )
+			totalWeight += item.flWeight;
+
+		for ( const auto &item : weights )
+		{
+			if ( item.iCategory == GLADDER_CAT_ORDNANCE )
+				CHECK( item.flWeight / totalWeight <= kMaxClassShare );
+		}
+	}
+
+	SECTION( "Ordnance already at its floor: freed weapon budget rotates to ammunition" )
+	{
+		GladderPickupWeightInput input;
+		input.iWaveNumber = 5;
+		input.ownedWeapons = GetFullLoadout();
+		// The run has already spawned two ordnance supplies out of ten picks (20% >= 8% floor)
+		input.runClassCounts["weapon_handgrenade"] = 2;
+		input.iRunTotalSpawns = 10;
+
+		auto weights = ComputePickupWeights( input );
+
+		CHECK( SumCategoryWeight( weights, GLADDER_CAT_WEAPON ) == 0.0f );
+		// 59.5 base ammo + 7.0 rotated freed budget
+		CHECK( SumCategoryWeight( weights, GLADDER_CAT_AMMO ) == Catch::Approx( 66.5f ) );
+		// Ordnance keeps its base macro allocation only
+		CHECK( SumCategoryWeight( weights, GLADDER_CAT_ORDNANCE ) == Catch::Approx( 11.5f ) );
 	}
 }

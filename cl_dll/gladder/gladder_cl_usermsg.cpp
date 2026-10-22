@@ -87,13 +87,25 @@ bool Gladder_ParseComboMsg( const void *pbuf, int iSize, GladderComboMsg &outMsg
 
 bool Gladder_ParseNotifyMsg( const void *pbuf, int iSize, GladderNotifyMsg &outMsg )
 {
-	if ( !pbuf || iSize < 3 )
+	if ( !pbuf || iSize < 5 )
 		return false;
 
 	const uint8_t *p = static_cast<const uint8_t *>( pbuf );
-	outMsg.iType        = p[0];
-	outMsg.iWaveNumber  = p[1];
-	outMsg.iMutatorType = p[2];
+	outMsg.iType         = p[0];
+	outMsg.iWaveNumber   = p[1];
+	outMsg.iMutatorType  = p[2];
+	outMsg.iHostileQuota = ReadInt16( p + 3 );
+
+	return true;
+}
+
+bool Gladder_ParseClearMsg( const void *pbuf, int iSize, GladderClearMsg &outMsg )
+{
+	if ( !pbuf || iSize < 1 )
+		return false;
+
+	const uint8_t *p = static_cast<const uint8_t *>( pbuf );
+	outMsg.iWaveNumber = p[0];
 
 	return true;
 }

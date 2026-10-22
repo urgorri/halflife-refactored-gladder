@@ -236,22 +236,22 @@ void CTestHull ::BuildNodeGraph( void )
 	{
 		// make sure directories have been made
 		GET_GAME_DIR( szNrpFilename );
-		strcat( szNrpFilename, "/maps" );
+		strncat( szNrpFilename, "/maps", sizeof( szNrpFilename ) - strlen( szNrpFilename ) - 1 );
 #ifdef _WIN32
 		CreateDirectory( szNrpFilename, NULL );
 #else
 		mkdir( szNrpFilename, 0755 );
 #endif
-		strcat( szNrpFilename, "/graphs" );
+		strncat( szNrpFilename, "/graphs", sizeof( szNrpFilename ) - strlen( szNrpFilename ) - 1 );
 #ifdef _WIN32
 		CreateDirectory( szNrpFilename, NULL );
 #else
 		mkdir( szNrpFilename, 0755 );
 #endif
 
-		strcat( szNrpFilename, "/" );
-		strcat( szNrpFilename, STRING( gpGlobals->mapname ) );
-		strcat( szNrpFilename, ".nrp" );
+		strncat( szNrpFilename, "/", sizeof( szNrpFilename ) - strlen( szNrpFilename ) - 1 );
+		strncat( szNrpFilename, STRING( gpGlobals->mapname ), sizeof( szNrpFilename ) - strlen( szNrpFilename ) - 1 );
+		strncat( szNrpFilename, ".nrp", sizeof( szNrpFilename ) - strlen( szNrpFilename ) - 1 );
 
 		file = fopen( szNrpFilename, "w+" );
 

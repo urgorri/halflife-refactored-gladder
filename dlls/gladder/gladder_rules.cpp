@@ -686,6 +686,11 @@ void CGladderRules::CheckAllHostilesEliminated( CBaseEntity *pActivator )
 		m_bHostilesEliminatedFired = true;
 		Gladder_FireClearTargets( pActivator );
 		Gladder_FireWaveRelays( 4, pActivator );
+
+		// "All hostiles eliminated" overlay + arcade sting (SPEC §12.2.1, Issue #128).
+		// Reusing this latched function guarantees it fires at most once per wave and never on reset.
+		BroadcastWaveClear( nullptr, m_waveManager.GetWaveNumber() );
+		GladderAudio::PlayCue( GLADDER_CUE_ALL_HOSTILES_ELIMINATED, pActivator );
 	}
 }
 
@@ -1046,7 +1051,7 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		EnsureMonsterClipFlags();
 		EnsureDeadMonsterProps();
 
-		BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ) );
+		BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ), m_iWaveMonstersTotal );
 		BroadcastWaveUpdate();
 		BroadcastTelemetryUpdate();
 	}
@@ -1569,7 +1574,7 @@ void CGladderRules::BroadcastComboUpdate( CBasePlayer *pPlayer )
 	MESSAGE_END();
 }
 
-void CGladderRules::BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iWaveNumber, int iMutatorType )
+void CGladderRules::BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iWaveNumber, int iMutatorType, int iHostileQuota )
 {
 	if ( !gmsgGladderNotify )
 		return;
@@ -1577,10 +1582,29 @@ void CGladderRules::BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iW
 	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
 	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
 
+	int iQuota = ( iHostileQuota > 0 ) ? iHostileQuota : 0;
+	if ( iQuota > 65535 )
+		iQuota = 65535;
+
 	MESSAGE_BEGIN( msgDest, gmsgGladderNotify, nullptr, pTarget );
 	WRITE_BYTE( iType );
 	WRITE_BYTE( iWaveNumber );
 	WRITE_BYTE( iMutatorType );
+	WRITE_SHORT( iQuota );
+	MESSAGE_END();
+}
+
+// Dedicated "all hostiles eliminated" notification (SPEC §12.2.1, Issue #128)
+void CGladderRules::BroadcastWaveClear( CBasePlayer *pPlayer, int iWaveNumber )
+{
+	if ( !gmsgGladderClear )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderClear, nullptr, pTarget );
+	WRITE_BYTE( iWaveNumber );
 	MESSAGE_END();
 }
 
