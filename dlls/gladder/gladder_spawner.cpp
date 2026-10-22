@@ -99,9 +99,9 @@ GladderMapConfig::GladderMapConfig()
     : baseMonsters( 20 ),
       monstersPerWave( 2.0f ),
       maxMonsters( 48 ),
-      basePickups( 10 ),
-      pickupsPerWave( 1.5f ),
-      maxPickups( 24 ),
+      basePickups( 15 ),
+      pickupsPerWave( 2.25f ),
+      maxPickups( 36 ),
       routeBiasFraction( 0.60f ),
       routeCorridorRadius( 512.0f )
 {
@@ -349,6 +349,11 @@ const char *GladderSpawner::RollMonsterSpecies( int iWaveNumber, bool &outIsFlyi
 static std::unordered_map<std::string, int> s_wavesSinceLastAmmoSpawn;
 static int s_iLastPityWave = 0;
 
+// Per-run supply diversity bookkeeping (SPEC §3, Issue #129): classname -> selected count for the
+// current run, plus the total number of supplies selected. Cleared by ResetPickupPity().
+static std::unordered_map<std::string, int> s_runClassCounts;
+static int s_iRunTotalSpawns = 0;
+
 void GladderSpawner::ResetPickupPity( void )
 {
 	s_wavesSinceLastAmmoSpawn.clear();
@@ -358,6 +363,9 @@ void GladderSpawner::ResetPickupPity( void )
 		s_wavesSinceLastAmmoSpawn[m.szClassname] = 0;
 	}
 	s_iLastPityWave = 0;
+
+	s_runClassCounts.clear();
+	s_iRunTotalSpawns = 0;
 }
 
 void GladderSpawner::UpdateAmmoPityTracking( int iWaveNumber )
@@ -446,6 +454,8 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 
 	UpdateAmmoPityTracking( iWaveNumber );
 	input.wavesSinceLastAmmoSpawn = s_wavesSinceLastAmmoSpawn;
+	input.runClassCounts = s_runClassCounts;
+	input.iRunTotalSpawns = s_iRunTotalSpawns;
 
 	std::vector<GladderWeightedPickup> weightedPickups = ComputePickupWeights( input );
 	if ( weightedPickups.empty() )
@@ -475,6 +485,8 @@ const char *GladderSpawner::RollPickupItem( int iWaveNumber, const GladderMapCon
 	}
 
 	RecordAmmoSpawned( szSelected );
+	s_runClassCounts[szSelected]++;
+	s_iRunTotalSpawns++;
 	return szSelected;
 }
 

@@ -839,6 +839,14 @@ CBaseEntity *UTIL_FindEntityByClassname( CBaseEntity *pStartEntity, const char *
 		edict_t *pEdict = INDEXENT( i );
 		if ( !pEdict || pEdict->free )
 			continue;
+
+		// The mock engine leaves gpGlobals->pStringBase null so MAKE_STRING()/STRING()
+		// round-trip raw string pointers. That makes STRING( 0 ) null as well, so an edict
+		// with no classname assigned (the memset mock client edicts) would make
+		// FClassnameIs() strcmp() a null pointer. Skip the unset case instead.
+		if ( pEdict->v.classname == 0 )
+			continue;
+
 		if ( FClassnameIs( &pEdict->v, szName ) )
 		{
 			return CBaseEntity::Instance( pEdict );

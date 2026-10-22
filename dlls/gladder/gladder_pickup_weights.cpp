@@ -28,6 +28,13 @@ static constexpr float MULT_AMMO_UNOWNED   = 0.1f;
 static constexpr float MULT_SCARCITY_BOOST = 3.0f; // Multiplier when reserve fraction < 0.25
 static constexpr float MULT_PITY_BOOST     = 3.0f; // Multiplier when unspawned for >= 3 waves
 
+// Diversity guarantees (SPEC §3 "Supply Variety & Survival Realism Audit", Issue #129)
+static constexpr float MAX_CLASS_SHARE       = 0.25f; // No single class above 25% of a run's supplies
+static constexpr float ANTI_DOMINATION_MULT  = 0.10f; // Weight scale once a class exceeds MAX_CLASS_SHARE
+static constexpr float COVERAGE_BOOST        = 2.50f; // Weight scale for a class not yet seen this run
+static constexpr int   COVERAGE_MIN_TOTAL    = 4;     // Coverage boost starts once this many supplies spawned
+static constexpr float MIN_ORDNANCE_CATEGORY = 0.08f; // Floor so ordnance keeps appearing in modest amounts
+
 struct HealthArmorDef
 {
 	const char *szClassname;
@@ -85,6 +92,34 @@ static const std::vector<GladderAmmoMapping> &GetStaticAmmoMappings()
 		GladderAmmoMapping( "ammo_rpgclip",   "rockets",    3, 0.6f,  "weapon_rpg",      nullptr,        nullptr, 5 )
 	};
 	return s_mappings;
+}
+
+// Applies the run-history diversity transforms to a single item weight (SPEC §3, Issue #129).
+// Anti-domination suppresses a class that already exceeded its maximum share of the run, while the
+// coverage boost promotes a class that has not appeared yet once enough supplies have been spawned.
+static float ApplyDiversityTransforms( const GladderPickupWeightInput &input, const char *szClassname, float flWeight )
+{
+	if ( !szClassname || flWeight <= 0.0f )
+		return flWeight;
+
+	int iClassCount = 0;
+	auto it = input.runClassCounts.find( szClassname );
+	if ( it != input.runClassCounts.end() )
+		iClassCount = it->second;
+
+	int iRunTotal = (std::max)( 1, input.iRunTotalSpawns );
+	float flShare = static_cast<float>( iClassCount ) / static_cast<float>( iRunTotal );
+
+	if ( flShare > MAX_CLASS_SHARE )
+	{
+		flWeight *= ANTI_DOMINATION_MULT;
+	}
+	else if ( input.iRunTotalSpawns >= COVERAGE_MIN_TOTAL && iClassCount == 0 )
+	{
+		flWeight *= COVERAGE_BOOST;
+	}
+
+	return flWeight;
 }
 
 } // namespace
@@ -163,7 +198,9 @@ float GetOrdnanceTierWeight( int tier, int iWaveNumber )
 		case 1:
 			return (std::max)( 10.0f, 25.0f - ( w - 1.0f ) * 2.0f );
 		case 2:
-			return ( w < 2.0f ) ? 0.0f : (std::min)( 20.0f, 8.0f + ( w - 2.0f ) * 2.5f );
+			// Tier 2 ordnance (tripmine, satchel) is available from Wave 1 so early waves offer
+			// more than a single ordnance class (SPEC §3, Issue #129)
+			return (std::max)( 6.0f, 14.0f - ( w - 1.0f ) * 1.5f );
 		case 3:
 			return ( w < 3.0f ) ? 0.0f : (std::min)( 15.0f, 5.0f + ( w - 3.0f ) * 2.5f );
 		default:
@@ -278,19 +315,67 @@ std::vector<GladderWeightedPickup> ComputePickupWeights( const GladderPickupWeig
 		}
 	}
 
+	// Diversity guarantees applied to the per-item weights before normalisation (SPEC §3, Issue #129)
+	for ( size_t i = 0; i < ammoMappings.size(); ++i )
+	{
+		ammoItemWeights[i] = ApplyDiversityTransforms( input, ammoMappings[i].szClassname, ammoItemWeights[i] );
+	}
+	for ( size_t i = 0; i < healthArmorCount; ++i )
+	{
+		healthItemWeights[i] = ApplyDiversityTransforms( input, s_healthArmorDefs[i].szClassname, healthItemWeights[i] );
+	}
+	for ( size_t k = 0; k < eligibleOrdnanceIndices.size(); ++k )
+	{
+		ordnanceItemWeights[k] = ApplyDiversityTransforms( input, s_ordnanceDefs[eligibleOrdnanceIndices[k]].szClassname, ordnanceItemWeights[k] );
+	}
+	for ( size_t k = 0; k < eligibleWeaponIndices.size(); ++k )
+	{
+		weaponItemWeights[k] = ApplyDiversityTransforms( input, s_fixedWeaponDefs[eligibleWeaponIndices[k]].szClassname, weaponItemWeights[k] );
+	}
+
+	// Recompute the category sums after the diversity transforms
+	sumAmmo = 0.0f;
+	for ( size_t i = 0; i < ammoItemWeights.size(); ++i )
+		sumAmmo += ammoItemWeights[i];
+	sumHealth = 0.0f;
+	for ( size_t i = 0; i < healthItemWeights.size(); ++i )
+		sumHealth += healthItemWeights[i];
+	sumOrdnance = 0.0f;
+	for ( size_t k = 0; k < ordnanceItemWeights.size(); ++k )
+		sumOrdnance += ordnanceItemWeights[k];
+	sumWeapon = 0.0f;
+	for ( size_t k = 0; k < weaponItemWeights.size(); ++k )
+		sumWeapon += weaponItemWeights[k];
+
 	// Macro category weighting
 	float wAmmo     = ( sumAmmo > 0.0f ) ? CAT_WEIGHT_AMMO : 0.0f;
 	float wHealth   = ( sumHealth > 0.0f ) ? CAT_WEIGHT_HEALTH : 0.0f;
 	float wOrdnance = ( sumOrdnance > 0.0f ) ? CAT_WEIGHT_ORDNANCE : 0.0f;
 	float wWeapon   = ( sumWeapon > 0.0f ) ? CAT_WEIGHT_WEAPON : 0.0f;
 
-	// Fallback when player owns all fixed weapons (or none are eligible)
+	// Observed ordnance share of the run so far, used by the freed-budget rotation below (Issue #129)
+	size_t totalOrdnanceDefs = sizeof( s_ordnanceDefs ) / sizeof( s_ordnanceDefs[0] );
+	int iRunOrdnanceSpawns = 0;
+	for ( size_t i = 0; i < totalOrdnanceDefs; ++i )
+	{
+		auto it = input.runClassCounts.find( s_ordnanceDefs[i].szClassname );
+		if ( it != input.runClassCounts.end() )
+			iRunOrdnanceSpawns += it->second;
+	}
+	float flOrdnanceShare = ( input.iRunTotalSpawns > 0 )
+	                            ? static_cast<float>( iRunOrdnanceSpawns ) / static_cast<float>( input.iRunTotalSpawns )
+	                            : 0.0f;
+
+	// Fallback when player owns all fixed weapons (or none are eligible): rotate the freed budget
+	// instead of collapsing it onto a single category (SPEC §3, Issue #129)
 	if ( wWeapon <= 0.0f )
 	{
-		if ( sumOrdnance > 0.0f )
+		if ( sumOrdnance > 0.0f && flOrdnanceShare < MIN_ORDNANCE_CATEGORY )
 			wOrdnance += CAT_WEIGHT_WEAPON;
 		else if ( sumAmmo > 0.0f )
 			wAmmo += CAT_WEIGHT_WEAPON;
+		else if ( sumOrdnance > 0.0f )
+			wOrdnance += CAT_WEIGHT_WEAPON;
 	}
 
 	// Fallback if ordnance is empty

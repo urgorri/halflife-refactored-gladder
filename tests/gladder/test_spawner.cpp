@@ -78,9 +78,9 @@ TEST_CASE( "Gladder Map Config & Monster Roster: Code-governed defaults and full
 	CHECK( config.baseMonsters == 20 );
 	CHECK( config.monstersPerWave == Catch::Approx( 2.0f ) );
 	CHECK( config.maxMonsters == 48 );
-	CHECK( config.basePickups == 10 );
-	CHECK( config.pickupsPerWave == Catch::Approx( 1.5f ) );
-	CHECK( config.maxPickups == 24 );
+	CHECK( config.basePickups == 15 );
+	CHECK( config.pickupsPerWave == Catch::Approx( 2.25f ) );
+	CHECK( config.maxPickups == 36 );
 	CHECK( config.routeBiasFraction == Catch::Approx( 0.60f ) );
 	CHECK( config.routeCorridorRadius == Catch::Approx( 512.0f ) );
 
@@ -817,11 +817,12 @@ TEST_CASE( "Gladder Spawner: Consumable ordnance weapons have dedicated category
 	CHECK( GladderSpawner::GetOrdnanceTierWeight( 1, 5 ) == Catch::Approx( 17.0f ) );
 	CHECK( GladderSpawner::GetOrdnanceTierWeight( 1, 10 ) == Catch::Approx( 10.0f ) );
 
-	// Tier 2 (tripmine, satchel): locked at Wave 1, unlocks at Wave 2, caps at 20.0f
-	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 1 ) == Catch::Approx( 0.0f ) );
-	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 2 ) == Catch::Approx( 8.0f ) );
-	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 6 ) == Catch::Approx( 18.0f ) );
-	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 10 ) == Catch::Approx( 20.0f ) );
+	// Tier 2 (tripmine, satchel): available from Wave 1 so early waves offer more than one ordnance
+	// class (SPEC §3, Issue #129)
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 1 ) == Catch::Approx( 14.0f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 2 ) == Catch::Approx( 12.5f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 6 ) == Catch::Approx( 6.5f ) );
+	CHECK( GladderSpawner::GetOrdnanceTierWeight( 2, 10 ) == Catch::Approx( 6.0f ) );
 
 	// Tier 3 (snark): locked at Waves 1-2, unlocks at Wave 3, caps at 15.0f
 	CHECK( GladderSpawner::GetOrdnanceTierWeight( 3, 1 ) == Catch::Approx( 0.0f ) );
@@ -1578,4 +1579,157 @@ TEST_CASE( "Gladder Spawner: PurgeWaveEntities preserves pre-placed monster_*_de
 	CHECK( ( pLiveSlot->v.flags & FL_KILLME ) != 0 );
 
 	ResetMockEngine();
+}
+
+//
+// Supply volume curve and edict degradation ordering (SPEC §3, §11, Issue #129)
+//
+
+static const char *const s_gladderPickupClassnames[] = {
+	"item_healthkit", "item_battery",
+	"ammo_9mmclip", "ammo_9mmAR", "ammo_buckshot", "ammo_357", "ammo_ARgrenades",
+	"ammo_crossbow", "ammo_gaussclip", "ammo_egonclip", "ammo_762", "ammo_556", "ammo_rpgclip",
+	"weapon_knife", "weapon_pipewrench", "weapon_glock", "weapon_shotgun", "weapon_mp5",
+	"weapon_357", "weapon_eagle", "weapon_crossbow", "weapon_sniper", "weapon_m249",
+	"weapon_rpg", "weapon_gauss", "weapon_egon",
+	"weapon_handgrenade", "weapon_tripmine", "weapon_satchel", "weapon_snark",
+	"item_gladder_lambda"
+};
+
+static const char *const s_gladderMonsterClassnames[] = {
+	"monster_headcrab", "monster_zombie", "monster_houndeye", "monster_bullchicken",
+	"monster_barnacle", "monster_vortigaunt", "monster_alien_grunt",
+	"monster_alien_controller", "monster_human_grunt", "monster_human_assassin",
+	"monster_zombie_barney", "monster_zombie_soldier", "monster_gonome", "monster_male_assassin"
+};
+
+// 8x8 grid spaced 128 units apart so the pickup separation rules (96 units between pickups,
+// 64 units of surrounding-cell exclusion) never bind across a full wave.
+static void BuildSpaciousGrid( GladderGridIndexer &indexer )
+{
+	for ( int y = 0; y < 8; ++y )
+	{
+		for ( int x = 0; x < 8; ++x )
+		{
+			GladderGridCell c;
+			c.origin   = Vector( x * 128.0f, y * 128.0f, 0.0f );
+			c.normal   = Vector( 0.0f, 0.0f, 1.0f );
+			c.areaId   = 1;
+			c.flags    = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK | GLADDER_CELL_CEILING_VALID;
+			c.ceilingZ = 120.0f;
+			indexer.AddCell( c );
+		}
+	}
+}
+
+TEST_CASE( "Gladder Spawner: Supply volume curve at the new cap (SPEC §3, Issue #129)", "[gladder][spawner][pickups]" )
+{
+	GladderMapConfig config;
+	CHECK( config.basePickups == 15 );
+	CHECK( config.pickupsPerWave == Catch::Approx( 2.25f ) );
+	CHECK( config.maxPickups == 36 );
+
+	// Production curve: static_cast<int>( basePickups + (n - 1) * pickupsPerWave ), clamped to maxPickups
+	const int waves[] = { 1, 2, 10, 20 };
+	const int expected[] = { 15, 17, 35, 36 };
+	for ( size_t i = 0; i < sizeof( waves ) / sizeof( waves[0] ); ++i )
+	{
+		int count = static_cast<int>( config.basePickups + ( waves[i] - 1 ) * config.pickupsPerWave );
+		if ( count > config.maxPickups )
+			count = config.maxPickups;
+
+		INFO( "wave=" << waves[i] << " supplies=" << count );
+		CHECK( count == expected[i] );
+	}
+
+	// The cast truncates instead of rounding: 17.25 -> 17 and 35.25 -> 35
+	CHECK( static_cast<int>( config.basePickups + 1 * config.pickupsPerWave ) == 17 );
+	CHECK( static_cast<int>( config.basePickups + 9 * config.pickupsPerWave ) == 35 );
+
+	// Integration: the spawner honours the same curve for the first two waves
+	ResetMockEngine();
+
+	for ( const char *szP : s_gladderPickupClassnames )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+
+	GladderGridIndexer indexer;
+	BuildSpaciousGrid( indexer );
+
+	GladderMapConfig integrationConfig;
+	integrationConfig.baseMonsters     = 0;
+	integrationConfig.monstersPerWave  = 0.0f;
+	integrationConfig.basePickups      = config.basePickups;
+	integrationConfig.pickupsPerWave   = config.pickupsPerWave;
+	integrationConfig.maxPickups       = config.maxPickups;
+
+	GladderSpawner spawner;
+
+	spawner.SpawnWave( 1, indexer, integrationConfig );
+	CHECK( spawner.GetLastSpawnedMonsterCount() == 0 );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 15 );
+
+	spawner.SpawnWave( 2, indexer, integrationConfig );
+	CHECK( spawner.GetLastSpawnedPickupCount() == 17 );
+
+	ClearMockEntityFactories();
+}
+
+TEST_CASE( "Gladder Spawner: Constrained edict budget degrades supplies after monsters (SPEC §3, §11, Issue #129)", "[gladder][spawner][pickups]" )
+{
+	ResetMockEngine();
+
+	for ( const char *szP : s_gladderPickupClassnames )
+		RegisterMockEntityFactory( szP, FactoryTestItem );
+	for ( const char *szM : s_gladderMonsterClassnames )
+		RegisterMockEntityFactory( szM, FactoryTestMonster );
+
+	GladderGridIndexer indexer;
+	BuildSpaciousGrid( indexer );
+
+	GladderMapConfig config;
+	config.baseMonsters    = 6;
+	config.monstersPerWave = 0.0f;
+	config.basePickups     = 20;
+	config.pickupsPerWave  = 0.0f;
+	config.maxPickups      = 20;
+
+	SECTION( "Healthy budget: monsters reach their quota and supplies spawn in full" )
+	{
+		// ResetMockEngine() leaves maxEntities at 0, which is below the safekeeping threshold.
+		if ( gpGlobals )
+			gpGlobals->maxEntities = 512;
+
+		GladderSpawner spawner;
+		spawner.SpawnWave( 1, indexer, config );
+
+		CHECK( spawner.GetLastSpawnedMonsterCount() == 6 );
+		CHECK( spawner.GetLastSpawnedPickupCount() == 20 );
+	}
+
+	SECTION( "Budget spent by the monster phase: supplies are the ones that degrade" )
+	{
+		// The mock engine does not index engine-created edicts, so the budget consumed by the
+		// monster phase is modelled by shrinking maxEntities between the two phases. This mirrors
+		// the production ordering guarantee: SpawnWave() places monsters first and supplies last.
+		if ( gpGlobals )
+			gpGlobals->maxEntities = 512;
+
+		GladderSpawner spawner;
+		std::vector<bool> occupied( indexer.GetCellCount(), false );
+
+		spawner.SpawnMonsters( 1, indexer, config, 6, &occupied );
+		CHECK( spawner.GetLastSpawnedMonsterCount() == 6 );
+
+		// The 32 mock client entities stay active, leaving exactly SAFE_FREE_EDICT_THRESHOLD free
+		if ( gpGlobals )
+			gpGlobals->maxEntities = 32 + GladderSpawner::SAFE_FREE_EDICT_THRESHOLD;
+
+		spawner.SpawnPickups( 1, indexer, config, 20, &occupied );
+		CHECK( spawner.GetLastSpawnedPickupCount() == 0 );
+
+		if ( gpGlobals )
+			gpGlobals->maxEntities = 512;
+	}
+
+	ClearMockEntityFactories();
 }
