@@ -48,8 +48,9 @@ class CHudGladderWaveNotify : public CHudBase
 		m_szHostileLine[0] = '\0';
 	}
 
-	// User message dispatcher
+	// User message dispatchers
 	int MsgFunc_GladderWaveNotify( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_GladderWaveClear( const char *pszName, int iSize, void *pbuf );
 
 	// Trigger simulation (for tests)
 	void TriggerNotification( int iType, int iWaveNumber, int iMutatorType, float flTime = 0.0f, int iHostileQuota = 0 );

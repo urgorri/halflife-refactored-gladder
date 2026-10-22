@@ -20,6 +20,7 @@ extern int gmsgGladderNotify;
 extern int gmsgGladderSummary;
 extern int gmsgGladderLambda;
 extern int gmsgGladderGridDebug;
+extern int gmsgGladderClear;
 #endif
 
 // Message names (must be <= 11 characters in GoldSrc engine REG_USER_MSG)
@@ -30,6 +31,7 @@ extern int gmsgGladderGridDebug;
 #define GLADDER_MSG_SUMMARY_NAME "GladSumm"
 #define GLADDER_MSG_LAMBDA_NAME "GladLambda"
 #define GLADDER_MSG_GRID_DEBUG_NAME "GladGrid"
+#define GLADDER_MSG_CLEAR_NAME "GladClear"
 
 // Fixed sizes for network messages (-1 means variable, or exact byte count)
 #define GLADDER_MSG_GRID_DEBUG_SIZE -1
@@ -64,6 +66,10 @@ extern int gmsgGladderGridDebug;
 //   WRITE_BYTE  iMutatorType     (1 byte: GladderMutatorType)
 //   WRITE_SHORT iHostileQuota    (2 bytes: total hostiles to eliminate this wave; 0 when not applicable)
 #define GLADDER_MSG_NOTIFY_SIZE 5
+
+// GladderClear wire format (1 byte total, SPEC §12.2.1):
+//   WRITE_BYTE iWaveNumber (1 byte: 1..255; identifies a stale or duplicated notification)
+#define GLADDER_MSG_CLEAR_SIZE 1
 
 // GladderLambda wire format (6 bytes total, SPEC §7.3, Issue #92):
 //   WRITE_LONG  iScoreBonus       (4 bytes)

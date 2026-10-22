@@ -99,6 +99,17 @@ bool Gladder_ParseNotifyMsg( const void *pbuf, int iSize, GladderNotifyMsg &outM
 	return true;
 }
 
+bool Gladder_ParseClearMsg( const void *pbuf, int iSize, GladderClearMsg &outMsg )
+{
+	if ( !pbuf || iSize < 1 )
+		return false;
+
+	const uint8_t *p = static_cast<const uint8_t *>( pbuf );
+	outMsg.iWaveNumber = p[0];
+
+	return true;
+}
+
 bool Gladder_ParseSummaryMsg( const void *pbuf, int iSize, GladderSummaryMsg &outMsg )
 {
 	if ( !pbuf || iSize < 49 )

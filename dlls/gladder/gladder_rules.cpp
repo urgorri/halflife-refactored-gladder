@@ -686,6 +686,11 @@ void CGladderRules::CheckAllHostilesEliminated( CBaseEntity *pActivator )
 		m_bHostilesEliminatedFired = true;
 		Gladder_FireClearTargets( pActivator );
 		Gladder_FireWaveRelays( 4, pActivator );
+
+		// "All hostiles eliminated" overlay + arcade sting (SPEC §12.2.1, Issue #128).
+		// Reusing this latched function guarantees it fires at most once per wave and never on reset.
+		BroadcastWaveClear( nullptr, m_waveManager.GetWaveNumber() );
+		GladderAudio::PlayCue( GLADDER_CUE_ALL_HOSTILES_ELIMINATED, pActivator );
 	}
 }
 
@@ -1586,6 +1591,20 @@ void CGladderRules::BroadcastWaveNotify( CBasePlayer *pPlayer, int iType, int iW
 	WRITE_BYTE( iWaveNumber );
 	WRITE_BYTE( iMutatorType );
 	WRITE_SHORT( iQuota );
+	MESSAGE_END();
+}
+
+// Dedicated "all hostiles eliminated" notification (SPEC §12.2.1, Issue #128)
+void CGladderRules::BroadcastWaveClear( CBasePlayer *pPlayer, int iWaveNumber )
+{
+	if ( !gmsgGladderClear )
+		return;
+
+	int msgDest = pPlayer ? MSG_ONE : MSG_ALL;
+	edict_t *pTarget = pPlayer ? pPlayer->edict() : nullptr;
+
+	MESSAGE_BEGIN( msgDest, gmsgGladderClear, nullptr, pTarget );
+	WRITE_BYTE( iWaveNumber );
 	MESSAGE_END();
 }
 
