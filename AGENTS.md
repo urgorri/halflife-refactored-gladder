@@ -82,6 +82,13 @@ The codebase must compile and pass tests across both Windows and Linux CI enviro
 
 By strictly enforcing these static code and makefile invariants, code is guaranteed to build cleanly in Linux CI without requiring local Linux simulation or container tooling.
 
+### PR Delivery Boundary (Local Verification Is Final):
+
+* **The PR is the end of the task.** Once the topic branch is pushed and the pull request is created (or the work is dispatched to a review platform), the agent's task is complete. Report the PR URL and stop.
+* **Never wait for or check CI.** Do not poll, watch, subscribe to, or inspect GitHub Actions runs, check runs, job logs, or annotations after opening a PR. A pending, unstarted, failed, or billing-blocked remote job is not a signal to keep working, and it is never a reason to reopen completed work.
+* **Local verification is the authoritative gate.** What proves a change works is the Pre-PR Local Verification above (full build, `hl_tests.exe`, client smoke test, symbol verification) together with the unit tests for the changed subsystem. Treat that as sufficient evidence; delivery does not depend on remote jobs.
+* **Act on CI only when explicitly asked.** Remote CI is owned by the maintainer. Investigate, diagnose, or fix a CI failure only when the user explicitly reports one or asks for it.
+
 ---
 
 ## Level Design & Map Editor Compatibility (`gladder.fgd`)
