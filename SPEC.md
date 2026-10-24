@@ -274,7 +274,18 @@ Mirroring the native GoldSrc convention for node navigation graphs (`maps/graphs
 * Level designers define navigable gameplay zones using custom volume entities specifying 3D bounds:
   * Minimum coordinates `(x_min, y_min, z_min)`.
   * Maximum coordinates `(x_max, y_max, z_max)`.
-  * **Single Designer Parameter (`Area Name`)**: `trigger_gladder_area` exposes exactly one keyvalue to level designers: `Area Name` (`netname`), a descriptive label (e.g., `courtyard_lower`, `ventilation_shaft`, `warehouse_floor`). The legacy `areaname` alias ("Area Name (Legacy)") and the manual `areaid` ("Area ID") keyvalues are removed from the entity, its C++ parsing, and the map editor definitions (`gladder.fgd`).
+  * **Area Naming via Standard Targetname (`targetname`)**: `trigger_gladder_area` derives its sector name directly from the standard entity property `targetname` (displayed as "Name" in map editors such as Valve Hammer Editor and J.A.C.K.) rather than a custom keyvalue. The legacy `netname` ("Area Name"), `areaname` ("Area Name (Legacy)"), and manual `areaid` ("Area ID") keyvalues are removed from the entity, its C++ parsing, and the map editor definitions (`gladder.fgd`).
+  * **Strict Area Name Constraints**: To prevent malformed identifiers in telemetry, debug HUD overlays, binary grid headers, and engine logs, area names must strictly adhere to standard entity targetname identifier rules:
+    * **Allowed Characters**: Exclusively alphanumeric characters (`a-z`, `A-Z`, `0-9`), underscores (`_`), and hyphens (`-`). Arbitrary spaces, symbols, and punctuation are strictly disallowed.
+    * **Length Limit**: Bounded to a maximum length (e.g. 64 characters), matching GoldSrc targetname buffer conventions. Non-conforming characters are sanitized or rejected during entity initialization.
+  * **Area Spawnflags & Supplies-Only Zones (`SF_AREA_SUPPLIES_ONLY`)**:
+    * `trigger_gladder_area` exposes a spawnflag toggle:
+      * **Bit 1 (`SF_AREA_SUPPLIES_ONLY = 1`)**: "Supplies Only (No Monsters)".
+    * **Behavior**:
+      * When this flag is checked, all spatial grid cells generated within the volume's bounds are automatically tagged with the `GLADDER_CELL_PICKUP_ONLY` and `GLADDER_CELL_NO_MONSTERS` flags during spatial indexing.
+      * The procedural spawner strictly forbids monster spawns (ground, flying, and ceiling ambushers) from occurring on any grid cell belonging to a supplies-only area.
+      * The area remains fully eligible for procedural item and resource drops (ammunition crates, weapons, health kits, and batteries), making it suitable for safe rooms, armories, recovery sectors, and staging corridors.
+      * When unchecked (default `0`), grid cells in the area support both monster and supply spawning under standard wave density budgets.
   * **Automatic Incremental Area IDs**: The numeric area ID is never authored by designers. The engine assigns it automatically and incrementally (1, 2, 3, ...) to each `trigger_gladder_area` in the order the entities are spawned/indexed on map load, with ID `0` reserved for global world bounds. Assignment must be deterministic for a given map so that grid caches and spawn budgets stay consistent across loads, and cached grid data must be invalidated if the area set changes.
 
 ### 4.3 32-Unit Spatial Grid & Surface Raycasting
