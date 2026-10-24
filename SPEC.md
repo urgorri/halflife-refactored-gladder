@@ -76,18 +76,23 @@ Instead of progressing linearly through a series of maps, players run through a 
   * **Drastic Wave Density Scaling & Supply Rebalance (baseline, before the +50% increase above)**:
     * **Doubled Base Monster Quota**: To eliminate passive running and jumping through early waves and establish genuine high-intensity arcade combat from Wave 1, the baseline monster spawn count is doubled to 20 (`base_monsters = 20`, scaling with `+2.0` monsters per wave up to an increased cap of `max_monsters = 48`). This guarantees immediate arena engagement and substantial combat pressure along the gauntlet route right from the opening wave.
     * **Elevated Supply Drops (Weapons, Ammo & Ordnance)**: To support the 2x combat throughput and prevent premature resource starvation, baseline procedural supply pickups are elevated to 10 (`base_pickups = 10`, scaling with `+1.5` pickups per wave up to an increased cap of `max_pickups = 24`). Supply generation strictly enforces the established category ratios (Section 3: ammunition majority ~59.5%, medical/armor recovery ~22%, consumable ordnance ~11.5%, rare unacquired weapons ~7%), providing players with sufficient munitions and firepower to survive the intensified gauntlet while remaining safely within GoldSrc edict limits (`MAX_EDICTS`).
-* **Time-Driven Match Objective & Session Expiration Lifecycle**:
-  * The core goal of each run is **time-based**: players must survive, navigate the gauntlet, and clear as many waves as possible within a configured session duration / time limit (e.g., 10, 15, or 20 minutes) or survival clock.
-  * Wave completions are continuously counted and logged as the primary scoring metric, but the match concludes when the time limit expires (or upon player death).
-  * **Session Time Expiration Flow**:
-    * When the session time limit expires (`m_flSessionEndTime` reached, remaining time = 0), the match transitions definitively into `MATCH OVER`.
-    * Rather than becoming inactive or leaving the mod in an unhandled limbo state, session expiration must execute the full, seamless match termination lifecycle (identical to player death, but with survival outcome):
+* **Death-Ended Endless Run & Escalating Lethality (Arcade / Roguelite Objective)**:
+  * **A run ends only when the player dies.** There is no frag limit, no time limit, and no other victory or expiration condition. The engine `mp_fraglimit` / `mp_timelimit` cvars and the `gladder_timelimit` session cvar must have no effect on Gladder matches; no session countdown exists and nothing can end the run except the player's death. This makes Gladder a pure arcade / roguelite survival loop: one life, one run, ever-rising score.
+  * **Difficulty Must Escalate Without a Ceiling Until Survival Is Nearly Impossible**: Because the run cannot be "won" or timed out, pressure must keep growing wave after wave until surviving becomes practically impossible. The design goal is that an expert player eventually fails (target: a very small fraction of runs pass roughly wave 30-40). To that end, the following rules supersede any fixed caps stated elsewhere in this section:
+    * **Uncapped / Asymptotic Scaling**: The hard caps on monster quota (`max_monsters`) and elite champion rate no longer plateau at low values. Quotas, tier weights, elite champion rate, and reinforcement pressure keep rising past the late-game milestones, bounded only by engine safety limits (`MAX_EDICTS` budget, Section 11), where the spawner degrades supplies first and never reduces monster pressure (see Supply Volume Increase).
+    * **Skill Tier Ceiling Is Not the Difficulty Ceiling**: After engine `skill 3` is reached, further difficulty comes from spawn density, higher-tier weights, elite champion share, aggressive aggro-on-wave-start shares, reinforcements, and escalating mutator frequency and stacking.
+    * **Data-Driven Curve**: All escalation parameters live in the data-driven spawner/wave config (no magic numbers) and are asserted by deterministic simulation tests (e.g. monotonic non-decreasing pressure per wave and a documented late-wave target density).
+    * **Supply Scarcity Pressure**: Supplies keep category ratios but must not scale to fully offset late-wave threat growth, so attrition eventually overwhelms the player.
+  * **Wave Completions as Primary Score Metric**: Waves completed (laps) remain the primary scoring and grading metric, and the leaderboard ranks by composite score reached before death.
+  * **Run Termination Flow (Player Death Only)**:
+    * When the player dies, the match transitions definitively into `MATCH OVER` and executes the full, seamless termination lifecycle:
       * **Player Freezing & Combat Halting**: Player movement, jumping, and weapon attacks are immediately frozen (`FL_FROZEN`), halting combat while preserving the current scene.
       * **Audio Silencing & Mutator Termination**: Looping weapon sound channels (`CHAN_WEAPON`) and mutator alert sirens are silenced immediately.
       * **Match End Acoustic Sting**: Plays `GLADDER_CUE_MATCH_END`.
       * **Camera Backdrop Transition**: The player's viewport switches immediately to the end-game backdrop cameras (`gladder_camera`), starting with the third-person camera.
-      * **Score Calculation & Persistence**: Final composite score, wave milestones, and grade are computed (`STATUS: SURVIVED - TIME EXPIRED`) and saved to local map leaderboards (`gladder/scores/<mapname>.dat`).
+      * **Score Calculation & Persistence**: Final composite score, wave milestones, and grade are computed (`STATUS: KIA - FALLEN IN COMBAT`) and saved to local map leaderboards (`gladder/scores/<mapname>.dat`).
       * **Summary Screen Modal**: Activates the undismissable end-of-run summary screen on the client HUD.
+  * **Removal of Session Time Expiration**: The former session time-limit expiration path (`m_flSessionEndTime`, `gladder_timelimit`, `STATUS: SURVIVED - TIME EXPIRED`) is removed. Idle-time compensation of the session deadline is no longer needed.
 * **Arcade Scoring & Combo Multiplier**:
   * **End-of-Match Score Calculation**: To preserve clean screen visibility and immersion, the cumulative score is **calculated and revealed exclusively at the end of the match** on the summary screen.
   * **In-Game Combo Meter**: During active combat, rapid consecutive kills within a decaying window build a streak multiplier (`x2`, `x3`, `x4`, etc.). The game logs every combo event, streak count, and the peak maximum combo attained for the final score calculation.
@@ -535,7 +540,7 @@ Distinct audio cues provide immediate acoustic feedback for critical match state
 * **Wave Completion Cue**: A rewarding, triumphant sound effect played the instant Point B is touched and the wave loop finishes.
 * **Special Wave / Mutator Alert Cue**: An ominous, siren-like warning sound indicating that a special wave modifier (Blackout, Low Gravity, Swarm) is active. The cue is explicitly terminated and silenced upon wave completion at Point B, preventing continuous looping into subsequent waves.
 * **Collectible Pickup Cue**: A bright, distinctive chime played when collecting the wave's hidden Lambda insignia item.
-* **Match End Cue**: A dramatic, definitive sound effect played upon run termination (clock expiration or player death) before transitioning to the summary screen.
+* **Match End Cue**: A dramatic, definitive sound effect played upon run termination (player death) before transitioning to the summary screen.
 
 ---
 
@@ -545,7 +550,7 @@ The mod continuously aggregates gameplay statistics across waves and displays th
 
 ### 9.1 Persistent HUD Elements
 A dedicated on-screen text overlay is rendered at all times (matching classic Half-Life HUD green/amber typography and aesthetic):
-* **Match Clock / Time Remaining**: Displays the active session timer (either a countdown against the time limit, e.g., `TIME LEFT: 05:24`, or total elapsed run time).
+* **Match Clock / Time Remaining**: Displays the total elapsed run time (count-up, e.g., `TIME: 05:24`). There is no countdown because runs have no time limit and end only on player death.
 * **Active Kill Streak Multiplier**: Live indicator showing the active combo multiplier (`COMBO: x3`) while chaining rapid monster kills. *(Note: Cumulative score points are calculated and revealed exclusively at match conclusion).*
 * **Current Wave Counter**: Displays the active wave number (e.g., `WAVE: 14`).
 * **Collectibles Counter**: Displays the total count of Lambda items collected during the match (`COLLECTIBLES: 08`).
@@ -562,10 +567,10 @@ A dedicated on-screen text overlay is rendered at all times (matching classic Ha
 * **Weapon Pickup Notification**: Temporary weapon icon sprite flashed in the bottom-right HUD quadrant (positioned immediately above the primary/secondary ammunition display) upon acquiring any new weapon or ordnance item, confirming immediate loadout delivery.
 
 ### 9.2 End-of-Run Summary, Score Calculation & Grading
-Upon match conclusion—whether through **time limit expiration** or **player death**—the mod overrides the standard engine reload/menu routine and immediately activates the summary screen over the static camera backdrop:
+Upon match conclusion—which occurs exclusively on **player death**—the mod overrides the standard engine reload/menu routine and immediately activates the summary screen over the static camera backdrop:
 
 * **Undismissable Post-Match Summary Screen**:
-  * Upon match conclusion (whether via time expiration or player death), the match has definitively ended. The summary screen acts as a persistent end-of-run modal display and **cannot be dismissed** (i.e. `[USE / E]` or click dismiss inputs are disabled and removed).
+  * Upon match conclusion (player death), the match has definitively ended. The summary screen acts as a persistent end-of-run modal display and **cannot be dismissed** (i.e. `[USE / E]` or click dismiss inputs are disabled and removed).
   * Players can freely toggle between the statistical summary view and the local leaderboard/high-scores view using `[TAB]`.
   * **Informative Footer Navigation Prompt**:
     * An on-screen footer prompt clearly informs the player of all available navigation and game flow options:
@@ -578,14 +583,14 @@ Upon match conclusion—whether through **time limit expiration** or **player de
 * **Darkened Viewport Overlay**:
   * While rendering the post-match summary screen or in-game leaderboard/scoreboard, the underlying 3D viewport is dimmed / darkened with a translucent dark overlay (rather than lightened/additive tinting), giving the distinct aesthetic feel of a focused modal HUD overlay while keeping the living 3D world visible behind.
 * **Match World Freezing & Model Pose Preservation (Frozen in Time Effect)**:
-  * Upon match conclusion (whether through session time limit expiration or player death), the game world freezes all active combat elements, monsters, projectiles, and entities in place to convey a cinematic "time stopped" effect.
+  * Upon match conclusion (player death), the game world freezes all active combat elements, monsters, projectiles, and entities in place to convey a cinematic "time stopped" effect.
   * **Timing**: To allow dynamic events (such as the player's death animation, fatal physics recoil, or final projectile impacts) to resolve naturally, the world freeze must wait approximately 1.0 second before locking the scene.
   * **Pose Integrity Preservation**:
     * The freeze must NEVER reset or change the 3D model poses of the player or monsters back to a default idle stance (`ACT_IDLE`).
     * If the player died, the player model must settle into and remain in their authentic death pose (`PLAYER_DIE`), locking the exact animation sequence and frame as settled on the floor.
     * Active monsters, in-flight projectiles, and props must freeze preserving their exact current animation sequence, frame, and physics velocities at the moment of freeze, perfectly preserving the scene as it stood.
 * **Match Outcome Status**:
-  * Displays run conclusion state (e.g., `STATUS: SURVIVED - TIME EXPIRED` vs. `STATUS: KIA - FALLEN IN COMBAT`).
+  * Displays run conclusion state: `STATUS: KIA - FALLEN IN COMBAT` (the only possible outcome, since runs end solely on player death).
   * **Death Is Not a Failure**: Dying ends the run, but the player keeps all earned stats, frags, collectibles, and points. The full score is calculated and recorded in local leaderboards regardless of how the match ended.
 * **Granular Score Calculation Breakdown**:
   The total score is computed and tallied on screen using all accumulated match data:
@@ -607,10 +612,10 @@ Upon match conclusion—whether through **time limit expiration** or **player de
   * Extended monster species are tracked and tallied under dedicated distinct categories: `Zombie Guards` (`monster_zombie_barney`), `Zombie Soldiers` (`monster_zombie_soldier`), `Gonomes` (`monster_gonome`), and `Black Ops Male Assassins` (`monster_male_assassin`).
 * **Arcade Performance Rating (S / A / B / C / D / F)**:
   * An arcade grade calculated via a composite performance formula evaluating:
-    * Total waves cleared within the time limit (primary weight).
+    * Total waves cleared before death (primary weight).
     * Final composite score and combat diversity.
     * Peak combo streaks and combo frequency.
-    * Collectibles gathered (rewarding thorough exploration under time pressure).
+    * Collectibles gathered (rewarding thorough exploration under escalating pressure).
     * Average wave completion speed (pace / aggressiveness).
     * Survival efficiency (penalties for excessive damage taken or deaths).
   * Grade scale:
