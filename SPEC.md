@@ -140,8 +140,8 @@ Instead of progressing linearly through a series of maps, players run through a 
       | `ammo_357` | 357 | `weapon_357`, `weapon_eagle` | 0.8 |
       | `ammo_ARgrenades` | ARgrenades | `weapon_mp5` | 0.6 |
       | `ammo_crossbow` | bolts | `weapon_crossbow` | 0.6 |
-      | `ammo_gaussclip` | uranium | `weapon_gauss`, `weapon_egon` | 0.5 (shared) |
-      | `ammo_egonclip` | uranium, 556 | `weapon_gauss`, `weapon_egon`, `weapon_m249` | 0.5 (shared) |
+      | `ammo_gaussclip` | uranium | `weapon_gauss`, `weapon_egon` | 0.6 |
+      | `ammo_egonclip` | 556 | `weapon_m249` | 0.7 |
       | `ammo_762` | 762 | `weapon_sniper` | 0.6 |
       | `ammo_556` | 556 | `weapon_m249` | 0.7 |
       | `ammo_rpgclip` | rockets | `weapon_rpg` | 0.5 |
@@ -526,21 +526,21 @@ To ensure that weapon autoselection priority (`iWeight` in `ItemInfo` / `GetNext
   * Ammunition networking (`AmmoX`, `AmmoPickup`, and `WeaponList`) must support 16-bit counts (`uint16` / `short`) to synchronize counts well above 254 without byte truncation, modulo-256 wrapping, or debug assertions (tracked upstream in `urgorri/halflife-refactored#201`).
   * Game rules override capacity queries dynamically via virtual hooks without modifying core vanilla weapon implementations.
 
-### 7.16 Dual-Supply Heavy Chain Ammunition (`ammo_egonclip` / `w_chainammo`)
+### 7.16 Heavy Machinegun Chain Ammunition (`ammo_egonclip` / `w_chainammo`)
 * **Visual Presentation vs. Ammunition Yield**:
   * In classic Half-Life, the ammunition entity `ammo_egonclip` renders with `models/w_chainammo.mdl`—a heavy metal ammunition canister featuring an exposed linked belt of heavy machinegun cartridges. Valve historically reused this asset to grant 20 units of `uranium` for energy weapons (`weapon_gauss`, `weapon_egon`).
   * In Half-Life: Gladder, players have access to the Opposing Force heavy machinegun arsenal (`weapon_m249` SAW), which operates on 5.56mm linked belt ammunition (`556`). Having a physical linked chain ammo box yield only energy weapon ammunition contradicts player intuition and visual feedback.
-* **Dual-Supply Pickup Mechanics**:
-  * Touching an `ammo_egonclip` pickup functions as a dual-supply heavy ammunition crate, granting **both** ammunition types simultaneously:
-    * **20 rounds of Uranium** (`AMMO_URANIUMBOX_GIVE`, usable by `weapon_gauss` and `weapon_egon`).
-    * **50 rounds of 5.56mm linked ammunition** (`AMMO_M249_GIVE`, usable by `weapon_m249` SAW).
-  * **Partial Capacity Acceptance**: If the player is at maximum carrying capacity for one of the two pools, the item is still consumed and awarded if the player has capacity for the other pool.
-  * **Audio & HUD Confirmation**: Emits standard pickup audio (`items/9mmclip1.wav`) and dispatches `AmmoPickup` user messages for each ammunition type actually received.
-  * **Full Saturation Denial**: If the player is at maximum carry capacity for both `uranium` and `556`, the crate remains unconsumed on the ground.
+* **Exclusive Heavy Machinegun Ammunition**:
+  * Touching an `ammo_egonclip` pickup (`models/w_chainammo.mdl`) must **NOT** grant uranium ammunition under any circumstance.
+  * It must **exclusively** grant heavy machinegun ammunition: **50 rounds of 5.56mm linked ammunition** (`AMMO_M249_GIVE`, usable by `weapon_m249` SAW).
+  * Uranium ammunition is supplied exclusively by the battery canister pickup (`ammo_gaussclip`, `models/w_gaussammo.mdl`).
+* **Audio & HUD Confirmation**:
+  * Emits standard pickup audio (`items/9mmclip1.wav`) and dispatches the `AmmoPickup` user message for `556` ammunition.
+  * If the player is already at maximum carry capacity for `556` ammunition, the crate remains unconsumed on the ground.
 * **Procedural Spawner Integration**:
-  * In procedural supply evaluation (`dlls/gladder/gladder_pickup_weights.cpp`), `ammo_egonclip` is mapped to both energy weapons and `weapon_m249`. Owned-weapon multipliers (1.0x), unowned downweighting (0.1x), and pity timers evaluate whether the player owns either energy weapons or the M249 SAW.
+  * In procedural supply evaluation (`dlls/gladder/gladder_pickup_weights.cpp`), `ammo_egonclip` is mapped exclusively to `556` and `weapon_m249`. Owned-weapon multipliers (1.0x), unowned downweighting (0.1x), and pity timers evaluate whether the player owns the M249 SAW rather than energy weapons.
 * **Upstream Architectural Dependency**:
-  * Core SDK ammo entities in `dlls/items/ammo_items.cpp` are compiled upstream and lack gamemode-specific item hooks. Extensibility is enabled via upstream `CGameRules::PlayerAddAmmo( CBasePlayerAmmo *pAmmo, CBaseEntity *pOther )` (tracked in `urgorri/halflife-refactored#212`).
+  * Core SDK ammo entities in `dlls/items/ammo_items.cpp` are compiled upstream and lack gamemode-specific item hooks. Extensibility is enabled via upstream `CGameRules::PlayerAddAmmo( CBasePlayerAmmo *pAmmo, CBaseEntity *pOther )` (tracked in `urgorri/halflife-refactored#212`), allowing `CGladderRules` to award `556` ammunition and return `TRUE` to bypass the default uranium grant entirely.
 
 ---
 
