@@ -2,32 +2,46 @@
 
 ## 1. Overview & Vision
 
-**Half-Life: Gladder** is an arcade-style, wave-based gauntlet runner mod for the Half-Life (GoldSrc) engine. The mod delivers high-replayability, procedural arcade action while preserving the classic atmospheric look, feel, and universe of the original game.
+**Half-Life: Gladder** is an arcade-style, wave-based gauntlet runner and battle-royale mod for the Half-Life (GoldSrc) engine. The mod delivers high-replayability, procedural arcade action while preserving the classic atmospheric look, feel, and universe of the original game.
 
-Instead of progressing linearly through a series of maps, players run through a single map repeatedly across sequential "waves" or "laps". The environment remains constant, but each wave dramatically transforms the gameplay by procedurally populating the map with new configurations of enemies, hazards, weapons, and pickups with escalating difficulty.
+Instead of progressing linearly through a series of maps or running a fixed linear route from Point A to Point B, players engage in a non-linear survival gauntlet across sequential "waves" or "laps". The environment remains constant, but each wave dramatically transforms the gameplay: enemies, destructible barricades, and color-glowing supply crates are procedurally re-populated across the arena. The player drops into a randomized spatial grid location at the start of each wave, scavenges survival gear strictly from breakable crates, eliminates 100% of all hostile combatants, and extracts through any of multiple exit zones unlocking simultaneously across the arena.
 
 ---
 
 ## 2. Core Gameplay Loop
 
-1. **Spawn at Point A (Safe Staging & Initial Loadout)**: The player begins any game session already equipped with the **HEV Suit (`item_suit`)** and the **Crowbar (`weapon_crowbar`)**, eliminating the need for map-placed suit entities. Point A is an author-guaranteed safe staging area with no monster spawn points.
-2. **On-Demand Wave Activation**: The wave does not force immediate combat upon arrival. The player triggers wave activation on demand (e.g., crossing a start boundary or cycling airlock doors), initiating procedural spawns and starting the active wave stopwatch. While awaiting activation, `trigger_gladder_start` glows in active **Red (`RGB(255, 32, 32)`)**; the instant the player crosses it and the wave effectively begins, its glow transitions to inactive **Gray (`RGB(128, 128, 128)`)** for the duration of the wave (returning to Red upon wave reset).
-3. **Traversal, Resource Scavenging & Mandatory Hostile Elimination**: The player navigates through the map toward Point B while scavenging randomized supplies and engaging all procedurally spawned enemies. Eliminating every hostile monster spawned in the wave is a mandatory objective; players cannot bypass or ignore combat by simply sprinting to the finish.
-4. **All Hostiles Eliminated & Reaching Point B (Finish Gate)**:
-   * **Mandatory Wave Clearance**: To complete the wave, the player must eliminate **100% of all hostile monsters** spawned for that wave.
-   * **Finish Trigger State Glow (Gray → Red)**: `trigger_gladder_finish` remains in locked **Gray (`RGB(128, 128, 128)`)** at map initialization and throughout the wave while hostile monsters are still alive. The instant 100% of wave hostiles are eliminated and the finish gate opens, its glow transitions to active **Red (`RGB(255, 32, 32)`)** (and resets back to Gray once the wave is completed).
-   * **Early Touch Denial**: If a player touches `trigger_gladder_finish` while hostile monsters remain alive, wave completion is strictly denied:
-     * Plays an acoustic denial cue (`GLADDER_CUE_DENY`).
-     * Displays an on-screen HUD alert: `OBJECTIVE INCOMPLETE: ELIMINATE ALL HOSTILES FIRST (%d REMAINING)`.
-     * The player is prevented from completing or teleporting until the arena is fully cleared.
-   * **Environmental Objective Triggering (Optional `cleartarget`)**:
-     * To support realistic level design progression (e.g. opening security blast doors, lowering laser barriers, or extending bridges to reveal the extraction portal once the battle is won), level designers can specify an optional target (`cleartarget` on `trigger_gladder_finish` or via `gladder_wave_relay` event `4`).
-     * The instant the final monster of the wave is defeated, this target fires automatically, unlocking access to the finish trigger.
-   * **Wave Completion & Extraction**: Once all hostiles are destroyed, crossing `trigger_gladder_finish` completes the wave.
-5. **Screen Fade & Teleportation**: The moment Point B is touched after clearing all hostiles, the screen immediately turns solid black (instant 100% black fade). The viewport remains completely black during the exact instant the player is teleported back to Point A, followed by a smooth progressive screen fade from black back to 0% transparency to reveal the reset staging area.
-6. **Wave Increment & Respawn**: The wave counter increases (Wave 1 → Wave 2 → ...), a comprehensive garbage collection clears leftover monsters and entities, and a fresh wave of threats and supplies is generated across the map.
-7. **Player State Persistence**: The player preserves all collected weapons, remaining ammunition, and current health/armor across waves, making continuous resource preservation critical.
-8. **Persistence**: The loop repeats continuously without map reloads or level transitions until match completion.
+1. **Wave Initialization & Environment Reset**:
+   * Prior to player deployment, the arena resets: dynamic combat decals are purged, wall-mounted stations recharge, and all destructible supply crates (`gladder_breakable`) are reconstructed and relinked in the world geometry.
+   * Procedural threats (monsters and Elite Champions) spawn across spatial grid nodes.
+   * Procedural supplies are rolled and assigned directly inside available `gladder_breakable` crates. Loose weapons, ammunition boxes, and medical kits on the floor are eliminated.
+2. **Sky-Drop Deployment (Fullscreen 2D Tactical Overview & Ellipsis Transition)**:
+   * The wave initiates with a fullscreen 2D tactical map overview presentation utilizing native engine overview assets (`overviews/<mapname>.bmp` and `<mapname>.txt`).
+   * **Target Coordinates Reticle**: The overview dynamically marks the player's randomized drop coordinate with an animated targeting reticle (crosshair/circle).
+   * **Multi-Exit Extraction Markers**: All active extraction gates (`trigger_gladder_finish`) are simultaneously plotted on the overview with distinct extraction icons, allowing the player to plan traversal and escape routes before touching down.
+   * **Deployment HUD Status**: Displays an on-screen tactical deployment notification centered in the viewport (e.g. `DEPLOYMENT POINT DESIGNATED - INFILTRATING ARENA`).
+   * **Ellipsis Screen Transition**: After a brief briefing hold (approx. 2.5–3.0 seconds), the screen smoothly fades to black, teleports the player to the ground at the designated grid coordinate, and smoothly fades from solid black back to transparent, delivering the sensory ellipsis of a high-altitude sky drop.
+   * **Immediate Ground Control & Stopwatch Start**: The player touches down on the selected grid coordinate (verified with standard standing player hull clearance: 32x32x72 units) and immediately receives full movement and weapon control. The active wave combat stopwatch starts the instant the player touches down.
+3. **Non-Linear Scavenging, Crate Destruction & Mandatory Hostile Elimination**:
+   * The player navigates freely through the non-linear arena, scavenging supplies and engaging procedurally spawned hostiles.
+   * **Colored Glowing Supply Crates (`gladder_breakable`)**: Crates containing supplies project vibrant category-coded glow shells (`TriAPI` bounding outlines): Green for Medical, Cyan for Armor, Amber for Ammunition, Violet for Weapons, and Radiant Blue for Ordnance. Empty crates feature no glow and break without dropping loot.
+   * **Mandatory Hostile Clearance**: Eliminating **100% of all hostile monsters** spawned for that wave is a mandatory objective; players cannot bypass or ignore combat by simply sprinting to an exit.
+4. **All Hostiles Eliminated & Multi-Exit Extraction**:
+   * **Multi-Exit Availability**: Maps feature two or more extraction gates (`trigger_gladder_finish`) positioned at opposing wings or sectors of the map (e.g., North Exit, South Exit).
+   * **Finish Trigger State Glow (Locked Red → Unlocked Green)**:
+     * **Locked State (Hostiles Alive)**: Throughout active combat while hostile monsters remain alive, all `trigger_gladder_finish` gates glow in locked **Vibrant Red (`RGB(255, 32, 32)`)**.
+     * **Early Touch Denial**: Touching any finish trigger while enemies remain alive strictly denies extraction, emits `GLADDER_CUE_DENY`, and displays: `OBJECTIVE INCOMPLETE: ELIMINATE ALL HOSTILES FIRST (%d REMAINING)`.
+     * **Unlocked State (100% Hostiles Cleared)**: The exact moment the final living monster is eliminated, ALL extraction gates activate simultaneously:
+       * Their bounding glow shells instantly transition from Red to **Vibrant Green (`RGB(32, 255, 32)`)**.
+       * All optional `cleartarget` targets fire automatically (opening blast doors, raising bridges, unlocking blast gates).
+       * Displays centered HUD notification: `ALL HOSTILES ELIMINATED - EXITS UNLOCKED! ESCAPE TO PROCEED`.
+   * **Wave Completion**: Stepping into **any** active green finish gate completes the wave.
+5. **Screen Fade & Transition to Next Drop**:
+   * Stepping into any unlocked extraction zone immediately snaps the screen to solid black (instant 100% black fade).
+   * The wave counter increments (Wave 1 → Wave 2 → ...), uncollected entities and corpses are purged during garbage collection, and the loop advances seamlessly into the next wave's Sky-Drop overview sequence.
+6. **Player State Persistence**:
+   * The player preserves all collected weapons, remaining ammunition, and current health/armor across waves, making continuous resource preservation critical.
+7. **Endless Roguelite Continuity**:
+   * The loop repeats continuously with ever-escalating difficulty until the player falls in combat. There are no frag limits or session timers; a run ends only upon player death.
 
 ---
 
@@ -67,15 +81,15 @@ Instead of progressing linearly through a series of maps, players run through a 
     * **Supply incentive**: supplies are neither scarce nor placed to pull the player into fights, so skipping them costs nothing.
     * **Evasion exploit**: fast movement (run/jump) outpaces monsters that only react once they see the player (see also the movement-interruption rules below).
   * The audit's outcome must be a documented set of proposed adjustments (e.g. higher early baselines, route-biased spawn weighting, earlier elite/intermediate tiers, wave-based reinforcements, aggro-on-wave-start for a share of monsters, earlier skill promotion) with target metrics (e.g. minimum encounters per route in Wave 1, minimum kills per wave) that unit and simulation tests can assert.
-  * **Supply Volume Increase (+50%)**: Playtesting showed supplies appear too rarely. The supply quota is raised by exactly 50% over the baseline values listed below: `base_pickups = 15`, scaling `+2.25` pickups per wave up to `max_pickups = 36` (all data-driven in the spawner config). The category ratios of Section 3 are unchanged, so only the total volume grows. Because the extra pickups consume edicts, the wave garbage collector and edict budget checks (Section 11) must be re-verified at the new cap, and the spawner must degrade gracefully (fewer pickups, never fewer monsters) when the free-edict margin is exhausted.
+  * **Supply Volume & Crate Containment (No Loose Floor Pickups)**:
+    * **Elimination of Loose Floor Pickups**: Pickups (weapons, ammunition, medkits, batteries) no longer spawn loose or scattered across the floor geometry. All procedural survival resources are distributed exclusively inside destructible supply crates (`gladder_breakable`).
+    * **Crate-Bounded Supply Quota**: The procedural spawner calculates the wave target supply quota (`base_pickups = 15`, scaling `+2.25` pickups per wave up to `max_pickups = 36`). However, because supplies are exclusively housed inside breakable props, the actual number of rolled supplies in any wave is strictly **capped by the total count of `gladder_breakable` entities present on the map** (`actual_supplies = min(quota, total_map_breakables)`). If a map contains fewer breakables than the wave target, total supplies are bounded to the available crate count (one item per rewarded crate; remaining crates break empty).
+    * **Category Ratios & Edict Safety**: Category distribution ratios (ammunition majority ~59.5%, medical/armor recovery ~22%, consumable ordnance ~11.5%, rare unacquired weapons ~7%) remain strictly enforced across the chosen rewarded crates. Empty crates feature no visual glow and yield no items when destroyed.
   * **Supply Variety & Survival Realism Audit**: A playtest session produced only hand grenades for the entire run, which indicates a defect or severe bias in the supply selection. A deep review with deterministic, seeded tests (many runs of 10+ waves) must cover the full pipeline: category roll, per-category weighted pick, owned/unowned filtering, fallback chains, scarcity and pity multipliers, `iWeight` interactions (Section 7.13), and the `ItemRegistry` entries. Required outcomes:
     * **Root-cause report**: Identify why a single item class (hand grenades) dominated, e.g. an exhausted fixed-weapon pool falling back to a single ordnance entry, zero-weight entries, or a fallback chain with a single terminal.
     * **No single-class domination**: In any seeded 10-wave run, no single pickup class may exceed a documented share of all supplies (e.g. 25%) and each owned ammunition type, health, armor, and at least three distinct ordnance or weapon classes must appear with a documented minimum frequency. A run that yields only one pickup class is a test failure.
     * **Survival-style realism**: Supply content follows need: ammunition matches the weapons actually carried, health and armor weights respond to the player's current attrition, ordnance appears in modest, believable quantities rather than as the default drop, and quantities per pickup follow vanilla-like magnitudes. Fallbacks must rotate across multiple categories instead of collapsing onto one item.
     * **Single source of truth**: Any weight or fallback adjustments live in the data-driven weight table (`gladder_pickup_weights.cpp`) and are documented in this section and in 7.13.
-  * **Drastic Wave Density Scaling & Supply Rebalance (baseline, before the +50% increase above)**:
-    * **Doubled Base Monster Quota**: To eliminate passive running and jumping through early waves and establish genuine high-intensity arcade combat from Wave 1, the baseline monster spawn count is doubled to 20 (`base_monsters = 20`, scaling with `+2.0` monsters per wave up to an increased cap of `max_monsters = 48`). This guarantees immediate arena engagement and substantial combat pressure along the gauntlet route right from the opening wave.
-    * **Elevated Supply Drops (Weapons, Ammo & Ordnance)**: To support the 2x combat throughput and prevent premature resource starvation, baseline procedural supply pickups are elevated to 10 (`base_pickups = 10`, scaling with `+1.5` pickups per wave up to an increased cap of `max_pickups = 24`). Supply generation strictly enforces the established category ratios (Section 3: ammunition majority ~59.5%, medical/armor recovery ~22%, consumable ordnance ~11.5%, rare unacquired weapons ~7%), providing players with sufficient munitions and firepower to survive the intensified gauntlet while remaining safely within GoldSrc edict limits (`MAX_EDICTS`).
 * **Death-Ended Endless Run & Escalating Lethality (Arcade / Roguelite Objective)**:
   * **A run ends only when the player dies.** There is no frag limit, no time limit, and no other victory or expiration condition. The engine `mp_fraglimit` / `mp_timelimit` cvars and the `gladder_timelimit` session cvar must have no effect on Gladder matches; no session countdown exists and nothing can end the run except the player's death. This makes Gladder a pure arcade / roguelite survival loop: one life, one run, ever-rising score.
   * **Difficulty Must Escalate Without a Ceiling Until Survival Is Nearly Impossible**: Because the run cannot be "won" or timed out, pressure must keep growing wave after wave until surviving becomes practically impossible. The design goal is that an expert player eventually fails (target: a very small fraction of runs pass roughly wave 30-40). To that end, the following rules supersede any fixed caps stated elsewhere in this section:
@@ -313,11 +327,11 @@ Mirroring the native GoldSrc convention for node navigation graphs (`maps/graphs
         * `func_conveyor`, `func_vehicle`, `func_friction`: Conveyor belts and interactive vehicles.
         * `func_breakable`, `gladder_breakable`: Destructible world props.
       * **Clearance Margins**: Both spatial indexing and runtime spawn clearance sweeps (`UTIL_TraceHull` and lateral margin checks) must verify that candidate spawn positions have full lateral and vertical clearance against these solid brush entities. Cells overlapping or immediately flush against solid brush entities without standard monster hull clearance are strictly excluded to avoid monsters spawning stuck inside walls or triggering pathfinding navigation errors.
-    * **Breakable Object Supporting Surfaces (`gladder_breakable`)**:
-      * The top surfaces of destructible props (`gladder_breakable`, such as wooden crates, supply boxes, or tables) provide valid horizontal surfaces for procedural supply placement.
-      * When a spatial grid index downward raycast hits the upper surface of a `gladder_breakable` entity, the coordinate is accepted as a valid surface (rather than discarded as an architectural obstacle) and flagged explicitly as `GLADDER_CELL_PICKUP_ONLY` and `GLADDER_CELL_NO_MONSTERS`.
-      * **Supplies Only (Exclusion of Monsters and Floating Collectibles)**:
-        * **Supplies Permitted**: Procedural item supplies (ammunition crates, weapons, medkits, batteries) are permitted to spawn resting cleanly on top of `gladder_breakable` surfaces (elevated above the top surface plane so they never embed inside the brush volume).
+    * **Breakable Objects & Destructible Crates (`gladder_breakable`)**:
+      * Destructible props (`gladder_breakable`, such as wooden crates, supply boxes, or tables) serve as the exclusive receptacles for procedural survival supplies across waves.
+      * When a spatial grid index downward raycast hits the upper surface of a `gladder_breakable` entity, the coordinate is accepted as a valid structural surface and flagged explicitly as `GLADDER_CELL_PICKUP_ONLY` and `GLADDER_CELL_NO_MONSTERS`.
+      * **Supplies Housed Internally / Exclusion of Monsters & Floating Collectibles**:
+        * **Internal Supply Housing**: Instead of loose items resting on crate tops, supplies are procedurally allocated *inside* the breakable entity, dropping upon destruction.
         * **Monsters Strictly Prohibited**: Living monsters are strictly excluded from spawning on top of `gladder_breakable` entities. Allowing monsters to spawn on destructible objects risks route failure, stuck navigation, or falling through geometry when the breakable is destroyed. The spawner (`SpawnMonsters`) enforces this by skipping any candidate cell bearing the `GLADDER_CELL_PICKUP_ONLY` or `GLADDER_CELL_NO_MONSTERS` flags.
         * **Floating Lambda Collectibles Excluded**: The floating Lambda collectible (`item_gladder_lambda`) is also strictly excluded from spawning on top of `gladder_breakable` entities. Because the Lambda hovers without gravity (`MOVETYPE_FLY`), spawning it atop high destructible crates or breakable platforms could leave the Lambda hovering permanently in mid-air and physically unreachable if the supporting breakable is destroyed during combat. The Lambda spawner (`SpawnLambdaCollectible`) enforces this by skipping any breakable-tagged cells (`GLADDER_CELL_PICKUP_ONLY` or `GLADDER_CELL_NO_MONSTERS`).
 * Cells identified with valid supporting surfaces, zero architectural collision overlap, and adequate vertical clearance are recorded into the grid database, ready to receive randomized entity spawns during waves.
@@ -365,19 +379,25 @@ Each map supports its own configuration profile to dictate thematic and gameplay
 
 ## 6. Level Design Integration & Custom Triggers
 
-The mod provides mapper-friendly entities to simplify setting up any custom or existing map:
-* **Wave Start Staging Zone (Point A)**: Defines the player's initial spawn point and return destination. Level designers configure Point A as a secure staging area free of monster spawn grids, with manual initiation mechanisms (e.g., airlock doors, start line triggers) that fire wave commencement on demand.
-  * **Start Trigger Visual Presentation & State Glow (`trigger_gladder_start`)**: The start boundary trigger features the mod's signature arcade bounding glow shell (`kRenderFxGlowShell`) rendered over its brush bounds via the client Triangle API. The underlying trigger brush faces and tool textures (such as `aaatrigger`) must NEVER be visible under any circumstance (brush faces remain completely invisible / `EF_NODRAW` or zero-alpha transparent), rendering exclusively the outer glowing wire/shell aura in 3D world space:
-    * **Ready / Waiting State (Red `RGB(255, 32, 32)`)**: At map start and upon wave reset (`WAITING_FOR_START`), the start trigger glows in vibrant Red, signaling that the wave is ready to be initiated.
-    * **Wave Active State (Gray `RGB(128, 128, 128)`)**: The exact moment the player crosses the start threshold and the wave effectively commences (`WAVE_ACTIVE`), the start trigger glow transitions to neutral **Gray (`RGB(128, 128, 128)`)**, remaining Gray until the wave is completed and reset.
-* **Wave Completion Trigger (Point B)**: Brush or point trigger placed at the end of the run that detects player arrival, triggers wave completion feedback, immediately snaps the screen to solid black (instant 100% black fade), teleports the player back to Point A while completely obscured, and fades the screen progressively back to 0% transparency to reveal the staging area.
-  * **Finish Trigger Visual Presentation & State Glow (`trigger_gladder_finish`)**: Like the start trigger, the completion trigger volume renders the identical arcade bounding glow shell via Triangle API while keeping the underlying trigger brush geometry and `aaatrigger` texture completely invisible and suppressed:
-    * **Locked / Hostiles Alive State (Gray `RGB(128, 128, 128)`)**: At map initialization, upon wave start/reset, and throughout active combat while hostile monsters remain alive, the finish trigger glows in neutral **Gray (`RGB(128, 128, 128)`)**, visually indicating that extraction is locked.
-    * **Unlocked / Gate Open State (Red `RGB(255, 32, 32)`)**: The instant the player eliminates 100% of all hostile monsters in the wave (`AreWaveHostilesEliminated()`), the finish trigger glow transitions to vibrant **Red (`RGB(255, 32, 32)`)**, signaling that the finish gate is open for extraction (and returning to Gray once the wave is completed and reset).
-* **Wave State Relays**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
+The mod provides mapper-friendly entities to adapt custom or existing Half-Life maps into non-linear battle royale arenas:
+* **Wave Start Staging Zone & Legacy Start Triggers (`trigger_gladder_start`)**:
+  * Under the modern Battle Royale gauntlet loop, wave initiation no longer requires a manual start boundary or safe Point A room. Waves begin automatically upon touchdown from the Sky-Drop deployment phase.
+  * In maps where `trigger_gladder_start` entities are present from earlier linear revisions, the gamemode marks them as **legacy/deprecated**: their touch logic is bypassed, and they remain visually inactive so existing maps remain 100% playable without re-authoring.
+* **Multi-Exit Extraction Gates (`trigger_gladder_finish`)**:
+  * Level designers place two or more extraction gates (`trigger_gladder_finish`) situated in opposing sectors or extreme wings of the arena (e.g., North Extraction and South Extraction).
+  * **Finish Trigger Visual Presentation & State Glow (`trigger_gladder_finish`)**:
+    * Each completion trigger volume renders the signature arcade bounding glow shell via the client Triangle API while keeping the underlying trigger brush geometry and `aaatrigger` texture completely invisible (`EF_NODRAW` / suppressed).
+    * **Locked / Hostiles Alive State (Vibrant Red `RGB(255, 32, 32)`)**: Throughout active combat while hostile monsters remain alive, all finish triggers glow in bright Red, visually indicating that extraction is locked. Touching any locked finish trigger denies extraction, emits `GLADDER_CUE_DENY`, and alerts the player to eliminate remaining enemies.
+    * **Unlocked / Gate Open State (Vibrant Green `RGB(32, 255, 32)`)**: The instant 100% of wave hostiles are destroyed, ALL finish gates unlock simultaneously:
+      * Bounding glow shells transition from Red to **Vibrant Green (`RGB(32, 255, 32)`)**.
+      * All associated `cleartarget` actions fire automatically.
+      * Crossing **any** active green finish trigger wins the wave and triggers the transition to the next wave's Sky-Drop.
+    * **Tactical Overview Plotting**: During the pre-wave Sky-Drop deployment phase, the 2D map overview parses the world origins of all `trigger_gladder_finish` entities and plots green extraction gate markers alongside the player's randomized drop reticle.
+* **Wave State Relays (`gladder_wave_relay`)**: Input/output events that fire on wave start, wave victory, and game over, enabling mappers to trigger map-specific environmental events (doors opening, lights flickering, sirens, hazards).
 * **End-Game Backdrop Cameras (`gladder_camera`)**: Support for placing multiple `gladder_camera` point entities (subclass of `trigger_camera`) across the map without requiring a specific `targetname`. During the post-game summary screen, the mod automatically cycles through backdrop cameras. The sequence ALWAYS begins with the dynamic third-person camera overlooking the player first. If map-placed `gladder_camera` entities exist in the level, the view then smoothly transitions sequentially through each of them in order, splitting view time equally among them, before looping back to the third-person camera and repeating the sequence indefinitely.
-* **Area Definition Volumes**: Bounding box entities with designer parameters for indexing scope and zoning.
-* **Wall-Mounted Stations**: Mappers place standard `func_healthcharger` and `func_recharge` brush entities across the map or at staging areas; the mod engine automatically manages their recharge cycle and wave-based diminishing capacity.
+* **Area Definition Volumes (`trigger_gladder_area`)**: Bounding box entities with designer parameters for indexing scope, naming, and supplies-only zoning.
+* **Wall-Mounted Stations (`func_healthcharger`, `func_recharge`)**: Mappers place standard wall chargers across the map; the mod engine automatically manages their recharge cycle and wave-based diminishing capacity.
+* **Destructible Supply Crates (`gladder_breakable`)**: Mappers place brush crates intended for procedural supply housing across navigable sectors.
 
 ---
 
@@ -395,23 +415,27 @@ The mod provides mapper-friendly entities to simplify setting up any custom or e
   * Displacer Cannon.
   * Barnacle Grapple (where map geometry allows).
 
-### 7.2 Arcade Pickup Presentation (Quake 3 Style Floating, Bobbing & Colored Glow)
-To reinforce the fast-paced arcade feel, dropped and procedurally spawned items abandon static floor placement in favor of high-energy arena shooter visuals (reminiscent of *Quake III Arena*):
-* **Floating & Bobbing Motion**: Pickups (weapons, ammunition crates, health kits, and HEV batteries) levitate slightly above the ground/supporting surface, gently bobbing up and down while continuously rotating on their vertical axis.
-* **Dynamic Colored Point Lights**: Each item projects a localized colored dynamic light onto nearby surfaces, enhancing visibility in dark corridors.
-* **Color-Coded Render Glows**: Items and level boundary triggers feature a radiant colored aura/glow (`kRenderFxGlowShell` or Triangle API bounding shells) categorized by type and state:
-  * **Health & Medical**: Vibrant Green glow and lighting (`RGB(32, 255, 32)`).
-  * **Armor & HEV Batteries**: Cyan / Bright Blue glow and lighting (`RGB(32, 192, 255)`).
-  * **Ammunition**: Amber / Golden-Orange glow and lighting (`RGB(255, 180, 20)`).
-  * **Fixed Weapons**: Arcade Magenta / Violet glow and lighting (`RGB(220, 40, 220)`).
-  * **Throwable & Consumable Ordnance**: Radiant Blue glow and dynamic lighting (`RGB(32, 128, 255)`), distinctly separated from red to eliminate visual ambiguity with Elite Champion monsters and start/finish boundary shells.
-  * **Level Design Triggers (`trigger_gladder_start`, `trigger_gladder_finish`)**:
-    * **Active / Unlocked Trigger State**: Vibrant Red bounding glow shell and dynamic light (`RGB(255, 32, 32)` — start trigger before wave commencement; finish trigger once all wave hostiles are eliminated).
-    * **Inactive / Locked Trigger State**: Neutral Gray bounding glow shell and dynamic light (`RGB(128, 128, 128)` — start trigger after wave commencement; finish trigger while wave hostiles remain alive or before wave start).
+### 7.2 Arcade Supply Crate Presentation & Color-Coded Brush Glow
+To reinforce the fast-paced arcade feel, procedural survival supplies are housed exclusively within destructible crates (`gladder_breakable`) rather than appearing as loose, unboxed pickups on the floor:
+* **Color-Coded Crate Render Glows**: Crates containing procedural supplies project radiant category-coded bounding glow shells rendered via the client Triangle API (`REGISTER_TRANSPARENT_TRIANGLE_RENDERER`), allowing players to assess loot categories from afar:
+  * **Health & Medical**: Vibrant Green glow shell and dynamic lighting (`RGB(32, 255, 32)`).
+  * **Armor & HEV Batteries**: Cyan / Bright Blue glow shell and dynamic lighting (`RGB(32, 192, 255)`).
+  * **Ammunition**: Amber / Golden-Orange glow shell and dynamic lighting (`RGB(255, 180, 20)`).
+  * **Fixed Weapons**: Arcade Magenta / Violet glow shell and dynamic lighting (`RGB(220, 40, 220)`).
+  * **Throwable & Consumable Ordnance**: Radiant Blue glow shell and dynamic lighting (`RGB(32, 128, 255)`).
+  * **Empty Crates**: Non-rewarded crates emit no glow shell, rendering as normal world props that shatter empty upon destruction.
+* **Extraction Gate Level Design Triggers (`trigger_gladder_finish`)**:
+  * **Locked State (Hostiles Alive)**: Vibrant Red bounding glow shell and dynamic light (`RGB(255, 32, 32)`).
+  * **Unlocked State (All Hostiles Eliminated)**: Vibrant Green bounding glow shell and dynamic light (`RGB(32, 255, 32)`).
 * **Exclusion of Active Combat Ordnance & Thrown Projectiles**:
-  * The arcade visual modifier (levitation, sine bobbing, yaw rotation, glow shell, and dynamic point light) applies strictly to idle, uncollected pickup items sitting in the map awaiting collection.
   * Active combat projectiles, deployed explosives, and thrown ordnance—specifically hand grenades (`models/w_grenade.mdl` / `monster_handgrenade`), active satchel charges (`models/w_satchel.mdl` / `monster_satchel`), released live snarks (`models/w_squeak.mdl` / `monster_snark`), and planted tripmines (`monster_tripmine`)—must **never** receive the pickup visual modifier. Because they are being actively utilized in combat rather than acting as collectible items, they must retain their normal physics, flight trajectory, and original visual presentation without floating, bobbing, rotating, or glowing like pickups.
-  * **Snark Nest Pickup Is a Collectible (Not Live Ordnance)**: The uncollected snark weapon lying in the map (`weapon_snark`, model `models/w_sqknest.mdl`, the "snark nest") is a collectible and must receive the full arcade pickup presentation in every state (while falling, after landing, and when dropped or procedurally spawned): floating, bobbing, yaw rotation, dynamic point light, and the Ordnance-category glow (Radiant Blue). It must be distinguished strictly from the live, released snark (`models/w_squeak.mdl` / `monster_snark`), which stays excluded. The guard logic must never exclude the nest because of its movement type, solidity, or owner while it is awaiting pickup.
+  * **Snark Nest Pickup Is a Collectible (Not Live Ordnance)**: When dropped or spawned, the uncollected snark nest (`weapon_snark`, model `models/w_sqknest.mdl`) is a collectible and receives the full arcade pickup presentation: floating, bobbing, yaw rotation, dynamic point light, and the Ordnance-category glow (Radiant Blue). It must be distinguished strictly from the live, released snark (`models/w_squeak.mdl` / `monster_snark`), which stays excluded.
+
+### 7.2.1 Visual Background Buffer Clearing (`gl_clear 1`)
+* In vanilla GoldSrc, the engine cvar `gl_clear` defaults to `0` for legacy performance reasons, which leaves the framebuffer un-cleared between frames when rendering into out-of-bounds or void regions. This produces the classic "Hall of Mirrors" (HOM) visual smearing artifact where frozen, duplicated scene buffers smear into the background when looking outside map geometry or during high-angle camera transitions.
+* In Half-Life: Gladder, **framebuffer clearing between frames is enforced by default (`gl_clear 1`)**:
+  * The client library (`cl_dll/gladder/`) automatically asserts `gl_clear 1` during HUD and video initialization (`CHud::Init` / `VidInit`).
+  * Whenever a camera or player perspective looks beyond world geometry into the void, the unrendered void displays as a clean, solid black backdrop, completely eliminating buffer smearing and visual texture corruption.
 
 ### 7.3 Iconic Lambda Collectible Item
 * **Unique Per-Wave Spawn**: In each wave, exactly **one single collectible item** spawns procedurally at a randomly selected valid grid location in the map.
@@ -722,8 +746,8 @@ Because GoldSrc enforces a strict maximum entity limit (`MAX_EDICTS`, typically 
   * **Debris & Corpses**: Monster gibs (`gib`), dynamic combat corpses, and temporary impact decals (excluding pre-placed `monster_*_dead` environmental props).
 * **Reliable Spawn Pool**: Guarantees that the incoming wave has a full allocation of free entity slots for procedural spawning without triggering engine exhaustion (`ED_Alloc: no free edicts`).
 
-### 11.2 Interactive World Objects Lifecycle & Wave Regeneration (`gladder_breakable`)
-To maintain consistent level interactivity and route geometry without entity degradation or corruption across wave resets:
+### 11.2 Interactive World Objects Lifecycle, Crate Regeneration & Loot Housing (`gladder_breakable`)
+To maintain consistent level interactivity, route geometry, and non-linear looting without entity degradation across wave resets:
 * **Avoidance of Pushables (`func_pushable`)**: Movable pushable objects (`func_pushable`) are excluded from general mod design to prevent physics desynchronization and blocking geometry across repeated laps.
 * **Breakable Object Wave Regeneration (`gladder_breakable`)**:
   * Breakable environmental objects (such as wooden crates, glass panes, or barricades) are mapped with or subclassed as `gladder_breakable`, retained across waves, and regenerated cleanly at the start of each wave reset.
@@ -732,9 +756,13 @@ To maintain consistent level interactivity and route geometry without entity deg
     * Upon destruction, the object enters a hidden, non-solid state (`EF_NODRAW`, solid state set to `SOLID_NOT`).
     * During wave reset (`ResetWave`), all broken `gladder_breakable` entities are restored to their original visual appearance, collision bounds (`SOLID_BSP`), and full hit points.
     * **Engine World Relinking (`UTIL_SetOrigin`)**: Upon restoring solid state, the entity MUST be actively relinked into the engine's BSP spatial partitioning tree via `UTIL_SetOrigin(pev, m_vecOriginalOrigin)`. Simply updating `pev->origin` without invoking engine set-origin leaves the entity unlinked in the spatial leaf hierarchy, rendering it non-solid to physics hull traces.
+  * **Procedural Loot Assignment & Ejection**:
+    * Following world relinking at wave initialization, the procedural spawner rolls the wave supply distribution across available `gladder_breakable` entities.
+    * Rewarded crates are assigned their respective item classname and category-coded render color (`rendercolor`) and shell flags (`renderfx = kRenderFxGlowShell`).
+    * Non-rewarded crates have their glow attributes cleared (`renderfx = kRenderFxNone`, `rendercolor = Vector(0,0,0)`).
+    * When a rewarded `gladder_breakable` is broken (`Die()`), it dynamically instantiates its designated item entity (`CREATE_NAMED_ENTITY`) at the crate's world center (`m_vecOriginalOrigin`), allowing immediate collection upon shattering. Empty crates spawn nothing.
   * **Spawner Collision Exclusion & Pre-Spawn Validation**:
-    * Procedural item and supply generation (`SpawnPickups`) must execute after breakable regeneration has fully restored and relinked all `gladder_breakable` entities in the world.
-    * In addition to hull traces, pickup spawning must explicitly verify that candidate spawn coordinates do not overlap or intersect solid brush entity bounding volumes (`GladderIsPositionSolidOrBrush`), strictly preventing items, weapons, or ammo from spawning embedded inside crates or breakable geometry (while spawning resting cleanly on top of breakables is permitted per Section 4.3).
+    * Procedural item supply generation executes strictly via breakable containment rather than loose floor placements. Monster spawning continues to validate clearance against breakable solid bounds, preventing monster entities from spawning embedded inside crates.
 
 ### 11.3 Combat Decal Purging & Environmental Decal Preservation
 Intense combat across successive waves rapidly accumulates hundreds of dynamic surface decals (bullet impacts, monster blood splatters, explosion burns). If left uncleared, dynamic decals degrade rendering performance, clutter map navigation, and eventually cause erratic decal replacement as the engine hits internal decal limits.
@@ -756,22 +784,25 @@ Intense combat across successive waves rapidly accumulates hundreds of dynamic s
 
 To provide immediate, unmissable feedback upon entering and completing a wave, centered on-screen overlays notify the player of match progression:
 
-### 12.1 Wave Start Overlay
-* **Trigger Event**: Fired immediately when the player crosses the wave start trigger (`trigger_gladder_start`) leaving Point A.
-* **Wave Title / Number**: The active wave number and name are displayed prominently, centered in the player's viewport (e.g. `WAVE 5 STARTED` or custom designated wave title).
-* **Hostile Count Line**: Together with the wave title, the overlay shows centered, directly beneath the title (and above any mutator subtitle), how many hostiles must be eliminated this wave, e.g. `ELIMINATE 24 HOSTILES`. The number is the total hostile quota spawned for the wave (identical to the denominator of the persistent `HOSTILES: x / N` counter in 9.1), and is delivered to the client with the wave-start user message so it is available the instant the overlay appears. Singular form (`ELIMINATE 1 HOSTILE`) is used when the count is 1.
-* **Special Wave Mutator Subtitle**:
-  * If the active wave features a special mutator (e.g. `Low Gravity`, `Blackout`, `Swarm: Headcrabs`, `Elite Champion Surge`), the modifier name and tactical alert are rendered centered **immediately beneath** the wave title.
-  * Ensures the player is alerted to altered physics or hostile conditions before engaging enemies.
+### 12.1 Sky-Drop Tactical Overview & Deployment Overlay
+* **Trigger Event**: Fired at the commencement of each wave during the tactical deployment phase.
+* **Fullscreen 2D Overview Map**: Renders the complete level overview using standard GoldSrc multiplayer overview files (`overviews/<mapname>.bmp` and `<mapname>.txt`).
+* **Tactical Markers**:
+  * **Drop Zone Reticle**: Plots an animated targeting reticle (pulsing crosshair / circle) at the coordinates of the randomized grid spawn cell selected for the player.
+  * **Extraction Gate Markers**: Plots distinctive green extraction icons at the coordinates of every map-placed `trigger_gladder_finish`.
+* **Deployment Notification**: Displays centered on-screen tactical telemetry: `DEPLOYMENT POINT DESIGNATED - INFILTRATING ARENA`.
+* **Hostile Count Line**: Centered directly beneath the deployment notification, displays the wave's total enemy quota: `ELIMINATE <N> HOSTILES`.
+* **Special Wave Mutator Subtitle**: If the wave features an active mutator (`Blackout`, `Low Gravity`, `Swarm`, `Big Momma`), displays the mutator name and warning centered beneath the hostile count.
+* **Ellipsis Screen Transition**: After a 2.5–3.0 second briefing display, the screen transitions with a smooth fade to black, teleports the player to the ground at the designated grid cell, and smoothly fades in from black to transparent, granting immediate player control upon touchdown.
 
 ### 12.2 Wave Completion Overlay
-* **Trigger Event**: Fired the instant the player enters the extraction zone at Point B (`trigger_gladder_end`).
-* **Wave Completion Text**: Renders `WAVE <N> COMPLETED` centered on screen (where `<N>` corresponds strictly to the wave number just completed, e.g. `WAVE 1 COMPLETED` upon completing Wave 1, rather than the incremented incoming wave number) directly before screen fade and Point A teleportation.
+* **Trigger Event**: Fired the instant the player enters any active green extraction gate (`trigger_gladder_finish`).
+* **Wave Completion Text**: Renders `WAVE <N> COMPLETED` centered on screen (where `<N>` corresponds strictly to the wave number just completed) directly before the screen fade and transition into the next wave's Sky-Drop phase.
 
 ### 12.2.1 All Hostiles Eliminated Overlay
-* **Trigger Event**: Fired once per wave, the instant the last living hostile of the wave is eliminated (the same event that unlocks `trigger_gladder_finish`, fires `cleartarget`, and turns the finish glow Red; see Section 2).
-* **Text**: Renders `ALL HOSTILES ELIMINATED` centered on screen, with a subtitle beneath it such as `PROCEED TO EXTRACTION`, signalling that the wave can now be finished.
-* **Delivery & Audio**: Sent by a dedicated server-to-client user message (registered via `REGISTER_USER_MESSAGE`) and rendered by the existing wave overlay HUD element, accompanied by an arcade audio sting (Section 8). It must not fire on wave reset, on match restart, or more than once per wave, and must not replace the `WAVE <N> COMPLETED` overlay of 12.2.
+* **Trigger Event**: Fired once per wave, the instant the last living hostile of the wave is eliminated (the same event that unlocks all `trigger_gladder_finish` gates, fires `cleartarget`, and switches finish glow from Red to Green; see Section 2 and Section 6).
+* **Text**: Renders `ALL HOSTILES ELIMINATED` centered on screen, with the subtitle `EXITS UNLOCKED! ESCAPE TO PROCEED`.
+* **Delivery & Audio**: Sent by a dedicated server-to-client user message (registered via `REGISTER_USER_MESSAGE`) and rendered by the wave overlay HUD element, accompanied by an arcade audio sting (Section 8). It must not fire on wave reset, on match restart, or more than once per wave, and must not replace the `WAVE <N> COMPLETED` overlay of 12.2.
 * **Timing**: Uses the presentation rules of 12.3.
 
 ### 12.3 Overlay Presentation & Timing
