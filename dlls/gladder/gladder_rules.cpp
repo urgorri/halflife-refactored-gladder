@@ -69,6 +69,7 @@ CGladderRules::CGladderRules()
       m_iWaveMonstersTotal( 0 ),
       m_iWaveMonstersKilled( 0 ),
       m_bHostilesEliminatedFired( false ),
+      m_bInitialSkyDropPending( true ),
       m_bInSkyDrop( false ),
       m_flSkyDropTouchdownTime( 0.0f ),
       m_vecPendingDropPos( 0, 0, 0 )
@@ -330,7 +331,6 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 		m_flLastPlayerHealth = pPlayer->pev->health;
 		m_flLastPlayerArmor  = pPlayer->pev->armorvalue;
-		StartSkyDropDeployment( pPlayer );
 	}
 
 	// Neutralize client save/load commands & quicksave/quickload keybinds via client-side aliases
@@ -350,6 +350,20 @@ void CGladderRules::PlayerThink( CBasePlayer *pPlayer )
 {
 	if ( !pPlayer || !pPlayer->pev )
 		return;
+
+	// Defer initial Sky-Drop deployment until player's first active tick post-handshake (SPEC §2, §12.1, Issue #141)
+	if ( m_bInitialSkyDropPending && !m_bMatchConcluded )
+	{
+		m_bInitialSkyDropPending = false;
+		StartSkyDropDeployment( pPlayer );
+	}
+
+	if ( m_bInSkyDrop )
+	{
+		pPlayer->pev->flags |= FL_FROZEN;
+		pPlayer->pev->velocity = g_vecZero;
+		pPlayer->EnableControl( FALSE );
+	}
 
 	if ( m_bMatchConcluded )
 	{
@@ -1012,6 +1026,27 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 	if ( m_waveManager.GetState() == GLADDER_STATE_WAITING_FOR_START ||
 	     m_waveManager.GetState() == GLADDER_STATE_WAVE_COMPLETED )
 	{
+		CBasePlayer *pPlayer = ( pActivator && pActivator->IsPlayer() ) ? dynamic_cast<CBasePlayer *>( pActivator ) : nullptr;
+		if ( !pPlayer && gpGlobals )
+		{
+			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			{
+				CBaseEntity *pEnt = UTIL_PlayerByIndex( i );
+				if ( pEnt && pEnt->IsPlayer() )
+				{
+					pPlayer = dynamic_cast<CBasePlayer *>( pEnt );
+					if ( pPlayer )
+						break;
+				}
+			}
+		}
+
+		if ( pPlayer && !m_bMatchConcluded )
+		{
+			StartSkyDropDeployment( pPlayer );
+			return;
+		}
+
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 		m_waveManager.StartWave( flTime );
 
@@ -1029,7 +1064,6 @@ void CGladderRules::OnWaveTriggerStart( CBaseEntity *pActivator )
 		m_modifiers.RollAndApplyWaveMutator( m_waveManager.GetWaveNumber() );
 
 		// Procedurally spawn wave threats, weapons & supplies across indexed spatial grid
-		CBasePlayer *pPlayer = ( pActivator && pActivator->IsPlayer() ) ? dynamic_cast<CBasePlayer *>( pActivator ) : nullptr;
 		m_spawner.SpawnWave( m_waveManager.GetWaveNumber(), m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies(), pPlayer, m_modifiers.GetActiveMutator() );
 
 		// Hostile elimination tracking (SPEC §2, §9.1, Issue #118)
@@ -1741,6 +1775,14 @@ void CGladderRules::StartSkyDropDeployment( CBasePlayer *pPlayer )
 		if ( pEnt->pev )
 		{
 			Vector center = ( pEnt->pev->absmin + pEnt->pev->absmax ) * 0.5f;
+			if ( center == g_vecZero )
+			{
+				center = VecBModelOrigin( pEnt->pev );
+			}
+			if ( center == g_vecZero )
+			{
+				center = pEnt->pev->origin;
+			}
 			gateOrigins.push_back( center );
 			CTriggerGladderFinish *pFinish = dynamic_cast<CTriggerGladderFinish *>( pEnt );
 			if ( pFinish )
@@ -1751,6 +1793,16 @@ void CGladderRules::StartSkyDropDeployment( CBasePlayer *pPlayer )
 			{
 				pEnt->pev->rendercolor = Vector( GladderPalette::GateLocked.r, GladderPalette::GateLocked.g, GladderPalette::GateLocked.b );
 			}
+		}
+	}
+
+	// Fallback to active route finish if no trigger_gladder_finish found in map
+	if ( gateOrigins.empty() )
+	{
+		Vector vecStart, vecFinish;
+		if ( m_spawner.GetActiveRoute( vecStart, vecFinish ) )
+		{
+			gateOrigins.push_back( vecFinish );
 		}
 	}
 

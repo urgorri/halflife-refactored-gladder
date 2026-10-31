@@ -261,6 +261,7 @@ class CGladderRules : public CHalfLifeRules
 	bool m_bMatchFrozen;
 	float m_flMatchFreezeTime;
 	bool m_bInitialSpawnDone;
+	bool m_bInitialSkyDropPending;
 	bool m_bInSkyDrop;
 	float m_flSkyDropTouchdownTime;
 	Vector m_vecPendingDropPos;

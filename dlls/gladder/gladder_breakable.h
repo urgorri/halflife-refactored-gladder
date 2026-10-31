@@ -51,6 +51,7 @@ class CGladderBreakable : public CBreakable
 	const Vector &GetOriginalMins( void ) const { return m_vecOriginalMins; }
 	const Vector &GetOriginalMaxs( void ) const { return m_vecOriginalMaxs; }
 	const Vector &GetOriginalOrigin( void ) const { return m_vecOriginalOrigin; }
+	const Vector &GetCrateCenter( void ) const { return m_vecCrateCenter; }
 	const char *GetOriginalModel( void ) const { return STRING( m_iszOriginalModel ); }
 
   private:
@@ -61,6 +62,7 @@ class CGladderBreakable : public CBreakable
 	Vector m_vecOriginalMaxs;
 	Vector m_vecOriginalOrigin;
 	Vector m_vecOriginalAngles;
+	Vector m_vecCrateCenter;
 	int m_iOriginalSolid;
 	bool m_bBroken;
 	string_t m_iszSupplyClassname;

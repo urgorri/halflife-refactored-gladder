@@ -33,7 +33,8 @@ float g_mockMessageOrigin[3] = {0, 0, 0};
 edict_t *g_mockMessageEdict = nullptr;
 TraceResult g_mockTraceResult;
 
-static std::vector<std::string> s_stringPool;
+#include <deque>
+static std::deque<std::string> s_stringPool;
 static std::unordered_map<std::string, int> s_stringMap;
 
 // Default stub implementations
@@ -354,21 +355,21 @@ static void stub_FreeEntPrivateData( edict_t *pEdict ) {
 	}
 }
 
-static const char *stub_SzFromIndex( int iString ) {
-	if ( iString >= 0 && iString < static_cast<int>( s_stringPool.size() ) )
-		return s_stringPool[iString].c_str();
-	return "";
-}
-
 static int stub_AllocString( const char *szValue ) {
 	if ( !szValue ) return 0;
 	auto it = s_stringMap.find( szValue );
 	if ( it != s_stringMap.end() )
 		return it->second;
-	int idx = static_cast<int>( s_stringPool.size() );
-	s_stringPool.push_back( szValue );
-	s_stringMap[szValue] = idx;
-	return idx;
+	s_stringPool.emplace_back( szValue );
+	int ptrVal = static_cast<int>( reinterpret_cast<intptr_t>( s_stringPool.back().c_str() ) );
+	s_stringMap[szValue] = ptrVal;
+	return ptrVal;
+}
+
+static const char *stub_SzFromIndex( int iString ) {
+	if ( iString != 0 )
+		return reinterpret_cast<const char *>( static_cast<intptr_t>( iString ) );
+	return "";
 }
 
 static struct entvars_s *stub_GetVarsOfEnt( edict_t *pEdict ) {
@@ -1002,7 +1003,14 @@ BOOL CGameRules::CanHaveAmmo( CBasePlayer *pPlayer, const char *pszAmmoName, int
 #include "ai/nodes.h"
 
 edict_t *g_pBodyQueueHead = nullptr;
-Vector VecBModelOrigin( entvars_t *pev ) { return pev ? pev->origin : g_vecZero; }
+Vector VecBModelOrigin( entvars_t *pev )
+{
+	if ( !pev )
+		return g_vecZero;
+	if ( pev->size != g_vecZero )
+		return pev->absmin + ( pev->size * 0.5f );
+	return pev->origin;
+}
 void CTestHull::Spawn( entvars_t *pevMasterNode ) {}
 
 BOOL CBaseMonster::ShouldFadeOnDeath( void ) { return FALSE; }

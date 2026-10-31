@@ -169,3 +169,57 @@ TEST_CASE( "CHudGladderSkyDrop Lifecycle", "[gladder][skydrop][hud]" )
 	hud.Reset();
 	CHECK_FALSE( hud.IsActive() );
 }
+
+TEST_CASE( "Overview Projector Layer and AutoFit Bounds", "[gladder][skydrop][autofit]" )
+{
+	GladderOverviewProjector projector;
+
+	SECTION( "Parses layer image from overview buffer" )
+	{
+		const char *sampleOverview =
+		    "global {\n"
+		    "  zoom 1.5\n"
+		    "  origin 200 300 0\n"
+		    "  rotated 0\n"
+		    "}\n"
+		    "layer {\n"
+		    "  image \"overviews/crossfire.bmp\"\n"
+		    "  height -500\n"
+		    "}\n";
+
+		bool ok = projector.ParseFromBuffer( sampleOverview );
+		REQUIRE( ok );
+		CHECK( projector.IsLoadedFromFile() );
+		CHECK( projector.GetLayerImage() == "overviews/crossfire.bmp" );
+	}
+
+	SECTION( "AutoFitBounds centers and fits arbitrarily placed gates" )
+	{
+		std::vector<GladderGateCoord> gates;
+		gates.push_back( GladderGateCoord( 1000.0f, 2000.0f, 0.0f ) );
+		gates.push_back( GladderGateCoord( -1000.0f, -2000.0f, 0.0f ) );
+
+		projector.AutoFitBounds( 0.0f, 0.0f, gates );
+
+		CHECK( projector.GetOriginX() == Catch::Approx( 0.0f ) );
+		CHECK( projector.GetOriginY() == Catch::Approx( 0.0f ) );
+		CHECK( projector.GetZoom() > 0.1f );
+
+		int sx = 0, sy = 0;
+		projector.WorldToScreen( 0.0f, 0.0f, 400, 300, 300, sx, sy );
+		CHECK( sx == 400 );
+		CHECK( sy == 300 );
+	}
+
+	SECTION( "VidInit preserves active deployment mid-briefing" )
+	{
+		CHudGladderSkyDrop hud;
+		GladderDeployMsg msg;
+		msg.flBriefingDuration = 2.8f;
+		hud.TriggerDeployment( msg, 0.0f );
+		REQUIRE( hud.IsActive() );
+
+		hud.VidInit();
+		CHECK( hud.IsActive() );
+	}
+}

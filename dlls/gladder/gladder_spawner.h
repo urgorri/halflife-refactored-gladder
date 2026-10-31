@@ -94,6 +94,15 @@ class GladderSpawner
 	{
 		return ( index < m_spawnedEntities.size() ) ? (CBaseEntity *)m_spawnedEntities[index] : nullptr;
 	}
+	void RegisterSpawnedEntity( CBaseEntity *pEntity )
+	{
+		if ( pEntity )
+		{
+			EHANDLE h;
+			h = pEntity;
+			m_spawnedEntities.push_back( h );
+		}
+	}
 	int GetLastSpawnedMonsterCount() const { return m_iLastMonsterCount; }
 	int GetLastSpawnedPickupCount() const { return m_iLastPickupCount; }
 	int GetLastSpawnedChampionCount() const { return m_iLastChampionCount; }

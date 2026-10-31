@@ -16,6 +16,8 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "triangleapi.h"
+#include "com_model.h"
 
 static int MsgFunc_GladDeploy_Dispatcher( const char *pszName, int iSize, void *pbuf )
 {
@@ -86,7 +88,31 @@ bool GladderOverviewProjector::ParseFromBuffer( const char *pBuffer )
 				}
 			}
 			m_bLoaded = true;
-			break;
+			m_bLoadedFromFile = true;
+		}
+		else if ( !strcmp( token, "layer" ) )
+		{
+			if ( !getNextToken( p, token, sizeof( token ) ) || strcmp( token, "{" ) )
+				continue;
+
+			while ( getNextToken( p, token, sizeof( token ) ) && strcmp( token, "}" ) )
+			{
+				if ( !strcmp( token, "image" ) )
+				{
+					if ( getNextToken( p, token, sizeof( token ) ) )
+					{
+						char *clean = token;
+						if ( clean[0] == '"' )
+						{
+							clean++;
+							size_t clen = strlen( clean );
+							if ( clen > 0 && clean[clen - 1] == '"' )
+								clean[clen - 1] = '\0';
+						}
+						m_layerImage = clean;
+					}
+				}
+			}
 		}
 	}
 
@@ -94,6 +120,38 @@ bool GladderOverviewProjector::ParseFromBuffer( const char *pBuffer )
 		m_zoom = 1.0f;
 
 	return m_bLoaded;
+}
+
+void GladderOverviewProjector::AutoFitBounds( float dropX, float dropY, const std::vector<GladderGateCoord> &gates )
+{
+	float minX = dropX;
+	float maxX = dropX;
+	float minY = dropY;
+	float maxY = dropY;
+
+	for ( size_t i = 0; i < gates.size(); ++i )
+	{
+		if ( gates[i].x < minX ) minX = gates[i].x;
+		if ( gates[i].x > maxX ) maxX = gates[i].x;
+		if ( gates[i].y < minY ) minY = gates[i].y;
+		if ( gates[i].y > maxY ) maxY = gates[i].y;
+	}
+
+	float spanX = maxX - minX;
+	float spanY = maxY - minY;
+	float maxSpan = ( spanX > spanY ) ? spanX : spanY;
+	if ( maxSpan < 800.0f )
+		maxSpan = 800.0f;
+
+	m_originX = ( minX + maxX ) * 0.5f;
+	m_originY = ( minY + maxY ) * 0.5f;
+	m_zoom    = 4096.0f / ( maxSpan * 1.4f );
+	if ( m_zoom <= 0.05f )
+		m_zoom = 0.05f;
+	if ( m_zoom > 4.0f )
+		m_zoom = 4.0f;
+	m_rotated = 0;
+	m_bLoaded = true;
 }
 
 bool GladderOverviewProjector::LoadOverview( const char *pszMapName )
@@ -128,6 +186,10 @@ bool GladderOverviewProjector::LoadOverview( const char *pszMapName )
 	{
 		bool bOk = ParseFromBuffer( pfile );
 		gEngfuncs.COM_FreeFile( pfile );
+		if ( bOk && !m_layerImage.empty() )
+		{
+			m_pMapSprite = gEngfuncs.LoadMapSprite( m_layerImage.c_str() );
+		}
 		return bOk;
 	}
 #endif
@@ -138,6 +200,7 @@ bool GladderOverviewProjector::LoadOverview( const char *pszMapName )
 	m_zoom    = 1.0f;
 	m_rotated = 0;
 	m_bLoaded = true;
+	m_bLoadedFromFile = false;
 	return true;
 }
 
@@ -189,7 +252,30 @@ int CHudGladderSkyDrop::Init( void )
 
 int CHudGladderSkyDrop::VidInit( void )
 {
-	Reset();
+	float curTime = 0.0f;
+#ifdef CLIENT_DLL
+	curTime = gHUD.m_flTime;
+#endif
+	float flDuration = ( m_deployMsg.flBriefingDuration > 0.5f ) ? m_deployMsg.flBriefingDuration : 2.8f;
+	if ( !m_bActive || ( curTime - m_flStartTime >= flDuration ) )
+	{
+		Reset();
+	}
+	else
+	{
+#ifdef CLIENT_DLL
+		const char *pszLevel = gEngfuncs.pfnGetLevelName();
+		if ( pszLevel && *pszLevel && m_lastLoadedMap != pszLevel )
+		{
+			m_lastLoadedMap = pszLevel;
+			m_projector.LoadOverview( pszLevel );
+			if ( !m_projector.IsLoadedFromFile() )
+			{
+				m_projector.AutoFitBounds( m_deployMsg.dropX, m_deployMsg.dropY, m_deployMsg.extractionGates );
+			}
+		}
+#endif
+	}
 	return 1;
 }
 
@@ -223,6 +309,10 @@ int CHudGladderSkyDrop::MsgFunc_GladderDeploy( const char *pszName, int iSize, v
 		{
 			m_lastLoadedMap = pszLevel;
 			m_projector.LoadOverview( pszLevel );
+		}
+		if ( !m_projector.IsLoadedFromFile() )
+		{
+			m_projector.AutoFitBounds( dmsg.dropX, dmsg.dropY, dmsg.extractionGates );
 		}
 #endif
 		TriggerDeployment( dmsg, curTime );
@@ -261,7 +351,51 @@ int CHudGladderSkyDrop::Draw( float flTime )
 	int halfSide = boxSide / 2;
 
 	// Dark semi-transparent backdrop behind entire tactical window
-	FillRGBA( cx - halfSide, cy - halfSide, boxSide, boxSide, 10, 18, 24, 215 );
+	FillRGBA( cx - halfSide, cy - halfSide, boxSide, boxSide, 10, 18, 24, 225 );
+
+	// Draw overview map sprite if loaded
+	struct model_s *pMapSprite = m_projector.GetMapSprite();
+	if ( pMapSprite && gEngfuncs.pTriAPI )
+	{
+		int numFrames = pMapSprite->numframes;
+		int iTiles = static_cast<int>( sqrt( static_cast<double>( numFrames / 12 ) ) );
+		if ( iTiles > 0 )
+		{
+			int xTiles = iTiles * 4;
+			int yTiles = iTiles * 3;
+			float tileW = static_cast<float>( boxSide ) / static_cast<float>( xTiles );
+			float tileH = static_cast<float>( boxSide ) / static_cast<float>( yTiles );
+
+			gEngfuncs.pTriAPI->RenderMode( kRenderNormal );
+			gEngfuncs.pTriAPI->CullFace( TRI_NONE );
+			gEngfuncs.pTriAPI->Color4f( 1.0f, 1.0f, 1.0f, 0.85f );
+
+			for ( int iy = 0; iy < yTiles; ++iy )
+			{
+				for ( int ix = 0; ix < xTiles; ++ix )
+				{
+					int frame = iy * xTiles + ix;
+					if ( frame >= numFrames )
+						continue;
+
+					float tx = ( cx - halfSide ) + ix * tileW;
+					float ty = ( cy - halfSide ) + iy * tileH;
+
+					gEngfuncs.pTriAPI->SpriteTexture( pMapSprite, frame );
+					gEngfuncs.pTriAPI->Begin( TRI_QUADS );
+					gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 0.0f );
+					gEngfuncs.pTriAPI->Vertex3f( tx, ty, 0.0f );
+					gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 0.0f );
+					gEngfuncs.pTriAPI->Vertex3f( tx + tileW, ty, 0.0f );
+					gEngfuncs.pTriAPI->TexCoord2f( 1.0f, 1.0f );
+					gEngfuncs.pTriAPI->Vertex3f( tx + tileW, ty + tileH, 0.0f );
+					gEngfuncs.pTriAPI->TexCoord2f( 0.0f, 1.0f );
+					gEngfuncs.pTriAPI->Vertex3f( tx, ty + tileH, 0.0f );
+					gEngfuncs.pTriAPI->End();
+				}
+			}
+		}
+	}
 
 	// Border around tactical box (Cyan/Teal)
 	FillRGBA( cx - halfSide, cy - halfSide, boxSide, 2, 0, 180, 220, 255 );             // top
@@ -280,12 +414,14 @@ int CHudGladderSkyDrop::Draw( float flTime )
 		int gx = 0, gy = 0;
 		m_projector.WorldToScreen( gate.x, gate.y, cx, cy, boxSide, gx, gy );
 
-		// Green diamond icon
+		// Green diamond icon with shadow backing
+		FillRGBA( gx - 6, gy - 6, 13, 13, 0, 0, 0, 255 );
 		FillRGBA( gx - 5, gy - 5, 11, 11, 32, 255, 32, 255 );
-		FillRGBA( gx - 3, gy - 3, 7, 7, 10, 20, 24, 255 );
+		FillRGBA( gx - 3, gy - 3, 7, 7, 10, 24, 18, 255 );
+		FillRGBA( gx - 1, gy - 1, 3, 3, 32, 255, 32, 255 );
 
-		gEngfuncs.pfnDrawSetTextColor( 0.12f, 1.0f, 0.12f );
-		DrawConsoleString( gx - 14, gy + 7, "EXTRACTION" );
+		gEngfuncs.pfnDrawSetTextColor( 0.2f, 1.0f, 0.2f );
+		DrawConsoleString( gx - 28, gy + 8, "[EXTRACTION]" );
 	}
 
 	// 3. Drop Zone Reticle (SPEC §2, §12.1: animated pulsing reticle)
@@ -295,15 +431,28 @@ int CHudGladderSkyDrop::Draw( float flTime )
 	float pulse = 8.0f + 3.0f * sinf( flTime * 9.0f );
 	int pOffset = static_cast<int>( pulse );
 
+	// Black drop-shadow backing
+	FillRGBA( dx - 2, dy - 2, 5, 5, 0, 0, 0, 255 );
+
 	// Amber crosshair ticks around drop point
-	FillRGBA( dx - 1, dy - 1, 3, 3, 255, 200, 30, 255 ); // center dot
-	FillRGBA( dx - 1, dy - pOffset - 6, 3, 6, 255, 200, 30, 255 ); // top
-	FillRGBA( dx - 1, dy + pOffset, 3, 6, 255, 200, 30, 255 );     // bottom
-	FillRGBA( dx - pOffset - 6, dy - 1, 6, 3, 255, 200, 30, 255 ); // left
-	FillRGBA( dx + pOffset, dy - 1, 6, 3, 255, 200, 30, 255 );     // right
+	FillRGBA( dx - 1, dy - 1, 3, 3, 255, 210, 30, 255 ); // center dot
+	FillRGBA( dx - 1, dy - pOffset - 7, 3, 7, 255, 210, 30, 255 ); // top
+	FillRGBA( dx - 1, dy + pOffset, 3, 7, 255, 210, 30, 255 );     // bottom
+	FillRGBA( dx - pOffset - 7, dy - 1, 7, 3, 255, 210, 30, 255 ); // left
+	FillRGBA( dx + pOffset, dy - 1, 7, 3, 255, 210, 30, 255 );     // right
+
+	// Corner brackets around reticle
+	FillRGBA( dx - pOffset - 4, dy - pOffset - 4, 3, 1, 255, 210, 30, 200 );
+	FillRGBA( dx - pOffset - 4, dy - pOffset - 4, 1, 3, 255, 210, 30, 200 );
+	FillRGBA( dx + pOffset + 2, dy - pOffset - 4, 3, 1, 255, 210, 30, 200 );
+	FillRGBA( dx + pOffset + 4, dy - pOffset - 4, 1, 3, 255, 210, 30, 200 );
+	FillRGBA( dx - pOffset - 4, dy + pOffset + 4, 3, 1, 255, 210, 30, 200 );
+	FillRGBA( dx - pOffset - 4, dy + pOffset + 2, 1, 3, 255, 210, 30, 200 );
+	FillRGBA( dx + pOffset + 2, dy + pOffset + 4, 3, 1, 255, 210, 30, 200 );
+	FillRGBA( dx + pOffset + 4, dy + pOffset + 2, 1, 3, 255, 210, 30, 200 );
 
 	gEngfuncs.pfnDrawSetTextColor( 1.0f, 0.85f, 0.1f );
-	DrawConsoleString( dx - 16, dy + pOffset + 8, "DROP ZONE" );
+	DrawConsoleString( dx - 24, dy + pOffset + 8, "[DROP ZONE]" );
 
 	// 4. Centered Tactical Telemetry
 	// Title: DEPLOYMENT POINT DESIGNATED - INFILTRATING ARENA (Cyan)

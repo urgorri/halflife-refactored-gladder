@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+struct model_s;
+
 // Overview projection helper to map 3D world coordinates to 2D overview coordinates
 class GladderOverviewProjector
 {
@@ -26,7 +28,9 @@ class GladderOverviewProjector
 	      m_originZ( 0.0f ),
 	      m_zoom( 1.0f ),
 	      m_rotated( 0 ),
-	      m_bLoaded( false )
+	      m_bLoaded( false ),
+	      m_bLoadedFromFile( false ),
+	      m_pMapSprite( nullptr )
 	{
 	}
 
@@ -38,10 +42,14 @@ class GladderOverviewProjector
 		m_zoom    = 1.0f;
 		m_rotated = 0;
 		m_bLoaded = false;
+		m_bLoadedFromFile = false;
+		m_layerImage.clear();
+		m_pMapSprite = nullptr;
 	}
 
 	bool ParseFromBuffer( const char *pBuffer );
 	bool LoadOverview( const char *pszMapName );
+	void AutoFitBounds( float dropX, float dropY, const std::vector<GladderGateCoord> &gates );
 
 	bool WorldToScreen( float worldX, float worldY, int boxCenterX, int boxCenterY, int boxSide, int &outX, int &outY ) const;
 
@@ -50,6 +58,9 @@ class GladderOverviewProjector
 	float GetZoom( void ) const { return m_zoom; }
 	int GetRotated( void ) const { return m_rotated; }
 	bool IsLoaded( void ) const { return m_bLoaded; }
+	bool IsLoadedFromFile( void ) const { return m_bLoadedFromFile; }
+	const std::string &GetLayerImage( void ) const { return m_layerImage; }
+	struct model_s *GetMapSprite( void ) const { return m_pMapSprite; }
 
 	void SetData( float originX, float originY, float zoom, int rotated )
 	{
@@ -67,6 +78,9 @@ class GladderOverviewProjector
 	float m_zoom;
 	int m_rotated;
 	bool m_bLoaded;
+	bool m_bLoadedFromFile;
+	std::string m_layerImage;
+	struct model_s *m_pMapSprite;
 };
 
 class CHudGladderSkyDrop : public CHudBase
