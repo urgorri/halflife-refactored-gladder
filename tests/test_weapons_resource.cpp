@@ -249,6 +249,7 @@ TEST_CASE( "WeaponsResource: Resolution Forwarding to Fallback Handler (#174)", 
 
 	ResetTestState();
 }
+
 TEST_CASE( "WeaponsResource: Missing Sprite Script Zeroes Handles and Invokes Fallback (#202)", "[hud][weapons_resource]" )
 {
 	ResetTestState();
@@ -355,4 +356,3 @@ TEST_CASE( "WeaponsResource: 16-bit Ammo Capacity and Network Protocol (#201)", 
 
 	ResetTestState();
 }
-
