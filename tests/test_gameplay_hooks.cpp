@@ -258,6 +258,22 @@ class CTestHookRules : public CGameRules
 			return m_customProjectileBurstCount;
 		return CGameRules::IMonsterProjectileBurstCount( pMonster, pszProjectile, iDefaultCount );
 	}
+
+	bool m_bPlayerAddAmmoCalled = false;
+	BOOL m_bPlayerAddAmmoReturn = FALSE;
+	CBasePlayerAmmo *m_pLastAmmoEntity = nullptr;
+	CBaseEntity *m_pLastAmmoRecipient = nullptr;
+	BOOL PlayerAddAmmo( CBasePlayerAmmo *pAmmo, CBaseEntity *pOther ) override
+	{
+		m_bPlayerAddAmmoCalled = true;
+		m_pLastAmmoEntity = pAmmo;
+		m_pLastAmmoRecipient = pOther;
+		if ( m_bPlayerAddAmmoReturn )
+		{
+			return TRUE;
+		}
+		return CGameRules::PlayerAddAmmo( pAmmo, pOther );
+	}
 };
 
 class CTestMonster : public CBaseMonster
@@ -1422,4 +1438,166 @@ TEST_CASE( "GameplayHooks: CGameRules monster combat extension hooks and flinch 
 	g_pGameRules = nullptr;
 }
 
+TEST_CASE( "GameplayHooks: CGameRules::PlayerAddAmmo extensible ammo pickup hook (#212)", "[gameplay][gamerules][ammo][hooks]" )
+{
+	InitMockEngine();
+	GameRulesFactory::Reset();
+
+	SECTION( "Vanilla singleplayer and multiplayer rules return FALSE by default" )
+	{
+		gpGlobals->deathmatch = 0.0f;
+		CGameRules *pSingleRules = GameRulesFactory::CreateGameRules();
+		REQUIRE( pSingleRules != nullptr );
+
+		CHECK( pSingleRules->PlayerAddAmmo( nullptr, nullptr ) == FALSE );
+
+		delete pSingleRules;
+		g_pGameRules = nullptr;
+
+		GameRulesFactory::Reset();
+		gpGlobals->deathmatch = 1.0f;
+		CGameRules *pMultiRules = GameRulesFactory::CreateGameRules();
+		REQUIRE( pMultiRules != nullptr );
+
+		CHECK( pMultiRules->PlayerAddAmmo( nullptr, nullptr ) == FALSE );
+
+		delete pMultiRules;
+		g_pGameRules = nullptr;
+		gpGlobals->deathmatch = 0.0f;
+	}
+
+	SECTION( "Custom game rules intercepts PlayerAddAmmo and receives correct entity parameters" )
+	{
+		CTestHookRules customRules;
+		g_pGameRules = &customRules;
+
+		// Default returns FALSE (delegating to CGameRules::PlayerAddAmmo)
+		CHECK( customRules.PlayerAddAmmo( nullptr, nullptr ) == FALSE );
+		CHECK( customRules.m_bPlayerAddAmmoCalled == true );
+
+		// Custom gamemode intercepts and handles ammo addition
+		customRules.m_bPlayerAddAmmoCalled = false;
+		customRules.m_bPlayerAddAmmoReturn = TRUE;
+
+		CBaseEntity dummyRecipient;
+		edict_t recipientEdict;
+		std::memset( &recipientEdict, 0, sizeof( recipientEdict ) );
+		dummyRecipient.pev = &recipientEdict.v;
+
+		CBaseEntity dummyAmmoEntity;
+		edict_t ammoEdict;
+		std::memset( &ammoEdict, 0, sizeof( ammoEdict ) );
+		dummyAmmoEntity.pev = &ammoEdict.v;
+		dummyAmmoEntity.pev->classname = MAKE_STRING( "ammo_egonclip" );
+		CBasePlayerAmmo *pDummyAmmo = reinterpret_cast<CBasePlayerAmmo *>( &dummyAmmoEntity );
+
+		BOOL bHandled = customRules.PlayerAddAmmo( pDummyAmmo, &dummyRecipient );
+		CHECK( bHandled == TRUE );
+		CHECK( customRules.m_bPlayerAddAmmoCalled == true );
+		CHECK( customRules.m_pLastAmmoEntity == pDummyAmmo );
+		CHECK( customRules.m_pLastAmmoRecipient == &dummyRecipient );
+
+		g_pGameRules = nullptr;
+	}
+
+	SECTION( "Ammo pickup delegation contract and lifecycle branching simulation (#212)" )
+	{
+		// Simulate CBasePlayerAmmo::DefaultTouch delegation behavior
+		bool bIsPlayer = true;
+		bool bPlayerBusting = false;
+		bool bDefaultAddAmmoCalled = false;
+		bool bDefaultAddAmmoReturn = true;
+		bool bRespawnCalled = false;
+		bool bRemoveScheduled = false;
+		float flScheduledThinkTime = 0.0f;
+
+		auto SimulateAmmoTouch = [&]( CGameRules *pRules ) -> bool {
+			if ( !bIsPlayer )
+				return false;
+
+			if ( bPlayerBusting )
+				return false;
+
+			BOOL bAmmoAdded = FALSE;
+			if ( pRules && pRules->PlayerAddAmmo( nullptr, nullptr ) )
+			{
+				bAmmoAdded = TRUE;
+			}
+			else
+			{
+				bDefaultAddAmmoCalled = true;
+				bAmmoAdded = bDefaultAddAmmoReturn ? TRUE : FALSE;
+			}
+
+			if ( bAmmoAdded )
+			{
+				if ( pRules && pRules->AmmoShouldRespawn( nullptr ) == GR_AMMO_RESPAWN_YES )
+				{
+					bRespawnCalled = true;
+				}
+				else
+				{
+					bRemoveScheduled = true;
+					flScheduledThinkTime = gpGlobals->time + 0.1f;
+				}
+			}
+			return bAmmoAdded ? true : false;
+		};
+
+		// Case 1: Non-player touching ammo - ignored
+		bIsPlayer = false;
+		CHECK( SimulateAmmoTouch( nullptr ) == false );
+		CHECK( bDefaultAddAmmoCalled == false );
+
+		// Case 2: Player busting - ignored
+		bIsPlayer = true;
+		bPlayerBusting = true;
+		CHECK( SimulateAmmoTouch( nullptr ) == false );
+		CHECK( bDefaultAddAmmoCalled == false );
+
+		// Case 3: Vanilla rules fallback - AddAmmo called, entity removed in singleplayer
+		bPlayerBusting = false;
+		bDefaultAddAmmoCalled = false;
+		bRespawnCalled = false;
+		bRemoveScheduled = false;
+		gpGlobals->deathmatch = 0.0f;
+		gpGlobals->time = 15.0f;
+		CGameRules *pVanillaRules = GameRulesFactory::CreateGameRules();
+
+		bool bResult = SimulateAmmoTouch( pVanillaRules );
+		CHECK( bResult == true );
+		CHECK( bDefaultAddAmmoCalled == true );
+		CHECK( bRespawnCalled == false );
+		CHECK( bRemoveScheduled == true );
+		CHECK( flScheduledThinkTime == Catch::Approx( 15.1f ) );
+
+		delete pVanillaRules;
+		g_pGameRules = nullptr;
+
+		// Case 4: Custom gamemode override (e.g. Gladder custom energy or 5.56mm ammo grant)
+		// Gamemode handles ammo addition, AddAmmo is bypassed
+		CTestHookRules customRules;
+		customRules.m_bPlayerAddAmmoReturn = TRUE;
+		bDefaultAddAmmoCalled = false;
+		bRespawnCalled = false;
+		bRemoveScheduled = false;
+		gpGlobals->time = 25.0f;
+
+		bResult = SimulateAmmoTouch( &customRules );
+		CHECK( bResult == true );
+		CHECK( customRules.m_bPlayerAddAmmoCalled == true );
+		CHECK( bDefaultAddAmmoCalled == false ); // AddAmmo was bypassed cleanly!
+		CHECK( bRemoveScheduled == true );
+		CHECK( flScheduledThinkTime == Catch::Approx( 25.1f ) );
+
+		// Case 5: Null g_pGameRules safely falls back to default AddAmmo without crashing
+		bDefaultAddAmmoCalled = false;
+		bRespawnCalled = false;
+		bRemoveScheduled = false;
+
+		bResult = SimulateAmmoTouch( nullptr );
+		CHECK( bResult == true );
+		CHECK( bDefaultAddAmmoCalled == true );
+	}
+}
 

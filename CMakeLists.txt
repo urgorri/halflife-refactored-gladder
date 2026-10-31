@@ -389,6 +389,7 @@ if(BUILD_TESTS)
         cl_dll/gladder/hud_gladder_wave_notify.cpp
         cl_dll/gladder/hud_gladder_lambda.cpp
         cl_dll/gladder/hud_gladder_summary.cpp
+        cl_dll/gladder/hud_gladder_skydrop.cpp
         cl_dll/gladder/gladder_grid_debug_client.cpp
         tests/test_gladder_phase1.cpp
         tests/gladder/test_gladder_breakable.cpp
@@ -408,6 +409,7 @@ if(BUILD_TESTS)
         tests/gladder/test_crosshair_fallback.cpp
         tests/gladder/test_leaderboard.cpp
         tests/gladder/test_usermsg.cpp
+        tests/gladder/test_skydrop.cpp
         tests/gladder/test_wave_notify_msg.cpp
         tests/gladder/test_hud.cpp
         tests/gladder/test_summary_screen.cpp

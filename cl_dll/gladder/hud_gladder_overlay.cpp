@@ -104,6 +104,10 @@ int CHudGladderOverlay::Init( void )
 	gEngfuncs.pfnHookUserMsg( "GladTelem", MsgFunc_GladTelem_Dispatcher );
 	gEngfuncs.pfnAddCommand( "r_cleardecals", Cmd_ClearDecals );
 	Gladder_InitCrosshairFallback();
+	if ( gEngfuncs.Cvar_SetValue )
+	{
+		gEngfuncs.Cvar_SetValue( "gl_clear", 1.0f );
+	}
 #endif
 	m_iFlags |= HUD_ACTIVE;
 	return 1;
@@ -111,6 +115,12 @@ int CHudGladderOverlay::Init( void )
 
 int CHudGladderOverlay::VidInit( void )
 {
+#ifdef CLIENT_DLL
+	if ( gEngfuncs.Cvar_SetValue )
+	{
+		gEngfuncs.Cvar_SetValue( "gl_clear", 1.0f );
+	}
+#endif
 	return 1;
 }
 
@@ -241,7 +251,7 @@ int CHudGladderOverlay::Draw( float flTime )
 	if ( seconds < 0 )
 		seconds = 0;
 
-	sprintf( szBuf, "TIME LEFT: %02d:%02d", minutes, seconds );
+	sprintf( szBuf, "TIME: %02d:%02d", minutes, seconds );
 	DrawConsoleString( x, y, szBuf );
 	y += 16;
 

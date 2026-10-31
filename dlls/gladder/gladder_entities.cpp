@@ -25,18 +25,14 @@ LINK_ENTITY_TO_CLASS( trigger_gladder_start, CTriggerGladderStart );
 void CTriggerGladderStart::Spawn( void )
 {
 	InitTrigger();
-	pev->renderfx = kRenderFxGlowShell;
-	SetActiveState( true );
-	pev->renderamt = 0;
-	pev->rendermode = kRenderTransTexture;
-	ClearBits( pev->effects, EF_NODRAW );
-	SetTouch( &CTriggerGladderStart::StartTouch );
-	SetUse( &CTriggerGladderStart::StartUse );
+	pev->effects |= EF_NODRAW;
+	pev->solid = SOLID_NOT;
+	SetTouch( nullptr );
+	SetUse( nullptr );
 
 	m_bPlayerCrossed = false;
 	m_hActivatingPlayer = nullptr;
 	m_vecEntryPos = g_vecZero;
-	CreateClipBrush();
 }
 
 void CTriggerGladderStart::SetActiveState( bool bActive )
@@ -291,11 +287,11 @@ void CTriggerGladderFinish::SetUnlockedState( bool bUnlocked )
 
 	if ( bUnlocked )
 	{
-		pev->rendercolor = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+		pev->rendercolor = Vector( GladderPalette::GateUnlocked.r, GladderPalette::GateUnlocked.g, GladderPalette::GateUnlocked.b );
 	}
 	else
 	{
-		pev->rendercolor = Vector( GladderPalette::TriggersInactive.r, GladderPalette::TriggersInactive.g, GladderPalette::TriggersInactive.b );
+		pev->rendercolor = Vector( GladderPalette::GateLocked.r, GladderPalette::GateLocked.g, GladderPalette::GateLocked.b );
 	}
 }
 
@@ -359,7 +355,7 @@ void Gladder_FireClearTargets( CBaseEntity *pActivator )
 		}
 		else if ( pEnt->pev )
 		{
-			pEnt->pev->rendercolor = Vector( GladderPalette::Triggers.r, GladderPalette::Triggers.g, GladderPalette::Triggers.b );
+			pEnt->pev->rendercolor = Vector( GladderPalette::GateUnlocked.r, GladderPalette::GateUnlocked.g, GladderPalette::GateUnlocked.b );
 		}
 	}
 }

@@ -312,7 +312,17 @@ void CBasePlayerAmmo ::DefaultTouch( CBaseEntity *pOther )
 	if ( IsPlayerBusting( pOther ) )
 		return;
 
-	if ( AddAmmo( pOther ) )
+	BOOL bAmmoAdded = FALSE;
+	if ( g_pGameRules && g_pGameRules->PlayerAddAmmo( this, pOther ) )
+	{
+		bAmmoAdded = TRUE;
+	}
+	else
+	{
+		bAmmoAdded = AddAmmo( pOther );
+	}
+
+	if ( bAmmoAdded )
 	{
 		if ( g_pGameRules->AmmoShouldRespawn( this ) == GR_AMMO_RESPAWN_YES )
 		{

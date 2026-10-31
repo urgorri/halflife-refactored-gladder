@@ -1,7 +1,7 @@
 /***
  *
  *	Half-Life: Gladder - Gauntlet Runner Mod
- *	gladder_breakable - Wave-Resettable Destructible Entity (SPEC §11.3)
+ *	gladder_breakable - Wave-Resettable Destructible Entity (SPEC §2, §7.2, §11.2, §11.3, Issue #142)
  *
  ****/
 
@@ -14,13 +14,15 @@
 #include "core/util.h"
 #include "core/cbase.h"
 #include "systems/func_break.h"
+#include "gladder_palette.h"
 
 //
 // gladder_breakable
 // Wave-resettable destructible entity. Inherits from CBreakable.
 // When destroyed, executes full break side-effects (shards, gibs, acoustic cues,
-// explosions, and target firing), but enters a hidden EF_NODRAW/SOLID_NOT state
-// in memory instead of being removed via SUB_Remove.
+// explosions, and target firing), and dynamically spawns any contained supply item
+// at its world origin, but enters a hidden EF_NODRAW/SOLID_NOT state in memory instead
+// of being removed via SUB_Remove.
 // Regenerated back to its fresh original state upon each wave reset.
 //
 class CGladderBreakable : public CBreakable
@@ -37,12 +39,19 @@ class CGladderBreakable : public CBreakable
 
 	void Reset( void );
 
+	// Procedural supply housing & category glow shell (SPEC §2, §7.2, §11.2, Issue #142)
+	void SetContainedSupply( const char *szItemClassname, const GladderColorRGB &glowColor );
+	void ClearContainedSupply( void );
+	const char *GetContainedSupply( void ) const;
+	bool HasContainedSupply( void ) const { return m_iszSupplyClassname != 0; }
+
 	bool IsBroken( void ) const { return m_bBroken; }
 	float GetOriginalHealth( void ) const { return m_flOriginalHealth; }
 	int GetOriginalSolid( void ) const { return m_iOriginalSolid; }
 	const Vector &GetOriginalMins( void ) const { return m_vecOriginalMins; }
 	const Vector &GetOriginalMaxs( void ) const { return m_vecOriginalMaxs; }
 	const Vector &GetOriginalOrigin( void ) const { return m_vecOriginalOrigin; }
+	const Vector &GetCrateCenter( void ) const { return m_vecCrateCenter; }
 	const char *GetOriginalModel( void ) const { return STRING( m_iszOriginalModel ); }
 
   private:
@@ -53,8 +62,10 @@ class CGladderBreakable : public CBreakable
 	Vector m_vecOriginalMaxs;
 	Vector m_vecOriginalOrigin;
 	Vector m_vecOriginalAngles;
+	Vector m_vecCrateCenter;
 	int m_iOriginalSolid;
 	bool m_bBroken;
+	string_t m_iszSupplyClassname;
 };
 
 #endif // GLADDER_BREAKABLE_H

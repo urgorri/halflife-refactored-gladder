@@ -51,6 +51,10 @@ namespace GladderPalette
 	// Level Design Triggers: Start & Finish boundaries (Active / Unlocked Red vs. Inactive / Locked Gray)
 	static const GladderColorRGB Triggers( 255, 32, 32 );
 	static const GladderColorRGB TriggersInactive( 128, 128, 128 );
+
+	// Extraction Gates: Locked Red vs Unlocked Green (SPEC §2, §4, §6, Issue #143)
+	static const GladderColorRGB GateLocked( 255, 32, 32 );
+	static const GladderColorRGB GateUnlocked( 32, 255, 32 );
 }
 
 #endif // GLADDER_PALETTE_H

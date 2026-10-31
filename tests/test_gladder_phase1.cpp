@@ -30,7 +30,6 @@
 TEST_CASE( "Gladder Phase 1: Wave State Machine Transitions", "[gladder][wave_manager]" )
 {
 	CGladderWaveManager manager;
-	manager.SetSessionTimeLimit( 600.0f );
 	manager.InitializeMatch( 100.0f );
 
 	SECTION( "Initial state after match initialization" )
@@ -38,7 +37,7 @@ TEST_CASE( "Gladder Phase 1: Wave State Machine Transitions", "[gladder][wave_ma
 		REQUIRE( manager.GetState() == GLADDER_STATE_WAITING_FOR_START );
 		REQUIRE( manager.GetWaveNumber() == 1 );
 		REQUIRE( manager.GetCompletedWavesCount() == 0 );
-		REQUIRE( manager.GetSessionTimeRemaining( 100.0f ) == Catch::Approx( 600.0f ) );
+		REQUIRE( manager.GetSessionElapsedTime( 100.0f ) == 0.0f );
 		REQUIRE( manager.GetActiveLapTime( 100.0f ) == 0.0f );
 		REQUIRE( manager.GetFastestLapTime() == 0.0f );
 		REQUIRE( manager.GetSlowestLapTime() == 0.0f );
@@ -101,14 +100,17 @@ TEST_CASE( "Gladder Phase 1: Wave State Machine Transitions", "[gladder][wave_ma
 		REQUIRE( manager.GetState() == GLADDER_STATE_MATCH_OVER );
 	}
 
-	SECTION( "Session timer expiration during Tick triggers GLADDER_STATE_MATCH_OVER" )
+	SECTION( "Endless runs do not expire on time limit (SPEC §3, Issue #134)" )
 	{
 		manager.StartWave( 100.0f );
-		// Advance tick beyond the 600s session limit (100 + 601 = 701.0f)
+		// In endless runs, advancing tick beyond former limits does not end match
 		manager.Tick( 701.0f );
+		REQUIRE( manager.GetState() == GLADDER_STATE_WAVE_ACTIVE );
+		REQUIRE( manager.IsMatchOver() == false );
+		REQUIRE( manager.GetSessionElapsedTime( 701.0f ) == Catch::Approx( 601.0f ) );
+		manager.EndMatch( 701.0f, false );
 		REQUIRE( manager.GetState() == GLADDER_STATE_MATCH_OVER );
 		REQUIRE( manager.IsMatchOver() == true );
-		REQUIRE( manager.GetSessionTimeRemaining( 701.0f ) == 0.0f );
 	}
 }
 

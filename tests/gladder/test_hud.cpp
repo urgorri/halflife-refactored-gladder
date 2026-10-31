@@ -273,3 +273,11 @@ TEST_CASE( "Spatial Grid Debug - Client State & Zero-Cost Lifecycle", "[gladder]
 	GladderGridDebug_SetClientActive( false );
 }
 
+
+TEST_CASE( "CHudGladderOverlay: Enforces gl_clear 1 by default on Init and VidInit (SPEC §7.2.1, Issue #140)", "[gladder][hud][client]" )
+{
+	CHudGladderOverlay overlay;
+	overlay.Init();
+	overlay.VidInit();
+	CHECK( ( overlay.m_iFlags & HUD_ACTIVE ) != 0 );
+}

@@ -172,7 +172,6 @@ class CTestConclusionRules : public CTestGladderRulesAutoswitch
 
 	CTestConclusionRules()
 	{
-		m_waveManager.SetSessionTimeLimit( 100.0f );
 		m_waveManager.InitializeMatch( 0.0f );
 		m_waveManager.StartWave( 0.0f );
 	}
@@ -697,7 +696,7 @@ TEST_CASE( "GladderRules: gladder_restart executes full map reload command prese
 	}
 }
 
-TEST_CASE( "GladderRules: Session time limit expiration match conclusion and player input lock (SPEC §2, §3, §9.2, Issue #85, #88)", "[gladder][rules][conclusion]" )
+TEST_CASE( "GladderRules: Endless run does not time out and ends strictly upon player death (SPEC §2, §3, §9.2, Issue #85, #88, #134)", "[gladder][rules][conclusion]" )
 {
 	ResetMockEngine();
 
@@ -720,15 +719,18 @@ TEST_CASE( "GladderRules: Session time limit expiration match conclusion and pla
 	CHECK_FALSE( rules.m_bMatchConcluded );
 	CHECK_FALSE( rules.m_waveManager.IsMatchOver() );
 
-	// Frame at t=100.5s: session time limit expires
+	// Frame at t=100.5s: in endless runs, time advance does NOT conclude match
 	gpGlobals->time = 100.5f;
 	rules.Think();
-	CHECK( rules.m_waveManager.IsMatchOver() );
+	CHECK_FALSE( rules.m_waveManager.IsMatchOver() );
+	CHECK_FALSE( rules.m_bMatchConcluded );
+
+	// Match concludes only when player dies (KIA)
+	rules.m_bPlayerDead = true;
+	rules.HandleMatchConclusion( false, &dummyPlayer );
 	CHECK( rules.m_bMatchConcluded );
-	CHECK( rules.m_bSurvived == true );
-	CHECK( rules.m_firedRelayEvent == 2 ); // Victory relays
-	// Player is NOT given FL_FROZEN (which forces PLAYER_IDLE in SetAnimation),
-	// Instead FL_NOTARGET and maxspeed=1.0f are set and only IN_SCORE (Tab) input is allowed.
+	CHECK( rules.m_bSurvived == false );
+	CHECK( rules.m_firedRelayEvent == 3 ); // Defeat relays
 	CHECK( ( dummyPlayer.pev->flags & FL_FROZEN ) == 0 );
 	CHECK( ( dummyPlayer.pev->flags & FL_NOTARGET ) != 0 );
 	CHECK( dummyPlayer.pev->maxspeed == Catch::Approx( 1.0f ) );
@@ -1466,3 +1468,18 @@ TEST_CASE( "GladderTriggers: Start and finish trigger Red/Gray glow state transi
 }
 
 
+
+
+TEST_CASE( "GladderRules: Multi-exit extraction gates with dynamic Red/Green glow states (SPEC §2, §4, §6, Issue #143)", "[gladder][rules][gates]" )
+{
+	ResetMockEngine();
+
+	// Gate Locked = Red (255, 32, 32), Gate Unlocked = Green (32, 255, 32)
+	CHECK( GladderPalette::GateLocked.r == 255 );
+	CHECK( GladderPalette::GateLocked.g == 32 );
+	CHECK( GladderPalette::GateLocked.b == 32 );
+
+	CHECK( GladderPalette::GateUnlocked.r == 32 );
+	CHECK( GladderPalette::GateUnlocked.g == 255 );
+	CHECK( GladderPalette::GateUnlocked.b == 32 );
+}

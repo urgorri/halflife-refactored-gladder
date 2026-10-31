@@ -222,6 +222,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_lambda.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_summary.cpp" />
+    <ClCompile Include="..\..\cl_dll\gladder\hud_gladder_skydrop.cpp" />
     <ClCompile Include="..\..\cl_dll\gladder\gladder_grid_debug_client.cpp" />
     <ClCompile Include="..\..\dlls\gladder\gladder_leaderboard.cpp" />
     <ClCompile Include="..\..\dlls\gladder\weapons\weapon_knife.cpp" />
@@ -240,6 +241,7 @@ call ..\..\filecopy.bat $(TargetDir)\$(TargetName).pdb ..\..\..\game\mod\cl_dlls
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_wave_notify.h" />
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_lambda.h" />
     <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_summary.h" />
+    <ClInclude Include="..\..\cl_dll\gladder\hud_gladder_skydrop.h" />
     <ClInclude Include="..\..\cl_dll\gladder\gladder_grid_debug_client.h" />
     <ClInclude Include="..\..\dlls\gladder\gladder_leaderboard.h" />
     <ClInclude Include="..\..\dlls\gladder\weapons\gladder_weapons.h" />

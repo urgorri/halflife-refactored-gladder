@@ -1,11 +1,13 @@
 /***
  *
  *	Half-Life: Gladder - Gauntlet Runner Mod
- *	gladder_breakable - Wave-Resettable Destructible Entity (SPEC §11.3)
+ *	gladder_breakable - Wave-Resettable Destructible Entity Implementation
+ *	(SPEC §2, §7.2, §11.2, §11.3, Issue #142)
  *
  ****/
 
 #include "gladder_breakable.h"
+#include "gladder_rules.h"
 
 LINK_ENTITY_TO_CLASS( gladder_breakable, CGladderBreakable );
 
@@ -17,8 +19,10 @@ CGladderBreakable::CGladderBreakable()
       m_vecOriginalMaxs( 0, 0, 0 ),
       m_vecOriginalOrigin( 0, 0, 0 ),
       m_vecOriginalAngles( 0, 0, 0 ),
+      m_vecCrateCenter( 0, 0, 0 ),
       m_iOriginalSolid( SOLID_BSP ),
-      m_bBroken( false )
+      m_bBroken( false ),
+      m_iszSupplyClassname( 0 )
 {
 	m_Material       = matWood;
 	m_Explosion      = expRandom;
@@ -48,6 +52,43 @@ void CGladderBreakable::Spawn( void )
 	m_vecOriginalAngles     = pev->angles;
 	m_iOriginalSolid        = pev->solid;
 	m_bBroken               = false;
+	m_iszSupplyClassname    = 0;
+
+	// In GoldSrc brush models (func_breakable, gladder_breakable), pev->origin is strictly (0,0,0)
+	// unless an origin brush is compiled in. VecBModelOrigin(pev) computes absmin + (size * 0.5).
+	m_vecCrateCenter = VecBModelOrigin( pev );
+	if ( m_vecCrateCenter == g_vecZero )
+	{
+		m_vecCrateCenter = pev->origin;
+	}
+}
+
+void CGladderBreakable::SetContainedSupply( const char *szItemClassname, const GladderColorRGB &glowColor )
+{
+	if ( szItemClassname && *szItemClassname )
+	{
+		m_iszSupplyClassname = ALLOC_STRING( szItemClassname );
+		pev->renderfx    = kRenderFxGlowShell;
+		pev->rendercolor = Vector( glowColor.r, glowColor.g, glowColor.b );
+		pev->renderamt   = 16;
+	}
+	else
+	{
+		ClearContainedSupply();
+	}
+}
+
+void CGladderBreakable::ClearContainedSupply( void )
+{
+	m_iszSupplyClassname = 0;
+	pev->renderfx    = kRenderFxNone;
+	pev->rendercolor = g_vecZero;
+	pev->renderamt   = 0;
+}
+
+const char *CGladderBreakable::GetContainedSupply( void ) const
+{
+	return m_iszSupplyClassname ? STRING( m_iszSupplyClassname ) : "";
 }
 
 void CGladderBreakable::Die( void )
@@ -61,6 +102,36 @@ void CGladderBreakable::Die( void )
 	// Cancel SUB_Remove destruction scheduled by CBreakable::Die()
 	SetThink( nullptr );
 	pev->nextthink = 0;
+
+	// Dynamically instantiate contained procedural loot at crate center (SPEC §2, §7.2, §11.2, Issue #142)
+	if ( m_iszSupplyClassname != 0 )
+	{
+		const char *szItem = STRING( m_iszSupplyClassname );
+		if ( szItem && *szItem )
+		{
+			Vector vecDropPos = m_vecCrateCenter;
+			if ( vecDropPos == g_vecZero )
+			{
+				vecDropPos = VecBModelOrigin( pev );
+			}
+			if ( vecDropPos == g_vecZero )
+			{
+				vecDropPos = m_vecOriginalOrigin;
+			}
+			vecDropPos.z += 8.0f; // Elevate slightly above floor brush so it doesn't get embedded
+
+			CBaseEntity *pItem = CBaseEntity::Create( (char *)szItem, vecDropPos, g_vecZero, nullptr );
+			if ( pItem )
+			{
+				CGladderRules *pRules = dynamic_cast<CGladderRules *>( g_pGameRules );
+				if ( pRules )
+				{
+					pRules->GetSpawner().RegisterSpawnedEntity( pItem );
+				}
+			}
+		}
+		ClearContainedSupply();
+	}
 
 	// Enter hidden, non-solid state in memory
 	pev->effects |= EF_NODRAW;
@@ -99,6 +170,8 @@ void CGladderBreakable::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_
 
 void CGladderBreakable::Reset( void )
 {
+	ClearContainedSupply();
+
 	// Restore visibility and solid collision
 	pev->effects &= ~EF_NODRAW;
 	pev->solid = m_iOriginalSolid;
@@ -140,6 +213,12 @@ void CGladderBreakable::Reset( void )
 	// Cancel any pending think routines
 	SetThink( nullptr );
 	pev->nextthink = 0;
+
+	m_vecCrateCenter = VecBModelOrigin( pev );
+	if ( m_vecCrateCenter == g_vecZero )
+	{
+		m_vecCrateCenter = m_vecOriginalOrigin;
+	}
 
 	m_bBroken = false;
 }

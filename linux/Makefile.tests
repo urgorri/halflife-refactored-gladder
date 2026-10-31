@@ -118,12 +118,14 @@ TEST_OBJS = \
 	$(TESTS_OBJ_DIR)/hud_gladder_wave_notify.o \
 	$(TESTS_OBJ_DIR)/hud_gladder_lambda.o \
 	$(TESTS_OBJ_DIR)/hud_gladder_summary.o \
+	$(TESTS_OBJ_DIR)/hud_gladder_skydrop.o \
 	$(TESTS_OBJ_DIR)/gladder_grid_debug.o \
 	$(TESTS_OBJ_DIR)/squidspit_cloud.o \
 	$(TESTS_OBJ_DIR)/gladder_grid_debug_client.o \
 	$(TESTS_OBJ_DIR)/test_crosshair_fallback.o \
 	$(TESTS_OBJ_DIR)/test_leaderboard.o \
 	$(TESTS_OBJ_DIR)/test_usermsg.o \
+	$(TESTS_OBJ_DIR)/test_skydrop.o \
 	$(TESTS_OBJ_DIR)/test_wave_notify_msg.o \
 	$(TESTS_OBJ_DIR)/test_hud.o \
 	$(TESTS_OBJ_DIR)/test_summary_screen.o \
@@ -393,3 +395,9 @@ clean:
 
 test: all
 	$(BUILD_DIR)/hl_tests
+
+$(TESTS_OBJ_DIR)/hud_gladder_skydrop.o: $(SOURCE_DIR)/cl_dll/gladder/hud_gladder_skydrop.cpp | dirs
+	$(CXX) $(TESTS_CXXFLAGS) $(TESTS_INCLUDES) -c $< -o $@
+
+$(TESTS_OBJ_DIR)/test_skydrop.o: $(SOURCE_DIR)/tests/gladder/test_skydrop.cpp | dirs
+	$(CXX) $(TESTS_CXXFLAGS) $(TESTS_INCLUDES) -c $< -o $@

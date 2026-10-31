@@ -112,6 +112,7 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_wave_notify.o \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_lambda.o \
 	$(HL1_OBJ_DIR)/gladder/hud_gladder_summary.o \
+	$(HL1_OBJ_DIR)/gladder/hud_gladder_skydrop.o \
 	$(HL1_OBJ_DIR)/gladder/gladder_grid_debug_client.o \
 
 

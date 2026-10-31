@@ -247,3 +247,45 @@ TEST_CASE( "Gladder Breakable: Wave GC skips gladder_breakable and wave reset re
 	CHECK( breakable.pev->solid == SOLID_BSP );
 	CHECK( breakable.pev->health == Catch::Approx( 60.0f ) );
 }
+
+TEST_CASE( "Gladder Breakable: Lethal destruction drops contained loot at crate center, not at (0,0,0)", "[gladder][breakable][loot]" )
+{
+	ResetMockEngine();
+
+	CGladderBreakable breakable;
+	edict_t *pBreakableEdict = GetMockClientEntity( 1 );
+	REQUIRE( pBreakableEdict != nullptr );
+	pBreakableEdict->free          = 0;
+	pBreakableEdict->pvPrivateData = &breakable;
+	breakable.pev                  = &pBreakableEdict->v;
+
+	// In BSP brush entities without origin brushes, pev->origin is strictly (0,0,0)
+	breakable.pev->origin     = g_vecZero;
+	breakable.pev->absmin     = Vector( 100, 200, 10 );
+	breakable.pev->absmax     = Vector( 132, 232, 42 );
+	breakable.pev->size       = Vector( 32, 32, 32 );
+	breakable.pev->health     = 25.0f;
+	breakable.pev->solid      = SOLID_BSP;
+	breakable.pev->model      = MAKE_STRING( "models/wood_crate.mdl" );
+	breakable.m_Material      = matWood;
+	breakable.m_Explosion     = expRandom;
+	breakable.pev->impulse    = 0;
+
+	breakable.Spawn();
+
+	// Verify crate center was cached correctly via VecBModelOrigin
+	Vector expectedCenter = Vector( 116, 216, 26 );
+	CHECK( breakable.GetCrateCenter().x == Catch::Approx( expectedCenter.x ) );
+	CHECK( breakable.GetCrateCenter().y == Catch::Approx( expectedCenter.y ) );
+	CHECK( breakable.GetCrateCenter().z == Catch::Approx( expectedCenter.z ) );
+
+	// Attach supply
+	breakable.SetContainedSupply( "item_healthkit", GladderPalette::Health );
+	REQUIRE( breakable.HasContainedSupply() );
+
+	// Inflict lethal damage
+	breakable.TakeDamage( nullptr, nullptr, 50.0f, DMG_GENERIC );
+
+	CHECK( breakable.IsBroken() );
+	CHECK( !breakable.HasContainedSupply() );
+}

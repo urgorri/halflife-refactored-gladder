@@ -2,6 +2,7 @@
  *
  *	Half-Life: Gladder - Gauntlet Runner Mod
  *	Wave Lifecycle State Machine & Pacing Telemetry
+ *	(SPEC §3, §9.1, §9.2, GitHub Issue #134)
  *
  ****/
 
@@ -29,15 +30,11 @@ class CGladderWaveManager
   public:
 	CGladderWaveManager();
 
-	// Session configuration
-	void SetSessionTimeLimit( float flSeconds );
-	float GetSessionTimeLimit( void ) const { return m_flSessionDuration; }
-
 	// Lifecycle events
 	void InitializeMatch( float flStartTime );
 	void StartWave( float flCurrentTime );
 	void CompleteWave( float flCurrentTime );
-	void EndMatch( float flCurrentTime, bool bSurvived );
+	void EndMatch( float flCurrentTime, bool bSurvived = false );
 	void Tick( float flCurrentTime );
 
 	// State queries
@@ -46,9 +43,10 @@ class CGladderWaveManager
 	int GetCompletedWavesCount( void ) const { return (int)m_lapTimes.size(); }
 	bool IsMatchOver( void ) const { return m_state == GLADDER_STATE_MATCH_OVER; }
 	bool IsWaveActive( void ) const { return m_state == GLADDER_STATE_WAVE_ACTIVE; }
+	bool HasSurvived( void ) const { return m_bSurvived; }
 
-	// Timers & telemetry
-	float GetSessionTimeRemaining( float flCurrentTime ) const;
+	// Timers & telemetry (SPEC §9.1: elapsed run time count-up, endless roguelite)
+	float GetSessionElapsedTime( float flCurrentTime ) const;
 	float GetActiveLapTime( float flCurrentTime ) const;
 	float GetFastestLapTime( void ) const;
 	float GetSlowestLapTime( void ) const;
@@ -61,12 +59,10 @@ class CGladderWaveManager
   private:
 	GladderWaveState m_state;
 	int m_iWaveNumber;
-	float m_flSessionDuration;
 	float m_flSessionStartTime;
-	float m_flSessionEndTime;
+	float m_flMatchEndTime;
 	float m_flWaveStartTime;
 	float m_flCurrentLapElapsed;
-	float m_flIdleEntryTime;    // Engine time when we last entered a non-active state
 	bool m_bSurvived;
 
 	std::vector<float> m_lapTimes;

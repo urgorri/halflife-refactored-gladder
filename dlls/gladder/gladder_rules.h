@@ -148,9 +148,12 @@ class CGladderRules : public CHalfLifeRules
 	void ClearStaticDecals( void ) { m_staticDecals.clear(); }
 	void RestoreStaticDecals( void );
 
-	// Wave lifecycle callbacks invoked by triggers
+	// Wave lifecycle callbacks & Sky-Drop deployment (SPEC §1, §2, §12.1, Issues #141, #144)
 	void OnWaveTriggerStart( CBaseEntity *pActivator );
 	void OnWaveTriggerFinish( CBaseEntity *pActivator );
+	void StartSkyDropDeployment( CBasePlayer *pPlayer );
+	bool IsInSkyDrop( void ) const { return m_bInSkyDrop; }
+	const Vector &GetPendingDropPos( void ) const { return m_vecPendingDropPos; }
 
 	// Resource cleanup, wave reset & recharge
 	void ResetWave( void );
@@ -258,6 +261,10 @@ class CGladderRules : public CHalfLifeRules
 	bool m_bMatchFrozen;
 	float m_flMatchFreezeTime;
 	bool m_bInitialSpawnDone;
+	bool m_bInitialSkyDropPending;
+	bool m_bInSkyDrop;
+	float m_flSkyDropTouchdownTime;
+	Vector m_vecPendingDropPos;
 	bool m_bRestoreAttempted;
 	bool m_bPendingSavePurge;
 	int m_iTotalFrags;

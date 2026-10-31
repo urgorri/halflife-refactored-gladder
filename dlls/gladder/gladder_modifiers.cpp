@@ -65,8 +65,12 @@ float GladderModifiers::GetChampionSpawnChance( int iWaveNumber )
 		return 0.20f;
 	if ( iWaveNumber <= 12 )
 		return 0.30f;
+	if ( iWaveNumber <= 15 )
+		return 0.35f;
 
-	return 0.35f; // Cap at 35% chance
+	// Uncapped escalation beyond wave 15: rises steadily towards ~0.85 at wave 40 (SPEC §3, Issue #134)
+	float flExtra = static_cast<float>( iWaveNumber - 15 ) * 0.02f;
+	return (std::min)( 0.85f, 0.35f + flExtra );
 }
 
 bool GladderModifiers::ShouldSpawnAsChampion( int iWaveNumber )

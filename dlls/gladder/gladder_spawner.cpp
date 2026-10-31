@@ -10,6 +10,7 @@
 #include "gladder_modifiers.h"
 #include "gladder_monster_modifiers.h"
 #include "gladder_pickup_weights.h"
+#include "gladder_breakable.h"
 #include "core/player.h"
 #include "monsters/bigmomma.h"
 #include <cstdio>
@@ -98,7 +99,7 @@ static const size_t s_pickupRosterCount = sizeof( s_pickupRoster ) / sizeof( s_p
 GladderMapConfig::GladderMapConfig()
     : baseMonsters( 20 ),
       monstersPerWave( 2.0f ),
-      maxMonsters( 48 ),
+      maxMonsters( 128 ),
       basePickups( 15 ),
       pickupsPerWave( 2.25f ),
       maxPickups( 36 ),
@@ -217,7 +218,9 @@ float GladderSpawner::GetMonsterTierWeight( int tier, int iWaveNumber )
 			return ( w < 2.0f ) ? 5.0f : (std::min)( 35.0f, 5.0f + ( w - 2.0f ) * 4.0f );
 
 		case 4:
-			// Elite adversaries: appears at wave 4+, steadily scales up to max weight
+			// Elite adversaries: appears at wave 4+, steadily scales up to max weight without hard ceiling (SPEC §3, Issue #134)
+			if ( w > 15.0f )
+				return (std::min)( 75.0f, 35.0f + ( w - 15.0f ) * 2.0f );
 			return ( w < 4.0f ) ? 0.0f : (std::min)( 35.0f, ( w - 3.0f ) * 4.0f );
 
 		default:
@@ -1211,8 +1214,18 @@ int GladderSpawner::SpawnWave( int iWaveNumber, const GladderGridIndexer &indexe
 	// 3. Procedurally generate monsters across spatial grid cells
 	SpawnMonsters( iWaveNumber, indexer, config, monsterCount, &occupiedCells, szSwarmSpecies, mutator );
 
-	// 4. Procedurally generate randomized pickups & weapons
-	SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells, pPlayer );
+	// 4. Procedurally distribute supplies inside destructible gladder_breakables (SPEC §2, §3, §7.2, §11.2, Issue #142)
+	// When gladder_breakables exist in the arena, supplies are exclusively contained inside breakables.
+	// When no breakables are present (e.g. test harnesses), fall back to standard spatial grid floor pickups.
+	CBaseEntity *pFirstBrk = UTIL_FindEntityByClassname( nullptr, "gladder_breakable" );
+	if ( pFirstBrk )
+	{
+		DistributeSuppliesToBreakables( iWaveNumber, config, pPlayer );
+	}
+	else
+	{
+		SpawnPickups( iWaveNumber, indexer, config, pickupCount, &occupiedCells, pPlayer );
+	}
 
 	ALERT( at_console, "[Gladder] Wave %d spawned: %d monsters (%d champions), %d supplies, lambda=%s (Tracked total: %u entities)\n",
 	       iWaveNumber, m_iLastMonsterCount, m_iLastChampionCount, m_iLastPickupCount, m_bLambdaSpawned ? "yes" : "no",
@@ -1366,3 +1379,159 @@ void GladderSpawner::PurgeWaveEntities()
 		}
 	} );
 }
+GladderColorRGB GladderSpawner::GetSupplyGlowColor( const char *szClassname )
+{
+	if ( !szClassname || !*szClassname )
+		return GladderColorRGB( 255, 255, 255 );
+
+	// Health & Medical: Vibrant Green (RGB(32, 255, 32))
+	if ( strcmp( szClassname, "item_healthkit" ) == 0 )
+		return GladderColorRGB( 32, 255, 32 );
+
+	// Armor & HEV Batteries: Cyan (RGB(32, 192, 255))
+	if ( strcmp( szClassname, "item_battery" ) == 0 )
+		return GladderColorRGB( 32, 192, 255 );
+
+	// Ammunition: Amber / Golden-Orange (RGB(255, 180, 20))
+	if ( strncmp( szClassname, "ammo_", 5 ) == 0 )
+		return GladderColorRGB( 255, 180, 20 );
+
+	// Consumable Ordnance: Radiant Blue (RGB(32, 128, 255))
+	if ( strcmp( szClassname, "weapon_handgrenade" ) == 0 ||
+	     strcmp( szClassname, "weapon_tripmine" ) == 0 ||
+	     strcmp( szClassname, "weapon_satchel" ) == 0 ||
+	     strcmp( szClassname, "weapon_snark" ) == 0 )
+	{
+		return GladderColorRGB( 32, 128, 255 );
+	}
+
+	// Fixed Weapons: Arcade Magenta / Violet (RGB(220, 40, 220))
+	if ( strncmp( szClassname, "weapon_", 7 ) == 0 )
+		return GladderColorRGB( 220, 40, 220 );
+
+	return GladderColorRGB( 255, 255, 255 );
+}
+
+void GladderSpawner::DistributeSuppliesToBreakables( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer )
+{
+	m_iLastPickupCount = 0;
+
+	// 1. Collect all gladder_breakable entities across the active map
+	std::vector<CGladderBreakable *> breakables;
+	CBaseEntity *pEnt = nullptr;
+	while ( ( pEnt = UTIL_FindEntityByClassname( pEnt, "gladder_breakable" ) ) != nullptr )
+	{
+		CGladderBreakable *pBrk = dynamic_cast<CGladderBreakable *>( pEnt );
+		if ( pBrk )
+		{
+			pBrk->ClearContainedSupply();
+			breakables.push_back( pBrk );
+		}
+	}
+
+	int totalBreakables = static_cast<int>( breakables.size() );
+	if ( totalBreakables == 0 )
+		return;
+
+	// 2. Wave supply quota bounded by available gladder_breakables (SPEC §2, §3, §11.2, Issue #142)
+	int waveTarget = static_cast<int>( config.basePickups + ( iWaveNumber - 1 ) * config.pickupsPerWave );
+	waveTarget = (std::min)( waveTarget, config.maxPickups );
+	int actualSupplies = (std::min)( waveTarget, totalBreakables );
+
+	if ( actualSupplies <= 0 )
+		return;
+
+	// 3. Randomize crate selection
+	std::vector<size_t> indices( totalBreakables );
+	for ( size_t i = 0; i < indices.size(); ++i )
+		indices[i] = i;
+
+	for ( size_t i = 0; i < indices.size(); ++i )
+	{
+		size_t j = i + RANDOM_LONG( 0, static_cast<long>( indices.size() - 1 - i ) );
+		std::swap( indices[i], indices[j] );
+	}
+
+	size_t fixedWeaponsSpawnedThisWave = 0;
+	bool allowFixedWeapons = ( fixedWeaponsSpawnedThisWave < 2 );
+	std::vector<std::string> spawnedWeaponsThisWave;
+
+	CBasePlayer *pLocalPlayer = pPlayer;
+	if ( !pLocalPlayer && gpGlobals )
+	{
+		pLocalPlayer = (CBasePlayer *)UTIL_PlayerByIndex( 1 );
+	}
+
+	for ( int i = 0; i < actualSupplies; ++i )
+	{
+		CGladderBreakable *pBrk = breakables[indices[i]];
+		const char *szPickup = RollPickupItem( iWaveNumber, config, pLocalPlayer, allowFixedWeapons, &spawnedWeaponsThisWave );
+		if ( !szPickup || !*szPickup )
+			continue;
+
+		GladderColorRGB glowColor = GetSupplyGlowColor( szPickup );
+		pBrk->SetContainedSupply( szPickup, glowColor );
+		m_iLastPickupCount++;
+	}
+}
+
+bool GladderSpawner::SelectRandomPlayerSpawn( const GladderGridIndexer &indexer, Vector &outSpawnPos )
+{
+	if ( indexer.GetCellCount() == 0 )
+		return false;
+
+	std::vector<size_t> candidates;
+	for ( size_t i = 0; i < indexer.GetCellCount(); ++i )
+	{
+		const auto &cell = indexer.GetCell( i );
+		if ( ( cell.flags & ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) ) != ( GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK ) )
+			continue;
+
+		if ( cell.flags & ( GLADDER_CELL_PICKUP_ONLY | GLADDER_CELL_NO_MONSTERS ) )
+			continue;
+
+		candidates.push_back( i );
+	}
+
+	if ( candidates.empty() )
+	{
+		for ( size_t i = 0; i < indexer.GetCellCount(); ++i )
+		{
+			const auto &cell = indexer.GetCell( i );
+			if ( cell.flags & GLADDER_CELL_VALID )
+				candidates.push_back( i );
+		}
+	}
+
+	if ( candidates.empty() )
+		return false;
+
+	for ( size_t i = 0; i < candidates.size(); ++i )
+	{
+		size_t j = i + RANDOM_LONG( 0, static_cast<long>( candidates.size() - 1 - i ) );
+		std::swap( candidates[i], candidates[j] );
+	}
+
+	for ( size_t idx : candidates )
+	{
+		const auto &cell = indexer.GetCell( idx );
+		Vector vecCandidate = cell.origin + Vector( 0.0f, 0.0f, 36.0f );
+
+		// Standard standing player clearance hull: [-16, -16, -36] to [16, 16, 36] (32x32x72 units) (SPEC §2, Issue #144)
+		TraceResult tr;
+		UTIL_TraceHull( vecCandidate, vecCandidate, dont_ignore_monsters, human_hull, nullptr, &tr );
+		if ( tr.fStartSolid || tr.fAllSolid || tr.flFraction < 1.0f )
+			continue;
+
+		if ( GladderIsPositionSolidOrBrush( vecCandidate ) )
+			continue;
+
+		outSpawnPos = vecCandidate;
+		return true;
+	}
+
+	const auto &cell = indexer.GetCell( candidates[0] );
+	outSpawnPos = cell.origin + Vector( 0.0f, 0.0f, 36.0f );
+	return true;
+}
+
