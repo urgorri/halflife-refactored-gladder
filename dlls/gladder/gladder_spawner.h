@@ -2,7 +2,7 @@
  *
  *	Half-Life: Gladder - Gauntlet Runner Mod
  *	Procedural Spawner, Dynamic Weighted Tier Distribution & Edict Garbage Collection
- *	(SPEC §2, §3, §4.4, §5, §7.3, §11, GitHub Issue #7)
+ *	(SPEC §2, §3, §4.4, §5, §7.3, §11, GitHub Issue #7, #142, #144)
  *
  ****/
 
@@ -16,6 +16,7 @@
 #include "core/cbase.h"
 #include "gladder_grid_indexer.h"
 #include "gladder_modifiers.h"
+#include "gladder_palette.h"
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -111,6 +112,13 @@ class GladderSpawner
 	// Procedural rolling helpers (SPEC §3, Issue #39, #78, #79, #93)
 	static const char *RollMonsterSpecies( int iWaveNumber, bool &outIsFlying, bool &outIsBarnacle );
 	static const char *RollPickupItem( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr, bool allowFixedWeapons = true, const std::vector<std::string> *pExtraOwnedWeapons = nullptr );
+
+	// Supply containment helpers (SPEC §2, §3, §7.2, §11.2, Issue #142)
+	static GladderColorRGB GetSupplyGlowColor( const char *szClassname );
+	void DistributeSuppliesToBreakables( int iWaveNumber, const GladderMapConfig &config, CBasePlayer *pPlayer = nullptr );
+
+	// Randomized player spawn on spatial grid (SPEC §1, §2, §6, Issue #144)
+	static bool SelectRandomPlayerSpawn( const GladderGridIndexer &indexer, Vector &outSpawnPos );
 
 	// Pity tracking helpers (SPEC §3, Issue #93)
 	static void ResetPickupPity( void );

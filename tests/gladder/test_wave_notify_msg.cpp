@@ -106,7 +106,7 @@ TEST_CASE( "GladderWaveNotify: All hostiles eliminated overlay (SPEC §12.2.1, #
 	CHECK( notify.GetType() == 2 );
 	CHECK( notify.GetWaveNumber() == 4 );
 	CHECK( std::string( notify.GetTitle() ) == "ALL HOSTILES ELIMINATED" );
-	CHECK( std::string( notify.GetSubtitle() ) == "PROCEED TO EXTRACTION" );
+	CHECK( std::string( notify.GetSubtitle() ) == "EXITS UNLOCKED! ESCAPE TO PROCEED" );
 	CHECK( std::string( notify.GetHostileLine() ) == "" );
 
 	// Same 4.0s presentation window as the other states

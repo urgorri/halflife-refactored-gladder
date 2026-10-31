@@ -28,7 +28,6 @@
 // explicit initialization the struct leaves value=0.0f, the condition always returns false,
 // and the factory falls back to CHalfLifeRules — CGladderRules is never instantiated.
 cvar_t gladder         = { "gladder",         "1",   FCVAR_SERVER | FCVAR_ARCHIVE, 1.0f,   nullptr };
-cvar_t gladder_timelimit = { "gladder_timelimit", "600", FCVAR_SERVER | FCVAR_ARCHIVE, 600.0f, nullptr };
 cvar_t gladder_autoswitch_on_pickup = { "gladder_autoswitch_on_pickup", "0", FCVAR_SERVER | FCVAR_ARCHIVE, 0.0f, nullptr };
 
 // Early cvar registration: called from ConditionGladder() so the engine has the "gladder"
@@ -41,7 +40,6 @@ static void Gladder_RegisterCvars( void )
 	if ( !g_engfuncs.pfnCVarRegister )
 		return;
 	CVAR_REGISTER( &gladder );
-	CVAR_REGISTER( &gladder_timelimit );
 	CVAR_REGISTER( &gladder_autoswitch_on_pickup );
 	s_bGladderCvarsRegistered = true;
 }
@@ -70,7 +68,10 @@ CGladderRules::CGladderRules()
       m_flMatchFreezeTime( 0.0f ),
       m_iWaveMonstersTotal( 0 ),
       m_iWaveMonstersKilled( 0 ),
-      m_bHostilesEliminatedFired( false )
+      m_bHostilesEliminatedFired( false ),
+      m_bInSkyDrop( false ),
+      m_flSkyDropTouchdownTime( 0.0f ),
+      m_vecPendingDropPos( 0, 0, 0 )
 {
 	g_fGameOver = FALSE;
 	m_comboTracker.Reset();
@@ -89,10 +90,6 @@ CGladderRules::CGladderRules()
 	}
 
 
-	float flLimit = gladder_timelimit.value;
-	if ( flLimit <= 0.0f )
-		flLimit = 600.0f;
-	m_waveManager.SetSessionTimeLimit( flLimit );
 
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
 	m_waveManager.InitializeMatch( flTime );
@@ -140,12 +137,49 @@ void CGladderRules::Think( void )
 	m_waveManager.Tick( flTime );
 	m_comboTracker.Update( flTime );
 
-	// Handle match conclusion when session time limit expires (SPEC §2, §3, §9.2, Issue #85, #88)
-	if ( !m_bMatchConcluded && m_waveManager.IsMatchOver() )
+	// Sky-Drop deployment touchdown processing (SPEC §2, §12.1, Issue #141)
+	if ( m_bInSkyDrop && flTime >= m_flSkyDropTouchdownTime )
 	{
-		HandleMatchConclusion( true );
+		m_bInSkyDrop = false;
+		CBasePlayer *pPlayer = nullptr;
+		if ( gpGlobals )
+		{
+			for ( int i = 1; i <= gpGlobals->maxClients; ++i )
+			{
+				CBaseEntity *pEnt = UTIL_PlayerByIndex( i );
+				if ( pEnt && pEnt->IsPlayer() )
+				{
+					pPlayer = dynamic_cast<CBasePlayer *>( pEnt );
+					if ( pPlayer )
+						break;
+				}
+			}
+		}
+		if ( pPlayer && pPlayer->pev )
+		{
+			UTIL_SetOrigin( pPlayer->pev, m_vecPendingDropPos );
+			pPlayer->pev->velocity = g_vecZero;
+			pPlayer->pev->flags &= ~FL_FROZEN;
+			pPlayer->EnableControl( TRUE );
+#ifndef HL_TESTS
+			UTIL_ScreenFade( pPlayer, Vector( 0, 0, 0 ), 0.6f, 0.0f, 255, FFADE_IN );
+#endif
+			m_waveManager.StartWave( flTime );
+			GladderAudio::PlayCue( GLADDER_CUE_WAVE_START, pPlayer );
+			if ( m_modifiers.GetActiveMutator() != GLADDER_MUTATOR_NONE )
+			{
+				GladderAudio::PlayCue( GLADDER_CUE_MUTATOR_WARNING, pPlayer );
+			}
+			Gladder_FireWaveRelays( 0, pPlayer );
+			EnsureMonsterClipFlags();
+			EnsureDeadMonsterProps();
+			BroadcastWaveNotify( nullptr, 0, m_waveManager.GetWaveNumber(), static_cast<int>( m_modifiers.GetActiveMutator() ), m_iWaveMonstersTotal );
+			BroadcastWaveUpdate();
+			BroadcastTelemetryUpdate();
+		}
 	}
-	else if ( m_bMatchConcluded )
+
+	if ( m_bMatchConcluded )
 	{
 		// Do NOT freeze world entities or overwrite player animation sequence/frame (Issue #88).
 		// The world continues running naturally while player inputs (except Tab/Escape) are suppressed.
@@ -294,12 +328,9 @@ void CGladderRules::PlayerSpawn( CBasePlayer *pPlayer )
 
 		// Re-initialize match clock from actual player spawn time
 		float flTime = gpGlobals ? gpGlobals->time : 0.0f;
-		float flLimit = gladder_timelimit.value;
-		if ( flLimit <= 0.0f )
-			flLimit = 600.0f;
-		m_waveManager.SetSessionTimeLimit( flLimit );
 		m_flLastPlayerHealth = pPlayer->pev->health;
 		m_flLastPlayerArmor  = pPlayer->pev->armorvalue;
+		StartSkyDropDeployment( pPlayer );
 	}
 
 	// Neutralize client save/load commands & quicksave/quickload keybinds via client-side aliases
@@ -1121,11 +1152,11 @@ void CGladderRules::OnWaveTriggerFinish( CBaseEntity *pActivator )
 	// Advance engine skill tier based on wave milestones
 	GladderModifiers::ApplySkillProgression( m_waveManager.GetWaveNumber() );
 
-	// If match completed due to time limit or final wave
-	if ( m_waveManager.IsMatchOver() && !m_bMatchConcluded )
+	// Seamless progression into next wave Sky-Drop deployment (SPEC §1, §2, Issue #141, #144)
+	CBasePlayer *pPlayer = dynamic_cast<CBasePlayer *>( pActivator );
+	if ( pPlayer && !m_bMatchConcluded )
 	{
-		CBasePlayer *pPlayer = dynamic_cast<CBasePlayer *>( pActivator );
-		HandleMatchConclusion( true, pPlayer );
+		StartSkyDropDeployment( pPlayer );
 	}
 
 	BroadcastWaveUpdate();
@@ -1242,7 +1273,8 @@ void CGladderRules::RechargeWallStations( void )
 void CGladderRules::CalculateFinalScore( bool bSurvived )
 {
 	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
-	float flElapsed = (std::max)( 0.0f, m_waveManager.GetSessionTimeLimit() - m_waveManager.GetSessionTimeRemaining( flTime ) );
+	float flElapsed = m_waveManager.GetSessionElapsedTime( flTime );
+	bSurvived = false; // Endless runs strictly conclude as KIA upon player death (SPEC §3, §9.1, Issue #134)
 	m_lastScoreBreakdown = GladderScoring::CalculateScore(
 		m_comboTracker.GetStats(),
 		m_waveManager.GetCompletedWavesCount(),
@@ -1531,7 +1563,7 @@ void CGladderRules::BroadcastWaveUpdate( CBasePlayer *pPlayer )
 	MESSAGE_BEGIN( msgDest, gmsgGladderWave, nullptr, pTarget );
 	WRITE_BYTE( static_cast<int>( m_waveManager.GetState() ) );
 	WRITE_SHORT( m_waveManager.GetWaveNumber() );
-	WRITE_COORD( m_waveManager.GetSessionTimeRemaining( flTime ) );
+	WRITE_COORD( m_waveManager.GetSessionElapsedTime( flTime ) );
 	WRITE_COORD( m_waveManager.GetActiveLapTime( flTime ) );
 	WRITE_SHORT( m_iWaveMonstersKilled );
 	WRITE_SHORT( m_iWaveMonstersTotal );
@@ -1677,3 +1709,89 @@ bool ConditionGladder( void )
 
 // Priority 100 ensures CGladderRules takes precedence over vanilla singleplayer (priority 30)
 REGISTER_GAMERULES( "gladder", CreateGladderRules, ConditionGladder, 100 );
+
+void CGladderRules::StartSkyDropDeployment( CBasePlayer *pPlayer )
+{
+	if ( !pPlayer || !pPlayer->pev || m_bMatchConcluded )
+		return;
+
+	float flTime = gpGlobals ? gpGlobals->time : 0.0f;
+
+	// Ensure spatial grid is loaded
+	if ( !m_gridIndexer.IsLoaded() && gpGlobals && gpGlobals->mapname )
+	{
+		const char *pszMap = STRING( gpGlobals->mapname );
+		if ( pszMap && *pszMap )
+		{
+			m_gridIndexer.LoadOrCreate( pszMap );
+		}
+	}
+
+	// 1. Select random valid drop location with standing player clearance (SPEC §2, §6, Issue #144)
+	if ( !m_spawner.SelectRandomPlayerSpawn( m_gridIndexer, m_vecPendingDropPos ) )
+	{
+		m_vecPendingDropPos = pPlayer->pev->origin;
+	}
+
+	// 2. Collect all active extraction gates (trigger_gladder_finish)
+	std::vector<Vector> gateOrigins;
+	CBaseEntity *pEnt = nullptr;
+	while ( ( pEnt = UTIL_FindEntityByClassname( pEnt, "trigger_gladder_finish" ) ) != nullptr )
+	{
+		if ( pEnt->pev )
+		{
+			Vector center = ( pEnt->pev->absmin + pEnt->pev->absmax ) * 0.5f;
+			gateOrigins.push_back( center );
+			CTriggerGladderFinish *pFinish = dynamic_cast<CTriggerGladderFinish *>( pEnt );
+			if ( pFinish )
+			{
+				pFinish->SetUnlockedState( false );
+			}
+			else
+			{
+				pEnt->pev->rendercolor = Vector( GladderPalette::GateLocked.r, GladderPalette::GateLocked.g, GladderPalette::GateLocked.b );
+			}
+		}
+	}
+
+	// 3. Roll mutator & spawn procedural wave threats and supplies inside crates
+	int iWaveNumber = m_waveManager.GetWaveNumber();
+	m_modifiers.RollAndApplyWaveMutator( iWaveNumber );
+	m_spawner.SpawnWave( iWaveNumber, m_gridIndexer, m_mapConfig, m_modifiers.GetSwarmSpecies(), pPlayer, m_modifiers.GetActiveMutator() );
+
+	m_iWaveMonstersTotal = m_spawner.GetLastSpawnedMonsterCount();
+	m_iWaveMonstersKilled = 0;
+	m_bHostilesEliminatedFired = false;
+
+	// 4. Freeze player during tactical deployment overview hold (SPEC §2, §12.1)
+	pPlayer->pev->flags |= FL_FROZEN;
+	pPlayer->pev->velocity = g_vecZero;
+	pPlayer->EnableControl( FALSE );
+
+	m_bInSkyDrop = true;
+	m_flSkyDropTouchdownTime = flTime + 2.8f;
+
+	// 5. Broadcast GladDeploy user message
+	if ( gmsgGladderDeploy )
+	{
+		MESSAGE_BEGIN( MSG_ONE, gmsgGladderDeploy, nullptr, pPlayer->edict() );
+		WRITE_COORD( m_vecPendingDropPos.x );
+		WRITE_COORD( m_vecPendingDropPos.y );
+		WRITE_COORD( m_vecPendingDropPos.z );
+		WRITE_SHORT( iWaveNumber );
+		WRITE_SHORT( m_iWaveMonstersTotal );
+		WRITE_BYTE( static_cast<int>( m_modifiers.GetActiveMutator() ) );
+		WRITE_COORD( 2.8f );
+		WRITE_BYTE( static_cast<int>( (std::min)( gateOrigins.size(), static_cast<size_t>( 255 ) ) ) );
+		for ( size_t i = 0; i < gateOrigins.size() && i < 255; ++i )
+		{
+			WRITE_COORD( gateOrigins[i].x );
+			WRITE_COORD( gateOrigins[i].y );
+			WRITE_COORD( gateOrigins[i].z );
+		}
+		MESSAGE_END();
+	}
+
+	BroadcastWaveUpdate( pPlayer );
+	BroadcastTelemetryUpdate( pPlayer );
+}

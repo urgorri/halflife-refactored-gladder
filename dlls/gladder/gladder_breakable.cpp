@@ -1,7 +1,8 @@
 /***
  *
  *	Half-Life: Gladder - Gauntlet Runner Mod
- *	gladder_breakable - Wave-Resettable Destructible Entity (SPEC §11.3)
+ *	gladder_breakable - Wave-Resettable Destructible Entity Implementation
+ *	(SPEC §2, §7.2, §11.2, §11.3, Issue #142)
  *
  ****/
 
@@ -18,7 +19,8 @@ CGladderBreakable::CGladderBreakable()
       m_vecOriginalOrigin( 0, 0, 0 ),
       m_vecOriginalAngles( 0, 0, 0 ),
       m_iOriginalSolid( SOLID_BSP ),
-      m_bBroken( false )
+      m_bBroken( false ),
+      m_iszSupplyClassname( 0 )
 {
 	m_Material       = matWood;
 	m_Explosion      = expRandom;
@@ -48,6 +50,35 @@ void CGladderBreakable::Spawn( void )
 	m_vecOriginalAngles     = pev->angles;
 	m_iOriginalSolid        = pev->solid;
 	m_bBroken               = false;
+	m_iszSupplyClassname    = 0;
+}
+
+void CGladderBreakable::SetContainedSupply( const char *szItemClassname, const GladderColorRGB &glowColor )
+{
+	if ( szItemClassname && *szItemClassname )
+	{
+		m_iszSupplyClassname = ALLOC_STRING( szItemClassname );
+		pev->renderfx    = kRenderFxGlowShell;
+		pev->rendercolor = Vector( glowColor.r, glowColor.g, glowColor.b );
+		pev->renderamt   = 16;
+	}
+	else
+	{
+		ClearContainedSupply();
+	}
+}
+
+void CGladderBreakable::ClearContainedSupply( void )
+{
+	m_iszSupplyClassname = 0;
+	pev->renderfx    = kRenderFxNone;
+	pev->rendercolor = g_vecZero;
+	pev->renderamt   = 0;
+}
+
+const char *CGladderBreakable::GetContainedSupply( void ) const
+{
+	return m_iszSupplyClassname ? STRING( m_iszSupplyClassname ) : "";
 }
 
 void CGladderBreakable::Die( void )
@@ -61,6 +92,17 @@ void CGladderBreakable::Die( void )
 	// Cancel SUB_Remove destruction scheduled by CBreakable::Die()
 	SetThink( nullptr );
 	pev->nextthink = 0;
+
+	// Dynamically instantiate contained procedural loot at crate center (SPEC §2, §7.2, §11.2, Issue #142)
+	if ( m_iszSupplyClassname != 0 )
+	{
+		const char *szItem = STRING( m_iszSupplyClassname );
+		if ( szItem && *szItem )
+		{
+			CBaseEntity::Create( (char *)szItem, m_vecOriginalOrigin, g_vecZero, nullptr );
+		}
+		ClearContainedSupply();
+	}
 
 	// Enter hidden, non-solid state in memory
 	pev->effects |= EF_NODRAW;
@@ -99,6 +141,8 @@ void CGladderBreakable::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_
 
 void CGladderBreakable::Reset( void )
 {
+	ClearContainedSupply();
+
 	// Restore visibility and solid collision
 	pev->effects &= ~EF_NODRAW;
 	pev->solid = m_iOriginalSolid;

@@ -98,7 +98,7 @@ void CHudGladderWaveNotify::TriggerNotification( int iType, int iWaveNumber, int
 	else // ALL HOSTILES ELIMINATED (SPEC §12.2.1, Issue #128)
 	{
 		snprintf( m_szTitle, sizeof( m_szTitle ), "ALL HOSTILES ELIMINATED" );
-		snprintf( m_szSubtitle, sizeof( m_szSubtitle ), "PROCEED TO EXTRACTION" );
+		snprintf( m_szSubtitle, sizeof( m_szSubtitle ), "EXITS UNLOCKED! ESCAPE TO PROCEED" );
 	}
 }
 

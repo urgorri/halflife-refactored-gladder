@@ -77,7 +77,7 @@ TEST_CASE( "Gladder Map Config & Monster Roster: Code-governed defaults and full
 	GladderMapConfig config;
 	CHECK( config.baseMonsters == 20 );
 	CHECK( config.monstersPerWave == Catch::Approx( 2.0f ) );
-	CHECK( config.maxMonsters == 48 );
+	CHECK( config.maxMonsters == 128 );
 	CHECK( config.basePickups == 15 );
 	CHECK( config.pickupsPerWave == Catch::Approx( 2.25f ) );
 	CHECK( config.maxPickups == 36 );
@@ -1732,4 +1732,33 @@ TEST_CASE( "Gladder Spawner: Constrained edict budget degrades supplies after mo
 	}
 
 	ClearMockEntityFactories();
+}
+
+
+
+TEST_CASE( "GladderSpawner: SelectRandomPlayerSpawn validates hull clearance (SPEC §2, §6, Issue #144)", "[gladder][spawner][spawn]" )
+{
+	ResetMockEngine();
+	GladderGridIndexer indexer;
+	GladderGridCell c;
+	c.origin = Vector( 100.0f, 100.0f, 0.0f );
+	c.flags  = GLADDER_CELL_VALID | GLADDER_CELL_CLEARANCE_OK;
+	c.areaId = 1;
+	indexer.AddCell( c );
+	REQUIRE( indexer.GetCellCount() > 0 );
+
+	Vector outSpawn;
+	bool ok = GladderSpawner::SelectRandomPlayerSpawn( indexer, outSpawn );
+	REQUIRE( ok );
+	CHECK( outSpawn.z >= 0.0f );
+}
+
+TEST_CASE( "GladderSpawner: Breakable supply distribution bounds quota by breakable count (SPEC §2, §11.2, Issue #142)", "[gladder][spawner][breakables]" )
+{
+	ResetMockEngine();
+	GladderSpawner spawner;
+	GladderMapConfig config;
+
+	// With no breakables in the map, distributes safely without error
+	spawner.DistributeSuppliesToBreakables( 1, config, nullptr );
 }

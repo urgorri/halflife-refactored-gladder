@@ -178,3 +178,34 @@ bool Gladder_ParseLambdaMsg( const void *pbuf, int iSize, GladderLambdaMsg &outM
 	return true;
 }
 
+
+bool Gladder_ParseDeployMsg( const void *pbuf, int iSize, GladderDeployMsg &outMsg )
+{
+	if ( !pbuf || iSize < 14 )
+		return false;
+
+	const uint8_t *p = static_cast<const uint8_t *>( pbuf );
+	outMsg.dropX              = ReadCoord( p + 0 );
+	outMsg.dropY              = ReadCoord( p + 2 );
+	outMsg.dropZ              = ReadCoord( p + 4 );
+	outMsg.iWaveNumber        = ReadInt16( p + 6 );
+	outMsg.iHostileQuota      = ReadInt16( p + 8 );
+	outMsg.iMutatorType       = p[10];
+	outMsg.flBriefingDuration = ReadCoord( p + 11 );
+	int gateCount             = p[13];
+
+	outMsg.extractionGates.clear();
+	int offset = 14;
+	for ( int i = 0; i < gateCount; ++i )
+	{
+		if ( offset + 6 > iSize )
+			break;
+		float gx = ReadCoord( p + offset );
+		float gy = ReadCoord( p + offset + 2 );
+		float gz = ReadCoord( p + offset + 4 );
+		outMsg.extractionGates.push_back( GladderGateCoord( gx, gy, gz ) );
+		offset += 6;
+	}
+
+	return true;
+}

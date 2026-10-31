@@ -39,7 +39,7 @@
 //
 //=============================================================================
 
-@SolidClass base(Trigger) = trigger_gladder_start : "Gladder: Wave Start Trigger"
+@SolidClass base(Trigger) = trigger_gladder_start : "Gladder: Wave Start Trigger (Deprecated)"
 [
 	spawnflags(flags) =
 	[
@@ -49,10 +49,10 @@
 	]
 ]
 
-@SolidClass base(Trigger) = trigger_gladder_finish : "Gladder: Wave Finish Trigger"
+@SolidClass base(Trigger) = trigger_gladder_finish : "Gladder: Multi-Exit Extraction Gate Trigger"
 [
-	target(target_destination) : "Teleport Target Destination (Point A)"
-	cleartarget(target_destination) : "All Hostiles Eliminated Target (Optional)" : "" : "Optional entity target to fire when all monsters in the current wave are defeated (e.g. to open security blast doors revealing the finish trigger)."
+	target(target_destination) : "Extraction Staging Teleport Target (Optional)"
+	cleartarget(target_destination) : "All Hostiles Eliminated Target (Optional)" : "" : "Optional entity target to fire when all hostiles are cleared (e.g. opening extraction blast gates or barriers)."
 	spawnflags(flags) =
 	[
 		1 : "Monsters" : 0

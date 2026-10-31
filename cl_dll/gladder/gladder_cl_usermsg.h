@@ -91,6 +91,28 @@ struct GladderSummaryMsg
 	std::vector<GladderSpeciesFrag> speciesLog;
 };
 
+struct GladderGateCoord
+{
+	float x;
+	float y;
+	float z;
+
+	GladderGateCoord() : x( 0.0f ), y( 0.0f ), z( 0.0f ) {}
+	GladderGateCoord( float fx, float fy, float fz ) : x( fx ), y( fy ), z( fz ) {}
+};
+
+struct GladderDeployMsg
+{
+	float dropX              = 0.0f;
+	float dropY              = 0.0f;
+	float dropZ              = 0.0f;
+	int iWaveNumber          = 1;
+	int iHostileQuota        = 0;
+	int iMutatorType         = 0;
+	float flBriefingDuration = 2.8f;
+	std::vector<GladderGateCoord> extractionGates;
+};
+
 struct GladderLambdaMsg
 {
 	int iScoreBonus       = 0;
@@ -105,5 +127,6 @@ bool Gladder_ParseNotifyMsg( const void *pbuf, int iSize, GladderNotifyMsg &outM
 bool Gladder_ParseClearMsg( const void *pbuf, int iSize, GladderClearMsg &outMsg );
 bool Gladder_ParseSummaryMsg( const void *pbuf, int iSize, GladderSummaryMsg &outMsg );
 bool Gladder_ParseLambdaMsg( const void *pbuf, int iSize, GladderLambdaMsg &outMsg );
+bool Gladder_ParseDeployMsg( const void *pbuf, int iSize, GladderDeployMsg &outMsg );
 
 #endif // GLADDER_CL_USERMSG_H

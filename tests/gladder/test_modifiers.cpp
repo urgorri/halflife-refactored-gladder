@@ -67,7 +67,10 @@ TEST_CASE( "GladderModifiers: Elite Champion monster tagging and stat scaling", 
 	CHECK( GladderModifiers::GetChampionSpawnChance( 3 ) == Catch::Approx( 0.10f ) );
 	CHECK( GladderModifiers::GetChampionSpawnChance( 6 ) == Catch::Approx( 0.20f ) );
 	CHECK( GladderModifiers::GetChampionSpawnChance( 10 ) == Catch::Approx( 0.30f ) );
-	CHECK( GladderModifiers::GetChampionSpawnChance( 20 ) == Catch::Approx( 0.35f ) );
+	CHECK( GladderModifiers::GetChampionSpawnChance( 15 ) == Catch::Approx( 0.35f ) );
+	CHECK( GladderModifiers::GetChampionSpawnChance( 20 ) == Catch::Approx( 0.45f ) );
+	CHECK( GladderModifiers::GetChampionSpawnChance( 40 ) == Catch::Approx( 0.85f ) );
+	CHECK( GladderModifiers::GetChampionSpawnChance( 50 ) == Catch::Approx( 0.85f ) );
 
 	CTestModifierMonster monster( 120.0f );
 	CHECK_FALSE( GladderModifiers::IsEliteChampion( &monster ) );
